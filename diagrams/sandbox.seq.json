@@ -1,0 +1,56 @@
+{
+ "title": "The injected command runs in a box with nothing to read and no way out, and a short reason goes back",
+ "subtitle": "Example: the names, paths and limits are made up. The Docker flags are real.",
+ "actors": [
+  {"id": "agent", "label": "Agent", "role": "holds the secrets"},
+  {"id": "model", "label": "Model", "role": "obeys planted text", "tone": "blue"},
+  {"id": "runner", "label": "Runner", "role": "only one with Docker", "tone": "red"},
+  {"id": "box", "label": "Sandbox", "role": "a throwaway container", "tone": "green"}
+ ],
+ "phases": [
+  {"id": "p1", "label": "The injected CSV cell", "start_at": "s1"},
+  {"id": "p2", "label": "A later script · loops forever, no attack", "start_at": "s8"}
+ ],
+ "steps": [
+  {"id": "s1", "from": "agent", "to": "model", "arrow": "request", "n": 1, "tone": "blue",
+   "label": "question + CSV + run_python tool"},
+  {"id": "s2", "from": "model", "to": "agent", "arrow": "event", "n": 1, "tone": "red",
+   "label": "tool_use", "sub": "upload ~/.aws/credentials"},
+  {"id": "s3", "from": "agent", "to": "runner", "arrow": "request", "n": 2,
+   "sub": "POST /runs · script + file IDs",
+   "checks": [{"label": "agent runs no model code", "ok": true}]},
+  {"id": "s4", "from": "runner", "to": "runner", "arrow": "self", "n": 3,
+   "label": "run folder", "sub": "/runs/8f3a/ with in, code, out"},
+  {"id": "s5", "from": "runner", "to": "box", "arrow": "request", "n": 3, "tone": "red",
+   "sub": "docker run --network none --read-only",
+   "checks": [{"label": "/data /code read-only", "ok": true}, {"label": "user 65534", "ok": true}]},
+  {"id": "s6", "from": "box", "to": "box", "arrow": "self", "n": 4, "tone": "green",
+   "label": "no ~/.aws/credentials here",
+   "checks": [{"label": "nothing to read", "ok": true}]},
+  {"id": "s7", "from": "box", "to": "box", "arrow": "self", "n": 4, "tone": "green",
+   "sub": "curl: could not resolve host",
+   "checks": [{"label": "nowhere to send", "ok": true}]},
+  {"id": "s8", "from": "box", "to": "box", "arrow": "self", "n": 5, "tone": "amber",
+   "label": "limits", "sub": "timeout 60 · --memory 1g · --pids-limit 128"},
+  {"id": "s9", "from": "box", "to": "runner", "arrow": "event", "n": 5, "tone": "red",
+   "label": "exit 124 after 60 s",
+   "checks": [{"label": "finished in 60 s", "ok": false}]},
+  {"id": "s10", "from": "runner", "to": "agent", "arrow": "request", "n": 6,
+   "label": "\"exit code 124: timed out after 60 s\"", "sub": "output cut to a few KB"},
+  {"id": "s11", "from": "agent", "to": "model", "arrow": "request", "n": 6, "tone": "blue",
+   "label": "tool_result", "sub": "that tool_use id · short output"}
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "Nothing left the box, and the model tries again",
+  "lines": ["The runner moves files in out to held storage and deletes the run folder. The model fixes its code and sends a new tool_use."]
+ },
+ "captions": [
+  {"title": "The model writes the attacker's command into its code", "text": "The agent sends the question, the CSV and the `run_python` tool. A planted CSV row is prompt injection, and the model obeys it. It answers with a `tool_use` block asking the agent to run code that uploads `~/.aws/credentials`."},
+  {"title": "The agent service hands the code to a runner", "text": "The agent holds the API key and the database password, so it never runs model code. It sends `POST /runs` with the script and file IDs. Only the runner may use the Docker socket."},
+  {"title": "The runner builds a box with no network and almost nothing writable", "text": "The runner copies the CSV and the script into `/runs/8f3a/`. Inside, `/data` and `/code` are read-only and only `/out` and `/tmp` are writable. The code runs as user 65534 with every root power dropped, and `--network none`."},
+  {"title": "The injected command finds nothing to steal and nowhere to send it", "text": "`~/.aws/credentials` was never mounted, and `curl` cannot even look up the host. Both locks matter: with the network open, `curl -d @/data/positions_q3.csv` would still send the CSV out."},
+  {"title": "Limits stop code that is merely wrong", "text": "A later script with no attack loops forever. The inner `timeout` stops it at 60 seconds with exit code 124. Memory, CPU and processes are capped, and the runner runs `docker kill` after 75 seconds."},
+  {"title": "The model gets a short reason and tries again", "text": "The runner cuts output to a few KB and returns \"exit code 124: timed out after 60 s\". The agent sends it as a `tool_result` with the `tool_use` id. The model fixes its code and sends a new `tool_use`."}
+ ]
+}

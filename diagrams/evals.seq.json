@@ -1,0 +1,40 @@
+{
+ "title": "The golden check misses its bar by one row, so the underlines stay off",
+ "subtitle": "Lomem's gate for the new grading prompt. The two misses in step 4 are an example.",
+ "actors": [
+  {"id": "data", "label": "Dataset", "role": "200 real + 36 golden"},
+  {"id": "gate", "label": "Gate", "role": "a script run by hand", "tone": "red"},
+  {"id": "model", "label": "Model", "role": "old and new prompt", "tone": "blue"},
+  {"id": "checks", "label": "Checks", "role": "a bar each, set first", "tone": "green"},
+  {"id": "person", "label": "Person", "role": "reads every miss"}
+ ],
+ "steps": [
+  {"id": "s1", "from": "data", "to": "gate", "arrow": "request", "label": "up to 200 real + 36 golden rows", "n": 1},
+  {"id": "s2", "from": "gate", "to": "gate", "arrow": "self", "label": "skip exact matches to the key", "n": 1},
+  {"id": "s3", "from": "gate", "to": "model", "arrow": "request", "label": "old prompt, then new prompt", "sub": "≈470 paid calls", "tone": "blue", "n": 2},
+  {"id": "s4", "from": "model", "to": "gate", "arrow": "event", "label": "old verdict; new verdict + underlines, timed", "tone": "blue", "n": 2},
+  {"id": "s5", "from": "gate", "to": "checks", "arrow": "request", "label": "real rows: old vs new verdict", "n": 3},
+  {"id": "s6", "from": "checks", "to": "checks", "arrow": "self", "label": "change check, bar 95% agree", "sub": "a break, or a fix?", "tone": "red", "n": 3},
+  {"id": "s7", "from": "gate", "to": "checks", "arrow": "request", "label": "golden rows vs person's verdict", "tone": "green", "n": 4,
+   "checks": [{"label": "95% right", "ok": false}, {"label": "0 paraphrase misses", "ok": true}]},
+  {"id": "s8", "from": "checks", "to": "gate", "arrow": "event", "label": "34 of 36 right, just under 95%", "sub": "negation lost · article error", "tone": "red", "n": 4},
+  {"id": "s9", "from": "checks", "to": "checks", "arrow": "self", "label": "underlines land: 95% of replies", "n": 5},
+  {"id": "s10", "from": "checks", "to": "checks", "arrow": "self", "label": "speed: 95% within 2.5 s", "n": 5},
+  {"id": "s11", "from": "checks", "to": "person", "arrow": "request", "label": "PASS/FAIL per check + misses", "n": 6},
+  {"id": "s12", "from": "person", "to": "person", "arrow": "self", "label": "golden FAIL: flag stays off", "sub": "TD_JUDGE_MARKS=false", "tone": "green", "n": 6},
+  {"id": "s13", "from": "person", "to": "gate", "arrow": "request", "label": "fix the prompt, run again", "sub": "the bar stays", "tone": "amber", "n": 6}
+ ],
+ "outcome": {
+  "tone": "red",
+  "title": "FAIL: the underlines stay off",
+  "lines": ["The golden check needs 95% right and got 34 of 36. The bar was set before the run, so the prompt is fixed, never the bar."]
+ },
+ "captions": [
+  {"title": "Load real rows and golden rows", "text": "Up to 200 real rows come from the staging database, with no person's label. 36 golden rows carry a person's verdict and a note. Answers that exactly match the answer key are skipped, as in production."},
+  {"title": "Run the old and the new prompt on every row", "text": "Two paid calls per row: up to 236 × 2, about 470 per run. The model picks words with some randomness, so a row can come back different tomorrow."},
+  {"title": "Score real rows against the old verdict", "text": "Real rows have no human label, so the old verdict is the reference and agreement shows change only. Each disagreement is a break or a fix. A person reads each one."},
+  {"title": "Score golden rows against the person's verdict", "text": "The golden check needs 95% right and no paraphrase graded wrong. 34 of 36 are right, just under the bar. The misses print with their notes, here \"negation lost\" and \"article error\" (example)."},
+  {"title": "Keep each quality as its own check", "text": "Underlines: 95% of replies must put one on a word the learner wrote, and no underlines is a pass. Speed: 95% of new replies within 2.5 seconds. Both checks are plain code."},
+  {"title": "A person reads the misses and fixes the prompt", "text": "The script prints PASS or FAIL per check and exits normally either way. The golden check failed, so `TD_JUDGE_MARKS` stays off. The bar is never lowered after a miss."}
+ ]
+}

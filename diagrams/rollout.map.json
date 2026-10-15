@@ -1,0 +1,483 @@
+{
+ "title": "AI changes reach users in stages, and each confirmed failure becomes an eval case",
+ "subtitle": "Real code from Lomem's language app. Boxes marked example use made-up numbers.",
+ "aria": "New AI behaviour first runs in shadow mode on real chats while the user still sees the old result, then a person reads the disagreements against a bar written first, then a flag flips only when an eval clears four fixed bars, then a canary widens from 5 to 100 percent while quality is no worse. After release, feedback tied to the exact turn is triaged by a person and every confirmed failure becomes an eval case that every later gate run checks. New checks start in log mode and enforce only under a 15 percent refusal rate.",
+ "columns": [
+  "",
+  "",
+  "",
+  ""
+ ],
+ "boxes": [
+  {
+   "id": "shadow",
+   "col": 0,
+   "row": 0,
+   "tone": "red",
+   "name": "Shadow mode",
+   "b": 2,
+   "r": 1,
+   "lines": [
+    {
+     "text": "a judge model grades each chat",
+     "r": 2
+    },
+    {
+     "text": "learner waits 0 s, judge 15 s",
+     "r": 1
+    },
+    {
+     "text": "started once per chat",
+     "r": 1
+    },
+    {
+     "text": "never sees the rules' level",
+     "r": 2
+    },
+    {
+     "text": "real test: B2, cites turns 5 and 7",
+     "tone": "blue",
+     "r": 2
+    },
+    {
+     "text": "code checks its evidence:",
+     "tone": "red",
+     "gap": true,
+     "r": 3
+    },
+    {
+     "text": "2+ levels off: rejected",
+     "r": 3
+    },
+    {
+     "text": "1 up: 2 cited turns must pass",
+     "r": 3
+    },
+    {
+     "text": "rules B1, judge B2: accepted",
+     "tone": "green",
+     "r": 3
+    },
+    {
+     "text": "stores `judge_would_change`",
+     "tone": "green",
+     "gap": true,
+     "r": 4
+    },
+    {
+     "text": "learner sees the rules' level",
+     "tone": "green",
+     "r": 5
+    },
+    {
+     "text": "judge error: logged, level kept",
+     "r": 5
+    }
+   ]
+  },
+  {
+   "id": "readout",
+   "col": 1,
+   "row": 0,
+   "name": "Readout · example",
+   "b": 2,
+   "r": 6,
+   "lines": [
+    {
+     "text": "bar written first:",
+     "tone": "amber"
+    },
+    "judge right in ≥ 30 of 38",
+    "38 of 412 chats disagree",
+    "a person reads all 38",
+    {
+     "text": "clears: a flag shows the judge",
+     "tone": "green",
+     "gap": true
+    },
+    {
+     "text": "misses: the judge is dropped",
+     "tone": "red"
+    },
+    {
+     "text": "real Lomem: dropped same day",
+     "gap": true
+    },
+    {
+     "text": "no learner saw a change",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "gate",
+   "col": 2,
+   "row": 0,
+   "tone": "green",
+   "name": "Flag + eval gate",
+   "b": 3,
+   "lines": [
+    {
+     "text": "TD_JUDGE_MARKS = false",
+     "mono": true
+    },
+    {
+     "text": "flips only if 4 bars pass:",
+     "gap": true
+    },
+    "≥ 95% agree with old prompt",
+    "≥ 95% marks placeable",
+    "≥ 90% marks really wrong",
+    "≥ 95% replies within 2.5 s",
+    {
+     "text": "≤ 200 real rows + 36 cases",
+     "gap": true
+    },
+    {
+     "text": "accidental flip fails a test",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "canary",
+   "col": 3,
+   "row": 0,
+   "name": "Canary · example",
+   "b": 3,
+   "lines": [
+    "prompt v7 → v8",
+    "5% → 25% → 100% of customers",
+    "group = hash of customer id",
+    "wait for 1,500 v8 drafts",
+    {
+     "text": "judged on quality signals:",
+     "tone": "amber",
+     "gap": true
+    },
+    "discard rate, not errors",
+    {
+     "text": "widen if ≤ 23% (v7: 20%)",
+     "tone": "green",
+     "gap": true
+    },
+    {
+     "text": "worse: back to 0%",
+     "tone": "red"
+    }
+   ],
+   "width": 250
+  },
+  {
+   "id": "wrong",
+   "col": 0,
+   "row": 1,
+   "tone": "amber",
+   "name": "A wrong answer looks right",
+   "b": 1,
+   "lines": [
+    "HTTP 200, valid JSON, fast",
+    "error rate, latency stay flat",
+    "users send what tests missed"
+   ]
+  },
+  {
+   "id": "weekly",
+   "col": 1,
+   "row": 1,
+   "name": "Weekly rerun · proposed",
+   "b": 4,
+   "lines": [
+    "provider can change the model",
+    "Lomem: gate run by hand",
+    {
+     "text": "missed bar: flag back off",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "cases",
+   "col": 2,
+   "row": 1,
+   "tone": "green",
+   "name": "Eval cases",
+   "b": 4,
+   "lines": [
+    "fixture file, 36 rows",
+    {
+     "text": "\"J'ai vraiment faim.\"",
+     "mono": true
+    },
+    {
+     "text": "every gate run checks it",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "users",
+   "col": 3,
+   "row": 1,
+   "name": "Real users",
+   "b": 4,
+   "lines": [
+    "thumbs-down: rare",
+    "edits, retries: nearly all",
+    "the first to see a failure"
+   ]
+  },
+  {
+   "id": "logmode",
+   "col": 0,
+   "row": 2,
+   "name": "Guard in log mode",
+   "b": 5,
+   "lines": [
+    "logs the refusal it would make",
+    "lets the exercise through",
+    "6 Overheard guards today"
+   ]
+  },
+  {
+   "id": "enforced",
+   "col": 1,
+   "row": 2,
+   "tone": "green",
+   "name": "Enforced guard",
+   "b": 5,
+   "lines": [
+    "refusal rate < 15% in every",
+    "language and level, 12 today",
+    {
+     "text": "each refusal: a paid retry",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "triage",
+   "col": 2,
+   "row": 2,
+   "name": "Triage by a person",
+   "b": 4,
+   "lines": [
+    "was the model really wrong?",
+    "no: `wont_fix`",
+    {
+     "text": "yes: resolved, add a case",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "feedback",
+   "col": 3,
+   "row": 2,
+   "name": "Feedback row",
+   "b": 4,
+   "lines": [
+    {
+     "text": "session_id + turn_index",
+     "mono": true
+    },
+    "`server_context` snapshot",
+    "status: open"
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "before any user depends on it",
+   "boxes": [
+    "shadow",
+    "readout",
+    "gate",
+    "canary"
+   ],
+   "b": 2
+  },
+  {
+   "label": "why tests are not enough",
+   "boxes": [
+    "wrong",
+    "weekly"
+   ],
+   "b": 1
+  },
+  {
+   "label": "after release",
+   "boxes": [
+    "cases",
+    "users",
+    "triage",
+    "feedback"
+   ],
+   "b": 4
+  },
+  {
+   "label": "new checks · log mode first",
+   "boxes": [
+    "logmode",
+    "enforced"
+   ],
+   "b": 5
+  }
+ ],
+ "arrows": [
+  {
+   "from": "shadow",
+   "to": "readout",
+   "b": 2
+  },
+  {
+   "from": "readout",
+   "to": "gate",
+   "b": 3
+  },
+  {
+   "from": "gate",
+   "to": "canary",
+   "b": 3
+  },
+  {
+   "from": "canary",
+   "to": "users",
+   "tone": "green",
+   "b": 4
+  },
+  {
+   "from": "users",
+   "to": "feedback",
+   "tone": "green",
+   "b": 4
+  },
+  {
+   "from": "feedback",
+   "to": "triage",
+   "tone": "green",
+   "b": 4
+  },
+  {
+   "from": "triage",
+   "to": "cases",
+   "tone": "green",
+   "b": 4
+  },
+  {
+   "from": "cases",
+   "to": "gate",
+   "tone": "green",
+   "b": 4
+  },
+  {
+   "from": "weekly",
+   "to": "cases",
+   "b": 4,
+   "offset": 14
+  },
+  {
+   "from": "weekly",
+   "to": "gate",
+   "tone": "amber",
+   "dash": true,
+   "b": 4,
+   "points": [
+    [
+     562,
+     590
+    ],
+    [
+     590,
+     590
+    ],
+    [
+     590,
+     350
+    ],
+    [
+     614,
+     350
+    ]
+   ]
+  },
+  {
+   "from": "logmode",
+   "to": "enforced",
+   "b": 5
+  },
+  {
+   "layer": "route",
+   "from": "shadow",
+   "to": "readout",
+   "n": 6,
+   "r": 6,
+   "mono": true,
+   "label": "judge_would_change"
+  }
+ ],
+ "legend": [
+  {
+   "label": "next stage"
+  },
+  {
+   "tone": "green",
+   "label": "a failure comes back as a test"
+  },
+  {
+   "tone": "amber",
+   "dash": true,
+   "label": "missed bar: back to the old behaviour"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "A wrong answer looks right",
+    "text": "A wrong model answer is a fast HTTP 200 with valid JSON. Error rates and latency stay flat, so they cannot catch it."
+   },
+   {
+    "title": "Shadow mode, then a readout",
+    "text": "A judge model grades each real chat in shadow mode. The learner waits 0 s and still sees the rules' level. A person reads the disagreements against a bar written first."
+   },
+   {
+    "title": "A flag behind an eval gate, then a canary",
+    "text": "`TD_JUDGE_MARKS` stays false until the gate clears four bars fixed in advance. A canary then widens from 5% to 100% of customers while the discard rate is no worse (example)."
+   },
+   {
+    "title": "Each confirmed failure becomes an eval case",
+    "text": "Real users send feedback tied to its session and turn. A person triages it, and a confirmed failure becomes a fixture row that every gate run checks. A weekly rerun is proposed, because the provider can change the model."
+   },
+   {
+    "title": "New checks start in log mode",
+    "text": "A new guard first logs the refusal it would make. It is enforced only when its refusal rate is under 15% in every language and level."
+   }
+  ],
+  "route": [
+   {
+    "title": "Start the judge once, then answer without waiting",
+    "text": "When the chat reaches its wind-down, the server claims the judge by writing a start time. The claim succeeds only once per chat. The tutor's reply goes back without waiting for the judge."
+   },
+   {
+    "title": "The judge reads the answers, never the rules' level",
+    "text": "The judge gets the answered turns and their facts, but not the rules' level, so it cannot copy it. In the real test it replies B2 and cites turns 5 and 7."
+   },
+   {
+    "title": "Code checks whether the judge's level has evidence",
+    "text": "Two or more levels from the rules is rejected. One level up needs two cited turns that pass the B2 check and no failed B2 question. Rules B1, judge B2: accepted."
+   },
+   {
+    "title": "Store the comparison next to the answer",
+    "text": "The server writes `judge_level` B2 and `judge_would_change` true, only in the judge's own columns. Later someone can count disagreements without re-running anything."
+   },
+   {
+    "title": "The learner still sees the rules' level",
+    "text": "Nothing the judge says reaches the learner yet: the learner sees B1. If the judge fails, the server logs it and keeps the rules' level."
+   },
+   {
+    "title": "A person reads the disagreements against a bar written first",
+    "text": "The team counts `judge_would_change`: 38 of 412 chats (example). A person reads each one against the bar, right in ≥ 30 of 38. Lomem dropped its real judge the same day, and no learner saw a change."
+   }
+  ]
+ }
+}

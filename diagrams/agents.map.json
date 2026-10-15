@@ -1,0 +1,587 @@
+{
+ "title": "An agent is a loop where the model picks each step, and your code owns every exit",
+ "aria": "Billpod's assistant as an agent loop. Code checks the limits, the model picks the next tool call, and a reply with no tool call ends the loop. Each tool call is a proposal: unknown names get an error result, reads run at once, and a change is checked against the stored bill, then sealed into a 10-minute token while the person sees a card. The approval is a second HTTP request that runs only the sealed call once and carries the step count on. A bottom row compares a workflow, an agent at about 4 times a chat's tokens and a multi-agent system at about 15 times.",
+ "columns": [
+  "",
+  "",
+  "",
+  ""
+ ],
+ "boxes": [
+  {
+   "id": "person",
+   "col": 0,
+   "row": 0,
+   "name": "Person, request 1",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "“Mark the electricity bill",
+    "paid and say what is due”",
+    "(example)"
+   ]
+  },
+  {
+   "id": "limits",
+   "col": 1,
+   "row": 0,
+   "tone": "green",
+   "name": "Check the limits",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    {
+     "text": "model call N of 6",
+     "tone": "green"
+    },
+    "60 s timeout, 2048 tokens out",
+    {
+     "text": "each call resends everything",
+     "r": 2
+    },
+    {
+     "text": "each costs more than the last",
+     "tone": "amber",
+     "r": 2
+    }
+   ]
+  },
+  {
+   "id": "gemini",
+   "col": 2,
+   "row": 0,
+   "tone": "blue",
+   "name": "Gemini, the model",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "gets prompt, transcript, tools",
+    {
+     "text": "picks the next tool call",
+     "tone": "blue"
+    },
+    {
+     "text": "or answers in plain text",
+     "r": 6
+    },
+    "can run nothing itself"
+   ]
+  },
+  {
+   "id": "done",
+   "col": 3,
+   "row": 0,
+   "tone": "green",
+   "name": "No tool call: done",
+   "b": 2,
+   "r": 6,
+   "lines": [
+    {
+     "text": "the only built-in exit",
+     "tone": "green"
+    },
+    "“Done. Still due: water”",
+    "(example)",
+    "4 of the 6 calls used"
+   ]
+  },
+  {
+   "id": "exits",
+   "col": 0,
+   "row": 1,
+   "tone": "amber",
+   "name": "Exits your code adds",
+   "b": 2,
+   "lines": [
+    "6 calls → LOOP_LIMIT",
+    "person leaves → stop now",
+    "blocked reply → AI_FAILED",
+    {
+     "text": "no money cap, no deadline",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "read",
+   "col": 1,
+   "row": 1,
+   "name": "A read: run now",
+   "b": 3,
+   "r": 2,
+   "lines": [
+    {
+     "text": "find_bills → b42, v3",
+     "mono": true
+    },
+    "(example)",
+    "its result is part of",
+    "the next call"
+   ]
+  },
+  {
+   "id": "allow",
+   "col": 2,
+   "row": 1,
+   "tone": "green",
+   "name": "On the allow-list?",
+   "b": 3,
+   "r": 1,
+   "lines": [
+    "46 tools declared",
+    "no → UNKNOWN_TOOL result",
+    {
+     "text": "every call id gets a result",
+     "tone": "green",
+     "r": 2
+    },
+    {
+     "text": "or the provider refuses",
+     "r": 2
+    }
+   ]
+  },
+  {
+   "id": "change",
+   "col": 3,
+   "row": 1,
+   "tone": "green",
+   "name": "A change: check it first",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    "schema, bill in household",
+    "version still 3?",
+    "fail → CONFLICT, no card",
+    {
+     "text": "2nd write → NOT_RUN",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "noreset",
+   "col": 0,
+   "row": 2,
+   "tone": "amber",
+   "name": "Approval is no reset",
+   "b": 5,
+   "r": 5,
+   "lines": [
+    "the count rides in the token",
+    "6 of 6 used → 1 last call",
+    "to say what happened",
+    {
+     "text": "never a fresh 6",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "resume",
+   "col": 1,
+   "row": 2,
+   "tone": "green",
+   "name": "Request 2: resume once",
+   "b": 5,
+   "r": 5,
+   "lines": [
+    "claim the id: 2nd click → 409",
+    "after 10 minutes → 410",
+    {
+     "text": "runs only the sealed call",
+     "tone": "green"
+    },
+    "count carries on: 2 of 6"
+   ]
+  },
+  {
+   "id": "card",
+   "col": 2,
+   "row": 2,
+   "name": "Confirmation card",
+   "b": 4,
+   "r": 4,
+   "lines": [
+    "built from the stored bill",
+    "the browser holds the token",
+    "but cannot read or change it",
+    "the person presses Approve"
+   ]
+  },
+  {
+   "id": "seal",
+   "col": 3,
+   "row": 2,
+   "tone": "red",
+   "name": "Seal the turn in a token",
+   "b": 4,
+   "r": 4,
+   "lines": [
+    "transcript, results, count,",
+    "the checked arguments",
+    "AES-256-GCM, 10 minutes",
+    {
+     "text": "request ends, nothing written",
+     "tone": "red"
+    }
+   ]
+  },
+  {
+   "id": "workflow",
+   "col": 0,
+   "row": 3,
+   "cols": 2,
+   "tone": "green",
+   "name": "Workflow: your code fixes the order of calls",
+   "b": 6,
+   "lines": [
+    "chain, route, parallel, orchestrator-workers, evaluator-optimizer",
+    {
+     "text": "use one whenever you can draw the flowchart",
+     "tone": "green"
+    },
+    "a judgement that must be reliable stays outside the loop"
+   ]
+  },
+  {
+   "id": "agent",
+   "col": 2,
+   "row": 3,
+   "tone": "blue",
+   "name": "Agent loop",
+   "b": 6,
+   "lines": [
+    {
+     "text": "about 4× a chat's tokens",
+     "tone": "blue"
+    },
+    "for steps no one can list",
+    "ahead of time"
+   ]
+  },
+  {
+   "id": "multi",
+   "col": 3,
+   "row": 3,
+   "tone": "amber",
+   "name": "Multi-agent system",
+   "b": 6,
+   "lines": [
+    {
+     "text": "about 15× a chat's tokens",
+     "tone": "amber"
+    },
+    "agents hand subtasks to",
+    "agents with own transcripts"
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "The pause: one turn spans two HTTP requests",
+   "tone": "red",
+   "boxes": [
+    "resume",
+    "card",
+    "seal"
+   ],
+   "b": 4
+  },
+  {
+   "label": "Workflow or agent · tokens per task, a plain chat = 1×",
+   "boxes": [
+    "workflow",
+    "agent",
+    "multi"
+   ],
+   "b": 6
+  }
+ ],
+ "arrows": [
+  {
+   "from": "person",
+   "to": "limits",
+   "b": 1
+  },
+  {
+   "from": "limits",
+   "to": "gemini",
+   "tone": "blue",
+   "b": 1
+  },
+  {
+   "from": "gemini",
+   "to": "done",
+   "tone": "blue",
+   "b": 2
+  },
+  {
+   "from": "gemini",
+   "to": "allow",
+   "tone": "blue",
+   "label": "tool calls",
+   "b": 3
+  },
+  {
+   "from": "allow",
+   "to": "read",
+   "b": 3
+  },
+  {
+   "from": "allow",
+   "to": "change",
+   "b": 3
+  },
+  {
+   "from": "read",
+   "to": "limits",
+   "label": "next call",
+   "b": 3
+  },
+  {
+   "from": "change",
+   "to": "seal",
+   "tone": "red",
+   "label": "passes",
+   "b": 4
+  },
+  {
+   "from": "seal",
+   "to": "card",
+   "tone": "red",
+   "b": 4
+  },
+  {
+   "from": "card",
+   "to": "resume",
+   "tone": "red",
+   "b": 5
+  },
+  {
+   "from": "resume",
+   "to": "limits",
+   "label": "call 3",
+   "b": 5,
+   "points": [
+    [
+     296,
+     543
+    ],
+    [
+     268,
+     543
+    ],
+    [
+     268,
+     244
+    ],
+    [
+     340,
+     244
+    ],
+    [
+     340,
+     226
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "person",
+   "to": "limits",
+   "n": 1,
+   "r": 1
+  },
+  {
+   "layer": "route",
+   "from": "limits",
+   "to": "gemini",
+   "tone": "blue",
+   "n": 1,
+   "r": 1,
+   "offset": -10
+  },
+  {
+   "layer": "route",
+   "from": "gemini",
+   "to": "allow",
+   "tone": "blue",
+   "n": 1,
+   "r": 1,
+   "offset": -40,
+   "mono": true,
+   "label": "find_bills"
+  },
+  {
+   "layer": "route",
+   "from": "allow",
+   "to": "read",
+   "n": 2,
+   "r": 2
+  },
+  {
+   "layer": "route",
+   "from": "read",
+   "to": "limits",
+   "n": 2,
+   "r": 2,
+   "label": "call 2 + result"
+  },
+  {
+   "layer": "route",
+   "from": "gemini",
+   "to": "allow",
+   "tone": "blue",
+   "n": 3,
+   "r": 3,
+   "offset": 40,
+   "mono": true,
+   "label": "mark_paid b42 v3"
+  },
+  {
+   "layer": "route",
+   "from": "allow",
+   "to": "change",
+   "n": 3,
+   "r": 3
+  },
+  {
+   "layer": "route",
+   "from": "change",
+   "to": "seal",
+   "tone": "red",
+   "n": 4,
+   "r": 4,
+   "label": "passes"
+  },
+  {
+   "layer": "route",
+   "from": "seal",
+   "to": "card",
+   "tone": "red",
+   "r": 4
+  },
+  {
+   "layer": "route",
+   "from": "card",
+   "to": "resume",
+   "tone": "red",
+   "n": 5,
+   "r": 5
+  },
+  {
+   "layer": "route",
+   "from": "resume",
+   "to": "limits",
+   "n": 6,
+   "r": 6,
+   "label": "call 3",
+   "points": [
+    [
+     296,
+     543
+    ],
+    [
+     268,
+     543
+    ],
+    [
+     268,
+     244
+    ],
+    [
+     340,
+     244
+    ],
+    [
+     340,
+     226
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "limits",
+   "to": "gemini",
+   "tone": "blue",
+   "r": 6,
+   "offset": 12
+  },
+  {
+   "layer": "route",
+   "from": "gemini",
+   "to": "done",
+   "tone": "blue",
+   "n": 6,
+   "r": 6
+  }
+ ],
+ "legend": [
+  {
+   "label": "your code passes it on"
+  },
+  {
+   "tone": "blue",
+   "label": "a model call or its reply"
+  },
+  {
+   "tone": "red",
+   "label": "the pause for a person's yes"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "Code checks the limits, then asks the model",
+    "text": "Before each model call the loop checks: at most 6 calls per request, 60 s per step, 2048 output tokens. Each call resends the whole transcript, so each costs more than the last."
+   },
+   {
+    "title": "One built-in exit, the rest are yours",
+    "text": "A reply with no tool call is the only exit the model gives. Your code adds the rest: LOOP_LIMIT after 6 calls, stop when the person leaves, AI_FAILED on a blocked reply. There is no money cap and no deadline."
+   },
+   {
+    "title": "Every tool call is a proposal",
+    "text": "An unknown name gets an UNKNOWN_TOOL result. A read runs at once and its result goes into the next call. A change is checked against the stored bill and its version."
+   },
+   {
+    "title": "A change pauses the turn",
+    "text": "A change that passes is sealed with the transcript, the results and the count into an AES-256-GCM token for 10 minutes. The person sees a card, and the request ends with nothing written."
+   },
+   {
+    "title": "The approval resumes once",
+    "text": "Approve is a second HTTP request. It claims the card id once (a 2nd click gets 409), runs only the sealed call and carries the count on. It never gets a fresh 6."
+   },
+   {
+    "title": "Use a workflow when you can",
+    "text": "An agent uses about 4 times a chat's tokens, a multi-agent system about 15 times. When you can draw the flowchart, let your code fix the order of calls."
+   }
+  ],
+  "route": [
+   {
+    "title": "Check the cap, then ask the model",
+    "text": "Model call 1 of 6. The loop sends the system prompt, the conversation and the tool list. The model cannot run anything: it replies with a tool call, find_bills “electricity”."
+   },
+   {
+    "title": "Run the read at once and send everything back",
+    "text": "find_bills runs straight away and returns bill b42, version 3 (example). The model remembers nothing, so call 2 resends call 1, its reply and the result. Every call id gets a result."
+   },
+   {
+    "title": "Check the write against stored data before showing it",
+    "text": "The model asks for `mark_paid` b42, version 3. A tool call is only a proposal: it must be on the allow-list, match its schema, name a bill in this household and carry the version the model read."
+   },
+   {
+    "title": "Save the paused loop and end the request",
+    "text": "Marking a bill paid needs the person's yes. The loop seals the transcript, the results, the call count and the checked arguments into a 10-minute AES-256-GCM token, shows a card, and the request ends. Nothing is written yet."
+   },
+   {
+    "title": "Resume once and run exactly what was checked",
+    "text": "Approve sends the token in a second request. The token works once, so a second click gets 409. The loop runs the sealed arguments only, and 2 of the 6 model calls are already used."
+   },
+   {
+    "title": "Stop when a reply has no tool call",
+    "text": "Call 3 asks for list_due. Call 4 answers in plain text: “Done. Still due: water, 48.20”. That is 4 of 6 calls across two HTTP requests, and no code wrote the order of steps."
+   }
+  ]
+ }
+}

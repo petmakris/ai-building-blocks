@@ -1,0 +1,469 @@
+{
+ "title": "Two copies of one prompt: a startup heal decides which one the model reads",
+ "aria": "Tunatutor keeps its main prompt in two copies: a constant in code and a database row that a seed script and an admin screen can write. At every startup a heal compares the row with the code copy and resets it unless a person edited it, then each process caches the text, renders it on every turn and sends it to the model. Golden tests read only the code copy, so they stayed green in July 2026 while the model read an old row without rules 14 and 15.",
+ "columns": [
+  "Where the text lives",
+  "The database",
+  "At every startup",
+  "On every turn"
+ ],
+ "boxes": [
+  {
+   "id": "seed",
+   "col": 0,
+   "row": 0,
+   "name": "04-app-settings.sql",
+   "mono": true,
+   "b": 1,
+   "lines": [
+    {
+     "text": "July: wrote an old copy",
+     "tone": "red"
+    },
+    {
+     "text": "now: a drift test forbids it",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "admin",
+   "col": 0,
+   "row": 1,
+   "name": "Admin screen",
+   "b": 1,
+   "lines": [
+    "a linguist edits, no deploy",
+    "a save archives the old text"
+   ]
+  },
+  {
+   "id": "code",
+   "col": 0,
+   "row": 2,
+   "tone": "green",
+   "name": "Code copy in git",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    {
+     "text": "DEFAULT_LAYER1_TEMPLATE",
+     "mono": true
+    },
+    "15 numbered rules",
+    "8 slots filled by code"
+   ]
+  },
+  {
+   "id": "row",
+   "col": 1,
+   "row": 0,
+   "tone": "red",
+   "name": "prompt_templates",
+   "mono": true,
+   "b": 2,
+   "r": 2,
+   "lines": [
+    {
+     "text": "ai-tutor-layer1",
+     "mono": true
+    },
+    {
+     "text": "July: rules 14 and 15 missing",
+     "tone": "red"
+    },
+    {
+     "text": "now: the code copy, healed",
+     "tone": "green",
+     "r": 5
+    }
+   ]
+  },
+  {
+   "id": "archive",
+   "col": 1,
+   "row": 1,
+   "name": "Archive",
+   "b": 2,
+   "r": 4,
+   "lines": [
+    {
+     "text": "prompt_template_versions",
+     "mono": true
+    },
+    "0 rows: no person edited it",
+    {
+     "text": "Activate: an old text is back",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "heal",
+   "col": 2,
+   "row": 0,
+   "rows": 2,
+   "tone": "red",
+   "name": "Startup heal",
+   "b": 3,
+   "r": 1,
+   "lines": [
+    "row = code copy: nothing to do",
+    {
+     "text": "here: the cached row ≠ the code copy",
+     "r": 3
+    },
+    {
+     "text": "0 archive rows: code copy wins,",
+     "tone": "green",
+     "gap": true,
+     "r": 4
+    },
+    {
+     "text": "reset the row and the cache",
+     "tone": "green",
+     "r": 4
+    },
+    {
+     "text": "1+ archive rows: keep the edit,",
+     "tone": "amber",
+     "gap": true,
+     "r": 4
+    },
+    {
+     "text": "which then misses code fixes",
+     "tone": "amber",
+     "r": 4
+    },
+    {
+     "text": "the reset writes no archive row,",
+     "gap": true,
+     "r": 5
+    },
+    {
+     "text": "or later heals would stop",
+     "r": 5
+    }
+   ]
+  },
+  {
+   "id": "cache",
+   "col": 2,
+   "row": 2,
+   "name": "Cache, per process",
+   "b": 4,
+   "r": 2,
+   "lines": [
+    {
+     "text": "a session reads it once",
+     "r": 6
+    },
+    "the table is not read per turn"
+   ]
+  },
+  {
+   "id": "stamp",
+   "col": 3,
+   "row": 0,
+   "name": "Stamp the result",
+   "b": 4,
+   "r": 7,
+   "lines": [
+    "lesson note: prompt \"v1\"",
+    "model id in its own column",
+    {
+     "text": "tutor replies: no stamp yet",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "model",
+   "col": 3,
+   "row": 1,
+   "tone": "blue",
+   "name": "Model",
+   "b": 4,
+   "r": 6,
+   "lines": [
+    {
+     "text": "gemini-2.5-flash",
+     "mono": true
+    },
+    {
+     "text": "July: fluent, 2 rules missing",
+     "tone": "red"
+    },
+    {
+     "text": "now: all 15 rules, a fluent reply",
+     "tone": "green",
+     "r": 6
+    }
+   ]
+  },
+  {
+   "id": "render",
+   "col": 3,
+   "row": 2,
+   "name": "Render the prompt",
+   "b": 4,
+   "r": 6,
+   "lines": [
+    "code fills the 8 slots",
+    "then adds layers built in code",
+    "sent again on every call"
+   ]
+  },
+  {
+   "id": "golden",
+   "col": 0,
+   "row": 3,
+   "cols": 2,
+   "name": "Golden tests",
+   "b": 5,
+   "lines": [
+    "render with the code copy, compare byte for byte with a saved file",
+    {
+     "text": "they never read the row, so they stayed green all July",
+     "tone": "red"
+    },
+    "they pin the text, not how good the replies are"
+   ]
+  },
+  {
+   "id": "eval",
+   "col": 2,
+   "row": 3,
+   "cols": 2,
+   "name": "Eval",
+   "b": 5,
+   "lines": [
+    "fixed inputs, every reply scored, old version against new",
+    {
+     "text": "LOM-86 changed only the code behind `{{registerRule}}`",
+     "tone": "amber"
+    },
+    {
+     "text": "replies changed at every level; nobody scored them",
+     "tone": "amber"
+    }
+   ]
+  }
+ ],
+ "arrows": [
+  {
+   "from": "seed",
+   "to": "row",
+   "tone": "red",
+   "dash": true,
+   "b": 2
+  },
+  {
+   "from": "admin",
+   "to": "row",
+   "path": "hvh",
+   "b": 2
+  },
+  {
+   "from": "admin",
+   "to": "archive",
+   "b": 2
+  },
+  {
+   "from": "row",
+   "to": "heal",
+   "b": 3
+  },
+  {
+   "from": "archive",
+   "to": "heal",
+   "b": 3
+  },
+  {
+   "from": "code",
+   "to": "heal",
+   "label": "registered at startup",
+   "path": "hvh",
+   "b": 3
+  },
+  {
+   "from": "heal",
+   "to": "cache",
+   "tone": "green",
+   "b": 4
+  },
+  {
+   "from": "cache",
+   "to": "render",
+   "tone": "green",
+   "b": 4
+  },
+  {
+   "from": "render",
+   "to": "model",
+   "tone": "blue",
+   "b": 4
+  },
+  {
+   "from": "model",
+   "to": "stamp",
+   "b": 4
+  },
+  {
+   "from": "code",
+   "to": "golden",
+   "label": "uses only this copy",
+   "b": 5
+  },
+  {
+   "layer": "route",
+   "from": "code",
+   "to": "heal",
+   "n": 1,
+   "r": 1,
+   "path": "hvh",
+   "label": "register · 8 slots"
+  },
+  {
+   "layer": "route",
+   "from": "row",
+   "to": "heal",
+   "tone": "red",
+   "dash": true,
+   "n": 2,
+   "r": 2,
+   "offset": -14
+  },
+  {
+   "layer": "route",
+   "from": "heal",
+   "to": "cache",
+   "tone": "red",
+   "dash": true,
+   "r": 2,
+   "offset": -40,
+   "label": "keep the row's text"
+  },
+  {
+   "layer": "route",
+   "from": "archive",
+   "to": "heal",
+   "tone": "green",
+   "n": 4,
+   "r": 4
+  },
+  {
+   "layer": "route",
+   "from": "heal",
+   "to": "row",
+   "tone": "green",
+   "n": 5,
+   "r": 5,
+   "offset": 14
+  },
+  {
+   "layer": "route",
+   "from": "heal",
+   "to": "cache",
+   "tone": "green",
+   "r": 5,
+   "offset": 40,
+   "label": "reload"
+  },
+  {
+   "layer": "route",
+   "from": "cache",
+   "to": "render",
+   "tone": "green",
+   "n": 6,
+   "r": 6
+  },
+  {
+   "layer": "route",
+   "from": "render",
+   "to": "model",
+   "tone": "blue",
+   "r": 6,
+   "label": "all 15 rules"
+  },
+  {
+   "layer": "route",
+   "from": "model",
+   "to": "stamp",
+   "n": 7,
+   "r": 7
+  }
+ ],
+ "legend": [
+  {
+   "label": "the text moves"
+  },
+  {
+   "tone": "red",
+   "dash": true,
+   "label": "how the old copy got in (July)"
+  },
+  {
+   "tone": "green",
+   "label": "the text the heal chose"
+  },
+  {
+   "tone": "blue",
+   "label": "sent to the model"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "The prompt text has three writers",
+    "text": "The seed SQL and the admin screen write the database. The code copy, `DEFAULT_LAYER1_TEMPLATE`, holds 15 numbered rules and 8 slots and is reviewed in git."
+   },
+   {
+    "title": "The database holds a second copy",
+    "text": "The row `ai-tutor-layer1` in `prompt_templates` is what the app prefers. In July the seed wrote an old copy without rules 14 and 15. Every admin save first archives the old text."
+   },
+   {
+    "title": "A startup heal picks one copy",
+    "text": "At every startup the app compares the row with the code copy. With 0 archive rows the code copy wins; with 1 or more the admin's edit stays. The reset writes no archive row."
+   },
+   {
+    "title": "Each turn reads the cache, not the table",
+    "text": "Each process caches the text. Code fills the 8 slots and sends the whole prompt on every call. Only lesson notes carry a prompt version and model id."
+   },
+   {
+    "title": "Tests that pin the text, and one that would judge it",
+    "text": "Golden tests render only the code copy, so they stayed green all July. An eval scores replies on fixed inputs; nobody scored LOM-86's change."
+   }
+  ],
+  "route": [
+   {
+    "title": "Register the code copy before reading anything",
+    "text": "The app records the key `ai-tutor-layer1`, its default text in code and the 8 `{{name}}` slots that code fills. Engineers review this copy in git."
+   },
+   {
+    "title": "Load the database row into the cache",
+    "text": "The row has the old text, without rules 14 and 15. Each process keeps it in memory. Before the fix, startup ended here and the row won."
+   },
+   {
+    "title": "Compare the cached text with the code copy",
+    "text": "If the two are equal, there is nothing to heal. Here they differ, so the app must decide which copy wins."
+   },
+   {
+    "title": "Ask whether a person ever edited the row",
+    "text": "Every admin save first copies the old text into an archive table. 0 archived versions means no person changed it, so the code copy wins."
+   },
+   {
+    "title": "Reset the row without writing an archive",
+    "text": "The heal writes the code copy over the row and reloads the cache. It writes no archive row, which would make the row look edited and stop later heals."
+   },
+   {
+    "title": "Fill the slots and send the whole prompt on each turn",
+    "text": "A session reads the rules from the cache once. On every turn code computes the 8 slot values, and the filled text with all 15 rules goes to the model."
+   },
+   {
+    "title": "Stamp the prompt version and model on the result",
+    "text": "Tutor replies carry no stamp today. The lesson-note writer saves prompt \"v1\" and the model id in two columns, so a bad note can be traced months later."
+   }
+  ]
+ }
+}

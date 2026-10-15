@@ -1,0 +1,282 @@
+{
+ "title": "Both requests run mark_paid through one runner, and bills.pay refuses the second",
+ "subtitle": "Example: one electricity bill, paid from the app's chat, then again from Claude an hour later.",
+ "actors": [
+  {
+   "id": "person",
+   "label": "Person",
+   "role": "pays the bills"
+  },
+  {
+   "id": "ask",
+   "label": "Ask Billpod",
+   "role": "the app's chat",
+   "tone": "blue"
+  },
+  {
+   "id": "gemini",
+   "label": "Gemini",
+   "role": "picks of 46 tools",
+   "tone": "blue"
+  },
+  {
+   "id": "claude",
+   "label": "Claude",
+   "role": "own model, over MCP",
+   "tone": "blue"
+  },
+  {
+   "id": "mcp",
+   "label": "/mcp",
+   "mono": true,
+   "role": "MCP endpoint",
+   "tone": "blue"
+  },
+  {
+   "id": "run",
+   "label": "runTool",
+   "mono": true,
+   "role": "one runner",
+   "tone": "red"
+  },
+  {
+   "id": "pay",
+   "label": "bills.pay",
+   "mono": true,
+   "role": "the service",
+   "tone": "green"
+  }
+ ],
+ "phases": [
+  {
+   "id": "p1",
+   "label": "Request 1 · in the app's chat",
+   "start_at": "s1"
+  },
+  {
+   "id": "p2",
+   "label": "An hour later · Claude over MCP",
+   "start_at": "s9"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "person",
+   "to": "ask",
+   "arrow": "request",
+   "label": "\"I paid the electricity bill\"",
+   "n": 1
+  },
+  {
+   "id": "s2",
+   "from": "ask",
+   "to": "ask",
+   "arrow": "self",
+   "label": "ctx: person, household,\nall 3 scopes, caller \"assistant\"",
+   "tone": "blue",
+   "n": 1
+  },
+  {
+   "id": "s3",
+   "from": "ask",
+   "to": "gemini",
+   "arrow": "request",
+   "label": "the chat + 46 tools",
+   "tone": "blue",
+   "n": 2
+  },
+  {
+   "id": "s4",
+   "from": "gemini",
+   "to": "ask",
+   "arrow": "event",
+   "sub": "mark_paid",
+   "tone": "blue",
+   "n": 2
+  },
+  {
+   "id": "s5",
+   "from": "ask",
+   "to": "person",
+   "arrow": "request",
+   "label": "card · on the confirm list (31)",
+   "sub": "Mark the electricity bill paid today?",
+   "tone": "blue",
+   "n": 2
+  },
+  {
+   "id": "s6",
+   "from": "person",
+   "to": "ask",
+   "arrow": "request",
+   "label": "Approve",
+   "tone": "green",
+   "n": 2
+  },
+  {
+   "id": "s7",
+   "from": "ask",
+   "to": "run",
+   "arrow": "request",
+   "sub": "runTool(mark_paid, args, ctx)",
+   "tone": "red",
+   "n": 3,
+   "checks": [
+    {
+     "label": "scopes",
+     "ok": true
+    },
+    {
+     "label": "input",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s8",
+   "from": "run",
+   "to": "pay",
+   "arrow": "request",
+   "sub": "bills.pay(household, bill, body)",
+   "tone": "red",
+   "n": 4,
+   "checks": [
+    {
+     "label": "household",
+     "ok": true
+    },
+    {
+     "label": "not paid yet",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s8b",
+   "from": "pay",
+   "to": "run",
+   "arrow": "event",
+   "label": "paid",
+   "tone": "green",
+   "n": 4
+  },
+  {
+   "id": "s9",
+   "from": "claude",
+   "to": "mcp",
+   "arrow": "request",
+   "sub": "tools/call mark_paid + token",
+   "tone": "blue",
+   "n": 5
+  },
+  {
+   "id": "s10",
+   "from": "mcp",
+   "to": "mcp",
+   "arrow": "self",
+   "label": "ctx: the token's person,\nsame household, its scopes, caller \"mcp\"",
+   "tone": "blue",
+   "n": 5
+  },
+  {
+   "id": "s11",
+   "from": "claude",
+   "to": "claude",
+   "arrow": "self",
+   "label": "destructiveHint: true",
+   "sub": "Claude decides, not Billpod",
+   "tone": "amber",
+   "n": 6
+  },
+  {
+   "id": "s12",
+   "from": "mcp",
+   "to": "run",
+   "arrow": "request",
+   "sub": "runTool(mark_paid, args, ctx)",
+   "tone": "red",
+   "n": 7,
+   "checks": [
+    {
+     "label": "scopes",
+     "ok": true
+    },
+    {
+     "label": "input",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s13",
+   "from": "run",
+   "to": "pay",
+   "arrow": "request",
+   "sub": "bills.pay(household, bill, body)",
+   "tone": "red",
+   "n": 7,
+   "checks": [
+    {
+     "label": "already paid",
+     "ok": false
+    }
+   ]
+  },
+  {
+   "id": "s14",
+   "from": "pay",
+   "to": "run",
+   "arrow": "event",
+   "label": "\"This bill is already paid.\"",
+   "tone": "red",
+   "n": 7
+  },
+  {
+   "id": "s15",
+   "from": "run",
+   "to": "claude",
+   "arrow": "event",
+   "sub": "isError: true",
+   "tone": "red",
+   "n": 7
+  }
+ ],
+ "outcome": {
+  "tone": "red",
+  "title": "Refused: \"This bill is already paid.\"",
+  "lines": [
+   "The rule lives in bills.pay, so no entry point can skip it. The Pay button on the screen gets the same answer."
+  ]
+ },
+ "captions": [
+  {
+   "title": "The app's chat builds the caller's context",
+   "text": "A person tells Ask Billpod, the app's own assistant, that they paid the electricity bill. Before any tool runs, Ask Billpod builds one context: who asks, which household, which permissions (scopes), and that the caller is the assistant."
+  },
+  {
+   "title": "A card before any change",
+   "text": "Gemini picks `mark_paid` from the 46 tools Ask Billpod offers. `mark_paid` is on the confirm list of 31 tools, so nothing runs yet. The person sees a card built from the stored bill and presses Approve."
+  },
+  {
+   "title": "The approved call goes into the one runner",
+   "text": "Every AI entry point hands its calls to `runTool`. It checks the scopes and the input against the tool's schema, then runs `mark_paid`'s handler."
+  },
+  {
+   "title": "The handler calls the service the Pay button calls",
+   "text": "The handler calls `bills.pay`, the same function the screen's REST route calls. The rules live there: the household filter and \"already paid\". The bill is now paid."
+  },
+  {
+   "title": "An hour later, Claude calls the same tool",
+   "text": "The person forgot and asks Claude to pay the bill. Claude runs its own model and calls `mark_paid` over MCP with an access token. `/mcp` builds the same kind of context. Only the scopes and the caller differ."
+  },
+  {
+   "title": "Here the confirmation is Claude's choice",
+   "text": "Billpod draws no card inside Claude. `mark_paid` carries `destructiveHint: true`, so Claude decides whether to ask first. The scopes, the input check and the service's rules still apply."
+  },
+  {
+   "title": "Same runner, same service, same refusal",
+   "text": "The call goes through the same `runTool` to the same `bills.pay`, and the service refuses: \"This bill is already paid.\" Claude gets it back as `isError: true`. The Pay button would get the same answer."
+  }
+ ]
+}

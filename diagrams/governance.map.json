@@ -1,0 +1,683 @@
+{
+ "title": "One gateway checks the inventory, pins the model and keeps each draft for audit",
+ "subtitle": "Example: a made-up Swiss bank drafts a meeting note after a client call. The OpenAI names and terms are real.",
+ "aria": "An adviser's notes service sends a prompt with three headers to an AI gateway, the only service with the OpenAI keys. The gateway refuses any call with no approved inventory row, calls the pinned snapshot in OpenAI's Europe region, stores the prompt and the draft in a content store and inserts a call row. The adviser's edit is inserted later as a separate event row. The row's risk class adds controls, and fourteen months later audit answers five questions from these records.",
+ "columns": [
+  "Who asks",
+  "Who calls",
+  "The gateway",
+  "The provider",
+  "Insert-only records"
+ ],
+ "boxes": [
+  {
+   "id": "adviser",
+   "col": 0,
+   "row": 0,
+   "name": "Adviser",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    {
+     "text": "rm.jmuster",
+     "mono": true
+    },
+    "presses \"draft note\"",
+    {
+     "text": "saves an edited note",
+     "b": 4,
+     "r": 5
+    }
+   ]
+  },
+  {
+   "id": "notes",
+   "col": 1,
+   "row": 0,
+   "name": "advisory-notes",
+   "mono": true,
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "stops an empty transcript",
+    "sends prompt + 3 headers:",
+    {
+     "text": "meeting-note-draft",
+     "mono": true
+    },
+    {
+     "text": "meeting-note/v7",
+     "mono": true
+    },
+    {
+     "text": "rm.jmuster",
+     "mono": true
+    },
+    {
+     "text": "keeps the final `note/44120`",
+     "b": 4,
+     "r": 5
+    }
+   ]
+  },
+  {
+   "id": "gateway",
+   "col": 2,
+   "row": 0,
+   "rows": 2,
+   "tone": "red",
+   "name": "AI gateway",
+   "b": 2,
+   "r": 1,
+   "lines": [
+    "alone holds the OpenAI keys",
+    {
+     "text": "1  no row: refuse, send nothing",
+     "tone": "red",
+     "gap": true,
+     "r": 2
+    },
+    {
+     "text": "2  use the row's model, region",
+     "r": 2
+    },
+    {
+     "text": "3  other model reported: alert",
+     "b": 3,
+     "r": 3
+    },
+    {
+     "text": "    and on a High row: refuse",
+     "b": 3,
+     "r": 3
+    },
+    {
+     "text": "4  store prompt and draft",
+     "tone": "green",
+     "b": 4,
+     "r": 4
+    },
+    {
+     "text": "5  insert the call row",
+     "tone": "green",
+     "b": 4,
+     "r": 4
+    },
+    {
+     "text": "6  return draft + `call_id` c-81f2",
+     "b": 4,
+     "r": 4
+    }
+   ]
+  },
+  {
+   "id": "inventory",
+   "col": 2,
+   "row": 2,
+   "name": "Inventory row",
+   "b": 2,
+   "r": 2,
+   "lines": [
+    {
+     "text": "meeting-note-draft",
+     "mono": true
+    },
+    "class Medium, approved by risk",
+    "pins the model and the region",
+    "caller allowed: advisory-notes"
+   ]
+  },
+  {
+   "id": "openai",
+   "col": 3,
+   "row": 0,
+   "tone": "blue",
+   "name": "OpenAI",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    {
+     "text": "gpt-4o-2024-08-06",
+     "mono": true
+    },
+    "a fixed, dated build",
+    {
+     "text": "eu.api.openai.com",
+     "mono": true
+    },
+    "Europe (EEA + Switzerland)",
+    {
+     "text": "default terms: 30-day copy",
+     "tone": "amber"
+    },
+    {
+     "text": "this row: no copy kept",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "alias",
+   "col": 3,
+   "row": 2,
+   "tone": "amber",
+   "name": "Alias `gpt-4o`",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    "moves to newer builds",
+    "an eval on it goes stale",
+    {
+     "text": "the row never names one",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "content",
+   "col": 4,
+   "row": 0,
+   "tone": "green",
+   "name": "Content store",
+   "b": 4,
+   "r": 4,
+   "lines": [
+    "encrypted bucket",
+    "`in/c-81f2` prompt as sent",
+    "`out/c-81f2` the draft"
+   ]
+  },
+  {
+   "id": "callrow",
+   "col": 4,
+   "row": 1,
+   "tone": "green",
+   "name": "Call row",
+   "b": 4,
+   "r": 4,
+   "lines": [
+    {
+     "text": "c-81f2 15:41:07",
+     "mono": true
+    },
+    "model asked and reported",
+    "prompt v7, region EU",
+    {
+     "text": "INSERT, never UPDATE",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "event",
+   "col": 4,
+   "row": 2,
+   "tone": "green",
+   "name": "Event row",
+   "b": 4,
+   "r": 5,
+   "lines": [
+    {
+     "text": "c-81f2 edited",
+     "mono": true
+    },
+    "by rm.jmuster at 15:52",
+    {
+     "text": "the draft stays as written",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "low",
+   "col": 0,
+   "row": 3,
+   "cols": 2,
+   "name": "Low",
+   "b": 5,
+   "lines": [
+    "no client data, helps employees",
+    {
+     "text": "inventory row, call and event rows",
+     "tone": "green"
+    },
+    {
+     "text": "default terms allowed: 30-day copy",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "medium",
+   "col": 2,
+   "row": 3,
+   "tone": "blue",
+   "name": "Medium · the meeting note",
+   "b": 5,
+   "r": 2,
+   "lines": [
+    "client data, a person fixes each draft",
+    {
+     "text": "+ Europe region, no copy at OpenAI",
+     "tone": "green"
+    },
+    {
+     "text": "+ eval each release, weekly monitoring",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "high",
+   "col": 3,
+   "row": 3,
+   "cols": 2,
+   "name": "High",
+   "b": 5,
+   "lines": [
+    "reaches a client with no rewrite",
+    {
+     "text": "+ zero data retention at OpenAI",
+     "tone": "green"
+    },
+    {
+     "text": "+ named approver for each output",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "q1",
+   "col": 0,
+   "row": 4,
+   "name": "Which model?",
+   "b": 6,
+   "r": 6,
+   "lines": [
+    {
+     "text": "gpt-4o-2024-08-06",
+     "mono": true
+    },
+    {
+     "text": "call row",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "q2",
+   "col": 1,
+   "row": 4,
+   "name": "What did it write?",
+   "b": 6,
+   "r": 6,
+   "lines": [
+    "`out/c-81f2`, pre-edit",
+    {
+     "text": "content store",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "q3",
+   "col": 2,
+   "row": 4,
+   "name": "Where did data go?",
+   "b": 6,
+   "r": 6,
+   "lines": [
+    "EU region, no copy kept",
+    {
+     "text": "call row + inventory",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "q4",
+   "col": 3,
+   "row": 4,
+   "name": "Tested? Signed?",
+   "b": 6,
+   "lines": [
+    "1 bad of 300, bar 1%",
+    {
+     "text": "eval report, reviewer",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "q5",
+   "col": 4,
+   "row": 4,
+   "name": "Still working?",
+   "b": 6,
+   "lines": [
+    "200 calls scored a week",
+    {
+     "text": "monitoring records",
+     "tone": "green"
+    }
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "the row's risk class adds controls · example rule",
+   "boxes": [
+    "low",
+    "medium",
+    "high"
+   ],
+   "b": 5
+  },
+  {
+   "label": "14 months later, audit asks five questions · each has a record",
+   "boxes": [
+    "q1",
+    "q2",
+    "q3",
+    "q4",
+    "q5"
+   ],
+   "b": 6
+  }
+ ],
+ "arrows": [
+  {
+   "from": "adviser",
+   "to": "notes",
+   "b": 1
+  },
+  {
+   "from": "notes",
+   "to": "gateway",
+   "tone": "blue",
+   "b": 2,
+   "offset": -12
+  },
+  {
+   "from": "gateway",
+   "to": "notes",
+   "tone": "blue",
+   "b": 2,
+   "offset": 12
+  },
+  {
+   "from": "gateway",
+   "to": "inventory",
+   "label": "row for use case + caller",
+   "b": 2
+  },
+  {
+   "from": "gateway",
+   "to": "openai",
+   "tone": "blue",
+   "b": 3,
+   "offset": -12
+  },
+  {
+   "from": "openai",
+   "to": "gateway",
+   "tone": "blue",
+   "b": 3,
+   "offset": 12
+  },
+  {
+   "from": "gateway",
+   "to": "content",
+   "tone": "green",
+   "b": 4,
+   "points": [
+    [
+     895,
+     310
+    ],
+    [
+     1182,
+     310
+    ],
+    [
+     1182,
+     168
+    ],
+    [
+     1206,
+     168
+    ]
+   ]
+  },
+  {
+   "from": "gateway",
+   "to": "callrow",
+   "tone": "green",
+   "b": 4
+  },
+  {
+   "from": "notes",
+   "to": "event",
+   "tone": "green",
+   "label": "the edit, saved as a new row",
+   "b": 4,
+   "points": [
+    [
+     373,
+     290
+    ],
+    [
+     373,
+     672
+    ],
+    [
+     1310,
+     672
+    ],
+    [
+     1310,
+     628
+    ]
+   ]
+  },
+  {
+   "from": "low",
+   "to": "medium",
+   "b": 5
+  },
+  {
+   "from": "medium",
+   "to": "high",
+   "b": 5
+  },
+  {
+   "layer": "route",
+   "from": "adviser",
+   "to": "notes",
+   "r": 1
+  },
+  {
+   "layer": "route",
+   "from": "notes",
+   "to": "gateway",
+   "tone": "blue",
+   "n": 1,
+   "r": 1,
+   "offset": -12
+  },
+  {
+   "layer": "route",
+   "from": "gateway",
+   "to": "inventory",
+   "n": 2,
+   "r": 2,
+   "offset": -14,
+   "label": "row for this use case and caller?"
+  },
+  {
+   "layer": "route",
+   "from": "inventory",
+   "to": "gateway",
+   "tone": "green",
+   "n": 2,
+   "r": 2,
+   "offset": 14,
+   "label": "Medium · pinned model · Europe"
+  },
+  {
+   "layer": "route",
+   "from": "gateway",
+   "to": "openai",
+   "tone": "blue",
+   "n": 3,
+   "r": 3,
+   "offset": -12
+  },
+  {
+   "layer": "route",
+   "from": "openai",
+   "to": "gateway",
+   "tone": "blue",
+   "r": 3,
+   "offset": 12
+  },
+  {
+   "layer": "route",
+   "from": "gateway",
+   "to": "content",
+   "tone": "green",
+   "n": 4,
+   "r": 4,
+   "points": [
+    [
+     895,
+     310
+    ],
+    [
+     1182,
+     310
+    ],
+    [
+     1182,
+     168
+    ],
+    [
+     1206,
+     168
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "gateway",
+   "to": "callrow",
+   "tone": "green",
+   "r": 4
+  },
+  {
+   "layer": "route",
+   "from": "gateway",
+   "to": "notes",
+   "tone": "blue",
+   "r": 4,
+   "offset": 12,
+   "mono": true,
+   "label": "draft + call_id"
+  },
+  {
+   "layer": "route",
+   "from": "notes",
+   "to": "event",
+   "tone": "green",
+   "n": 5,
+   "r": 5,
+   "mono": true,
+   "label": "c-81f2 · edited · note/44120",
+   "points": [
+    [
+     373,
+     290
+    ],
+    [
+     373,
+     672
+    ],
+    [
+     1310,
+     672
+    ],
+    [
+     1310,
+     628
+    ]
+   ]
+  }
+ ],
+ "legend": [
+  {
+   "label": "a call"
+  },
+  {
+   "tone": "blue",
+   "label": "model call"
+  },
+  {
+   "tone": "green",
+   "label": "insert-only write"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "The adviser and the notes service",
+    "text": "The adviser `rm.jmuster` presses \"draft note\". The notes service `advisory-notes` stops an empty transcript, then sends the prompt with 3 headers: use case, prompt version and user."
+   },
+   {
+    "title": "One gateway checks the inventory",
+    "text": "The AI gateway alone holds the OpenAI keys. It looks up the inventory row for this use case and caller. With no row it refuses and sends nothing. The row pins the model and the region."
+   },
+   {
+    "title": "A pinned snapshot at OpenAI",
+    "text": "The gateway calls `gpt-4o-2024-08-06`, a fixed, dated build, in OpenAI's Europe region. The alias `gpt-4o` moves to newer builds, so the row never names one. If OpenAI reports another model, the gateway alerts."
+   },
+   {
+    "title": "Records that are never updated",
+    "text": "Before it returns, the gateway stores the prompt and the draft in an encrypted content store and inserts a call row. The adviser's edit is a new event row, so the draft stays as written."
+   },
+   {
+    "title": "The risk class adds controls",
+    "text": "The bank's example rule puts each use case in a class. Medium, the meeting note, adds the Europe region, no copy at OpenAI and an eval each release. High adds zero data retention and a named approver."
+   },
+   {
+    "title": "Audit asks five questions",
+    "text": "14 months later, audit asks which model, what it wrote, where the data went, whether it was tested and signed, and whether it still works. Each answer is in a record."
+   }
+  ],
+  "route": [
+   {
+    "title": "The notes service checks the transcript and names its use case",
+    "text": "The notes service refuses an empty or cut-off transcript. Then it sends the prompt with its own service credential. Three headers name the use case, the prompt version v7 and the user `rm.jmuster`."
+   },
+   {
+    "title": "The gateway finds the inventory row or refuses the call",
+    "text": "If no row has this use case with this credential, the call is refused and nothing reaches OpenAI. The row gives the risk class Medium, the model and the Europe region, so the caller cannot choose them."
+   },
+   {
+    "title": "The gateway calls a pinned snapshot and checks what answered",
+    "text": "It calls the snapshot `gpt-4o-2024-08-06`, never the alias `gpt-4o`, and records the version OpenAI reports. A mismatch alerts the row's owner. On a High row it also refuses the call."
+   },
+   {
+    "title": "The gateway stores the draft itself",
+    "text": "A rerun may give a different draft. So the prompt and the draft go into the encrypted content store, and a call row that is never updated points at them. The draft goes back with `call_id` c-81f2."
+   },
+   {
+    "title": "The adviser's edit becomes a new row",
+    "text": "The notes service keeps the final note `note/44120` in its own store and inserts an event row keyed by c-81f2. The draft in the content store stays as the model wrote it."
+   },
+   {
+    "title": "Fourteen months later, audit reads the answers from rows",
+    "text": "Audit follows the note to c-81f2. The call row names the snapshot, the prompt version and the region. The content store holds the draft before the edit, and the event row shows who changed it."
+   }
+  ]
+ }
+}

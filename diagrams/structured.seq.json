@@ -1,0 +1,202 @@
+{
+ "title": "Gemini fixes only the shape, so three checks and the QR code clean the answer before a person confirms it",
+ "subtitle": "Example: a made-up Swisscom invoice for CHF 79.90, read under Billpod's real rules.",
+ "actors": [
+  {
+   "id": "reader",
+   "label": "Reader",
+   "role": "Billpod's bill reader"
+  },
+  {
+   "id": "gw",
+   "label": "Gateway",
+   "role": "every model call",
+   "tone": "red"
+  },
+  {
+   "id": "gemini",
+   "label": "Gemini",
+   "role": "the model",
+   "tone": "blue"
+  },
+  {
+   "id": "person",
+   "label": "Person",
+   "role": "confirms the draft",
+   "tone": "green"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "reader",
+   "to": "gw",
+   "arrow": "request",
+   "sub": "callJson · schema · 4096 tokens",
+   "n": 1
+  },
+  {
+   "id": "s2",
+   "from": "gw",
+   "to": "gemini",
+   "arrow": "request",
+   "label": "PDF + responseSchema",
+   "sub": "in the request settings",
+   "tone": "blue",
+   "n": 1
+  },
+  {
+   "id": "s3",
+   "from": "gemini",
+   "to": "gemini",
+   "arrow": "self",
+   "label": "keeps only tokens\nthat fit the schema",
+   "tone": "blue",
+   "n": 2
+  },
+  {
+   "id": "s4",
+   "from": "gemini",
+   "to": "gw",
+   "arrow": "event",
+   "label": "200 · finishReason STOP",
+   "tone": "green",
+   "n": 3,
+   "checks": [
+    {
+     "label": "finish reason",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s5",
+   "from": "gw",
+   "to": "gw",
+   "arrow": "self",
+   "label": "SAFETY: blocked, no retry",
+   "tone": "amber",
+   "n": 3
+  },
+  {
+   "id": "s6",
+   "from": "gw",
+   "to": "gw",
+   "arrow": "self",
+   "label": "parse, then the same Zod schema",
+   "sub": "\"2026-02-30\" still passes",
+   "tone": "red",
+   "n": 4,
+   "checks": [
+    {
+     "label": "whole answer",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s7",
+   "from": "gw",
+   "to": "reader",
+   "arrow": "event",
+   "label": "{ data }, typed",
+   "tone": "green",
+   "n": 4
+  },
+  {
+   "id": "s8",
+   "from": "reader",
+   "to": "reader",
+   "arrow": "self",
+   "label": "dueDate 2026-02-30: dropped",
+   "tone": "red",
+   "n": 5,
+   "checks": [
+    {
+     "label": "date exists",
+     "ok": false
+    }
+   ]
+  },
+  {
+   "id": "s9",
+   "from": "reader",
+   "to": "reader",
+   "arrow": "self",
+   "label": "IBAN checksum passes: kept",
+   "tone": "green",
+   "n": 5,
+   "checks": [
+    {
+     "label": "mod 97",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s10",
+   "from": "reader",
+   "to": "reader",
+   "arrow": "self",
+   "sub": "iban = qr?.iban ?? ai?.iban",
+   "label": "the QR code wins",
+   "tone": "green",
+   "n": 6
+  },
+  {
+   "id": "s11",
+   "from": "reader",
+   "to": "person",
+   "arrow": "request",
+   "label": "draft · every field with its source",
+   "sub": "qr · ai · recurring · none",
+   "n": 7
+  },
+  {
+   "id": "s12",
+   "from": "person",
+   "to": "reader",
+   "arrow": "event",
+   "label": "confirm or correct",
+   "tone": "green",
+   "n": 7
+  }
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "A draft the person confirms, never a bill filed on its own",
+  "lines": [
+   "Bad values were dropped, not guessed, and the QR code's IBAN beat the model's. On a bill without a QR code, only the person can catch a changed IBAN."
+  ]
+ },
+ "captions": [
+  {
+   "title": "Send the shape with the request, not in the prompt",
+   "text": "The reader defines the record once, in Zod, and calls `callJson` with 4096 tokens. The gateway turns it into Gemini's `responseSchema` and sends it in the request settings."
+  },
+  {
+   "title": "The provider lets the model write only tokens that fit",
+   "text": "Before each token, the provider removes every candidate that would break the schema. A reply that finishes normally parses, but its values may still be wrong."
+  },
+  {
+   "title": "Layer one reads how the call ended",
+   "text": "STOP is a normal finish, MAX_TOKENS a reply cut off, SAFETY a refusal sent with HTTP 200. The gateway throws on a refusal before it parses anything, and does not retry."
+  },
+  {
+   "title": "Layer two parses and checks the whole answer once",
+   "text": "The gateway parses the text and checks it against the same loose Zod schema, so \"2026-02-30\" passes here. A failure throws `LlmOutputError`, and Billpod does not retry."
+  },
+  {
+   "title": "Layer three checks each value and drops what fails",
+   "text": "A date must exist, a currency is three letters, an IBAN must pass mod 97. `dueDate` 2026-02-30 is dropped; the IBAN passes and is kept."
+  },
+  {
+   "title": "Let the exact QR code win over the model",
+   "text": "For every field the QR code has, its value beats the model's: `iban = qr?.iban ?? ai?.iban`. Hidden white-on-white text cannot change an IBAN the QR code carries."
+  },
+  {
+   "title": "Hand a person a draft, never a bill",
+   "text": "The draft shows each field's source: `qr`, `ai`, `recurring` or `none`. A person confirms or corrects it. On a bill without a QR code, only the person can catch a changed IBAN."
+  }
+ ]
+}

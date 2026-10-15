@@ -323,3 +323,14 @@ body.deck { padding: 0; height: 100vh; overflow: hidden; background: var(--card)
 .sl-fig .ov-svg { width: auto; height: 100%; max-width: 100%; min-width: 0 }
 .deck-nav { position: fixed; bottom: 14px; right: 18px; display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--dim) }
 .deck-nav button, .deck-nav a { font: 500 14px var(--sans); color: var(--fg); background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; text-decoration: none }
+
+/* Maps and walkthroughs drawn by the shared diagram library (vz.css, vz-reveal.js). */
+.ov-fig .vz-player, .seq-fig .vz-player { margin: 0 }
+.seq-fig { margin: 22px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px }
+.walk-detail { margin-top: 18px }
+.walk-detail summary { cursor: pointer; font-weight: 600; color: var(--dim) }
+.steps.flat { display: grid; gap: 18px; margin-top: 14px }
+.steps.flat .step { opacity: 1; min-height: 0; border-left-color: var(--line) }
+.slide .sl-fig .vz-player { height: 100%; grid-template-rows: minmax(0, 1fr) auto auto; width: 100% }
+.slide .sl-fig .vz-stage { min-height: 0; display: flex; justify-content: center; overflow: hidden }
+.slide .sl-fig .vz-stage svg.vz { height: 100%; width: auto; max-width: 100%; min-width: 0 }

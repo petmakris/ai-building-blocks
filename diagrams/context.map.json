@@ -1,0 +1,526 @@
+{
+ "title": "The server builds every model call from scratch and sends only what the job needs",
+ "aria": "On every model call Billpod's server builds the request again from five layers: the system prompt with today's date, timezone and currency, 46 tool definitions, the newest chat history that fits 24,000 characters, the new message, and this answer's tool calls and results. The model reads only that request; the tool loop runs a tool, appends its result and calls the model again, at most 6 times, and a write that needs a yes seals layer 5 into a ticket the browser carries. Older messages, earlier tool results and the household's other bills are left out on purpose, because a 2025 test found 18 of 18 models answered better from about 300 relevant tokens than from about 113,000.",
+ "columns": [
+  "Where each part comes from",
+  "One model request",
+  "",
+  "The model and the loop"
+ ],
+ "boxes": [
+  {
+   "id": "household",
+   "col": 0,
+   "row": 0,
+   "name": "Household record",
+   "b": 1,
+   "r": 3,
+   "lines": [
+    "today, in its own timezone",
+    "currency, household name"
+   ]
+  },
+  {
+   "id": "code",
+   "col": 0,
+   "row": 1,
+   "name": "Billpod's code",
+   "b": 1,
+   "lines": [
+    "the prompt's fixed rules",
+    "46 tool definitions"
+   ]
+  },
+  {
+   "id": "browser",
+   "col": 0,
+   "row": 2,
+   "rows": 2,
+   "name": "The browser",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "holds the chat",
+    "resends it every message",
+    "the newest 40, at most",
+    "the server stores none"
+   ]
+  },
+  {
+   "id": "ticket",
+   "col": 0,
+   "row": 4,
+   "tone": "amber",
+   "name": "Approval ticket",
+   "b": 4,
+   "r": 6,
+   "lines": [
+    "made at a confirmation card",
+    {
+     "text": "layer 5, sealed, 10 minutes",
+     "tone": "amber"
+    },
+    {
+     "text": "comes back with the yes",
+     "r": 7
+    },
+    {
+     "text": "the browser can neither read nor change it",
+     "r": 6
+    }
+   ]
+  },
+  {
+   "id": "l1",
+   "col": 1,
+   "row": 0,
+   "cols": 2,
+   "name": "1 · System prompt",
+   "b": 2,
+   "r": 3,
+   "lines": [
+    {
+     "text": "in the `systemPrompt` field",
+     "gap": false
+    },
+    "fixed rules + today's date, timezone, currency",
+    "changes once a day"
+   ]
+  },
+  {
+   "id": "l2",
+   "col": 1,
+   "row": 1,
+   "cols": 2,
+   "name": "2 · 46 tool definitions",
+   "b": 2,
+   "r": 4,
+   "lines": [
+    "in the `tools` field",
+    "all sent on every call · change per release"
+   ]
+  },
+  {
+   "id": "l3",
+   "col": 1,
+   "row": 2,
+   "cols": 2,
+   "name": "3 · History",
+   "b": 2,
+   "r": 1,
+   "lines": [
+    "in the `messages` field",
+    {
+     "text": "the newest whole messages within 24,000 chars",
+     "r": 2
+    },
+    {
+     "text": "starts on a person's message",
+     "r": 2
+    }
+   ]
+  },
+  {
+   "id": "l4",
+   "col": 1,
+   "row": 3,
+   "cols": 2,
+   "name": "4 · The new message",
+   "b": 2,
+   "r": 4,
+   "lines": [
+    "in the `messages` field",
+    "the person's question, always kept"
+   ]
+  },
+  {
+   "id": "l5",
+   "col": 1,
+   "row": 4,
+   "cols": 2,
+   "name": "5 · Tool calls and results so far",
+   "b": 2,
+   "r": 5,
+   "lines": [
+    "in the `messages` field",
+    "this answer only: one more per model step",
+    {
+     "text": "restored from the ticket after a yes",
+     "b": 4,
+     "r": 7
+    }
+   ]
+  },
+  {
+   "id": "gemini",
+   "col": 3,
+   "row": 0,
+   "tone": "blue",
+   "name": "Gemini Flash",
+   "b": 3,
+   "r": 4,
+   "lines": [
+    {
+     "text": "reads only this request",
+     "tone": "blue"
+    },
+    "keeps nothing between calls"
+   ]
+  },
+  {
+   "id": "loop",
+   "col": 3,
+   "row": 1,
+   "tone": "red",
+   "name": "The tool loop",
+   "b": 4,
+   "r": 4,
+   "lines": [
+    {
+     "text": "no tool calls in the reply: done",
+     "tone": "green",
+     "r": 7
+    },
+    "a read: run it, then call again",
+    {
+     "text": "a write: a card for the person's yes",
+     "tone": "amber",
+     "r": 6
+    },
+    {
+     "text": "at most 6 model calls per answer",
+     "r": 7
+    },
+    {
+     "text": "example: 3 model calls, 2 requests",
+     "r": 7
+    }
+   ],
+   "rows": 2
+  },
+  {
+   "id": "tools",
+   "col": 3,
+   "row": 4,
+   "name": "Bill tools",
+   "b": 4,
+   "r": 5,
+   "lines": [
+    "`find_bills`, `mark_paid` and 44 more",
+    "bills change, so always read fresh"
+   ]
+  },
+  {
+   "id": "older",
+   "col": 0,
+   "row": 5,
+   "name": "Older messages",
+   "b": 5,
+   "r": 2,
+   "lines": [
+    "past 24,000 chars: dropped",
+    "whole, never cut in half",
+    {
+     "text": "no error says what is gone",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "oldres",
+   "col": 1,
+   "row": 5,
+   "name": "Old tool results",
+   "b": 5,
+   "r": 4,
+   "lines": [
+    "kept only as a note, example:",
+    {
+     "text": "mark_paid (electricity): done",
+     "mono": true
+    },
+    "the model reads the data again"
+   ]
+  },
+  {
+   "id": "bills",
+   "col": 2,
+   "row": 5,
+   "name": "The household's bills",
+   "b": 5,
+   "r": 5,
+   "lines": [
+    "none sent up front",
+    "fetched only when asked for",
+    {
+     "text": "an old look-alike misleads",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "chroma",
+   "col": 3,
+   "row": 5,
+   "name": "Chroma test, July 2025",
+   "b": 5,
+   "lines": [
+    "18 of 18 models, same questions",
+    {
+     "text": "~300 relevant tokens: more correct",
+     "tone": "green"
+    },
+    {
+     "text": "all ~113,000 tokens: fewer correct",
+     "tone": "red"
+    }
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "`runTurn` builds all five layers again for every call",
+   "tone": "red",
+   "boxes": [
+    "l1",
+    "l2",
+    "l3",
+    "l4",
+    "l5"
+   ]
+  },
+  {
+   "label": "Left out on purpose",
+   "boxes": [
+    "older",
+    "oldres",
+    "bills"
+   ]
+  },
+  {
+   "label": "Why less",
+   "boxes": [
+    "chroma"
+   ]
+  }
+ ],
+ "arrows": [
+  {
+   "from": "household",
+   "to": "l1",
+   "b": 2
+  },
+  {
+   "from": "code",
+   "to": "l1",
+   "b": 2
+  },
+  {
+   "from": "code",
+   "to": "l2",
+   "b": 2
+  },
+  {
+   "from": "browser",
+   "to": "l3",
+   "b": 2
+  },
+  {
+   "from": "browser",
+   "to": "l4",
+   "b": 2
+  },
+  {
+   "from": "l1",
+   "to": "gemini",
+   "tone": "blue",
+   "label": "one call",
+   "b": 3
+  },
+  {
+   "from": "gemini",
+   "to": "loop",
+   "tone": "blue",
+   "label": "its reply",
+   "b": 4
+  },
+  {
+   "from": "loop",
+   "to": "tools",
+   "tone": "red",
+   "label": "runs the tool",
+   "b": 4
+  },
+  {
+   "from": "tools",
+   "to": "l5",
+   "label": "result added",
+   "b": 4
+  },
+  {
+   "from": "l5",
+   "to": "ticket",
+   "tone": "amber",
+   "dash": true,
+   "label": "sealed",
+   "b": 4
+  },
+  {
+   "layer": "route",
+   "from": "browser",
+   "to": "l3",
+   "n": 1,
+   "r": 1,
+   "label": "3 messages, at most 40"
+  },
+  {
+   "layer": "route",
+   "from": "household",
+   "to": "l1",
+   "n": 3,
+   "r": 3,
+   "label": "Tue 2026-10-13 · CHF"
+  },
+  {
+   "layer": "route",
+   "from": "l1",
+   "to": "gemini",
+   "tone": "blue",
+   "n": 4,
+   "r": 4,
+   "label": "prompt · 46 tools · history · message"
+  },
+  {
+   "layer": "route",
+   "from": "gemini",
+   "to": "loop",
+   "tone": "blue",
+   "n": 4,
+   "r": 4,
+   "offset": -100,
+   "label": "call `find_bills`"
+  },
+  {
+   "layer": "route",
+   "from": "loop",
+   "to": "tools",
+   "tone": "red",
+   "n": 5,
+   "r": 5,
+   "mono": true,
+   "label": "find_bills(\"electricity\")",
+   "offset": -100
+  },
+  {
+   "layer": "route",
+   "from": "tools",
+   "to": "l5",
+   "n": 5,
+   "r": 5,
+   "label": "b_19 · version 3 · 84.20 CHF"
+  },
+  {
+   "layer": "route",
+   "from": "gemini",
+   "to": "loop",
+   "tone": "blue",
+   "n": 6,
+   "r": 6,
+   "offset": 0,
+   "label": "call `mark_paid` b_19"
+  },
+  {
+   "layer": "route",
+   "from": "l5",
+   "to": "ticket",
+   "tone": "amber",
+   "dash": true,
+   "n": 6,
+   "r": 6,
+   "label": "card + sealed ticket"
+  },
+  {
+   "layer": "route",
+   "from": "ticket",
+   "to": "l5",
+   "tone": "amber",
+   "dash": true,
+   "n": 7,
+   "r": 7,
+   "offset": 14,
+   "label": "yes + same chat + ticket"
+  }
+ ],
+ "legend": [
+  {
+   "label": "feeds a layer"
+  },
+  {
+   "tone": "blue",
+   "label": "a model call and its reply"
+  },
+  {
+   "tone": "red",
+   "label": "the loop runs a tool"
+  },
+  {
+   "tone": "amber",
+   "dash": true,
+   "label": "sealed, carried by the browser"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "Three sources feed every call",
+    "text": "The household record gives today's date, timezone and currency. Billpod's code gives the prompt's fixed rules and 46 tool definitions. The browser holds the chat and resends the newest 40 messages at most; the server stores none."
+   },
+   {
+    "title": "Five layers in three fields",
+    "text": "`runTurn` builds all five layers again for every call: the system prompt, 46 tools, the history within 24,000 characters, the new message, and this answer's tool calls so far."
+   },
+   {
+    "title": "One call to a model that keeps nothing",
+    "text": "Gemini Flash reads only this request. It keeps nothing between calls, so the next call is built from scratch again."
+   },
+   {
+    "title": "The loop reads fresh and stops for a yes",
+    "text": "A read runs and its result is added to layer 5, then the model is called again, at most 6 times. A write that needs a yes seals layer 5 into a ticket valid for 10 minutes, carried by the browser."
+   },
+   {
+    "title": "What is left out, and why",
+    "text": "Older messages past 24,000 characters, old tool results and the household's other bills are left out on purpose. In Chroma's July 2025 test, 18 of 18 models did better with about 300 relevant tokens than with all 113,000."
+   }
+  ],
+  "route": [
+   {
+    "title": "The browser resends the whole conversation",
+    "text": "The browser holds the chat and sends it with every new message, at most the newest 40. Here it sends 3. The server stores none of it."
+   },
+   {
+    "title": "Trim the history to a budget, newest first",
+    "text": "The server walks back from the newest message and keeps whole messages within 24,000 characters. The kept slice starts on a message from the person. Older messages are dropped whole."
+   },
+   {
+    "title": "Write in the facts the model cannot know",
+    "text": "The model has no clock. The server writes today's date in the household's timezone, plus the currency and language, into the system prompt (example: Tue 2026-10-13, CHF)."
+   },
+   {
+    "title": "Call the model with prompt, tools, history and message",
+    "text": "The request carries the system prompt, 46 tool definitions, the trimmed history and the new message. The history drops earlier tool results, so the model asks for `find_bills` to find the bill again."
+   },
+   {
+    "title": "Fetch the bill fresh, because bills change",
+    "text": "The server runs `find_bills(\"electricity\")` and gets b_19, version 3, 84.20 CHF (example). It adds the call and its result to the messages and calls the model again."
+   },
+   {
+    "title": "Pause the loop for the person's yes",
+    "text": "The model asks for `mark_paid` b_19, a write that needs the person's yes. The server seals this message's tool calls and results into a ticket, sends the card and the ticket, and keeps nothing."
+   },
+   {
+    "title": "Resume from the ticket and stop on a reply with no tool calls",
+    "text": "The browser sends yes, the same chat and the ticket. The server restores the tool calls, runs `mark_paid` and calls the model a third time. A reply with no tool calls ends the loop: 3 model calls over 2 requests."
+   }
+  ]
+ }
+}

@@ -17,6 +17,7 @@ from pygments.lexers import get_lexer_by_name
 from pygments.util import ClassNotFound
 
 from store import ROOT, Block, Story
+import vzlib
 
 E = lambda s: html.escape(s or "", quote=True)  # noqa: E731
 
@@ -166,10 +167,11 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
     ov = story.overview or {}
     overview = ""
     svg = ROOT / "diagrams" / f"{block.id}.svg"
-    if ov and svg.exists():
-        n = order.index(block.id)
+    map_fig = vzlib.map_figure(block.id)
+    if ov and (map_fig or svg.exists()):
+        fig = map_fig or f'<div class="ov-scroll">{svg.read_text()}</div>'
         overview = (f'<section class="ov"><p class="kicker">The whole picture</p>'
-                    f'<figure class="ov-fig"><div class="ov-scroll">{svg.read_text()}</div>'
+                    f'<figure class="ov-fig">{fig}'
                     f'<figcaption>{inline(ov.get("caption", ""))}</figcaption>'
                     f'<p class="ov-get">For slides: <a href="../diagrams/{block.id}.png" download>PNG light</a>'
                     f' · <a href="../diagrams/{block.id}-dark.png" download>PNG dark</a>'
@@ -180,6 +182,15 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
         fact = f'<p class="fact">{inline(s.fact)}</p>' if s.fact else ""
         steps.append(f'<article class="step" data-step="{s.n}"><span class="n">Step {s.n}</span><h3>{inline(s.title)}</h3>'
                      f'<p>{inline(s.text)}</p>{fact}<p class="refs">{ref_links(s.refs)}</p></article>')
+
+    seq_fig = vzlib.sequence_figure(block.id)
+    if seq_fig:
+        walk_body = (f'<figure class="seq-fig">{seq_fig}</figure>'
+                     f'<details class="walk-detail"><summary>Each step in full, with its sources</summary>'
+                     f'<div class="steps flat">{"".join(steps)}</div></details>')
+    else:
+        walk_body = (f'<div class="walk-grid"><figure class="stage">{diagram(story)}<figcaption class="cap">Each step lights up as you read it.</figcaption></figure>'
+                     f'<div class="steps">{"".join(steps)}</div></div>')
 
     cards = "".join(
         f'<div class="card"><span class="n">{k}</span><h3>{inline(t)}</h3><p>{inline(x)}</p><span class="id">{ref_links(r)}</span></div>'
@@ -207,6 +218,7 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="../assets/story.css?v={version}">
+<link rel="stylesheet" href="../assets/vz.css?v={version}">
 </head><body>
 <div class="bar"><div class="bar-in"><a class="brand" href="../">AI Building Blocks</a><span class="count">{pos:02d} / {total}</span>
 <span class="prog"><i style="width:{100 * pos / total:.2f}%"></i></span><a class="ref" href="reference/">Reference</a>
@@ -218,8 +230,7 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
 <section class="idea"><p class="kicker">The idea</p><p class="big">{inline(idea.get("sentence", ""))}</p>
 <p class="ana">{inline(idea.get("analogy", ""))}</p></section>
 <section class="walk"><p class="kicker">Watch it happen</p><h2>{inline(w.get("title", ""))}</h2><p class="lead">{inline(w.get("lead", ""))}</p>
-<div class="walk-grid"><figure class="stage">{diagram(story)}<figcaption class="cap">Each step lights up as you read it.</figcaption></figure>
-<div class="steps">{"".join(steps)}</div></div></section>
+{walk_body}</section>
 <section class="take"><p class="kicker">Take away</p><h2>{len(story.takeaways)} things to remember</h2><div class="cards">{cards}</div></section>
 <section class="trap"><p class="kicker">The trap</p><h2>{inline(tr.get("title", ""))}</h2>
 <div class="trap-box"><div class="wrong"><span class="lbl">What people assume</span><h3>{inline(a_h)}</h3><p>{inline(a_t)}</p></div>
@@ -230,6 +241,7 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
 <nav class="next" aria-label="Continue">{deeper}{nxt_card}</nav>
 </div>
 <script src="../assets/story.js?v={version}"></script>
+<script src="../assets/vz-reveal.js?v={version}"></script>
 </body></html>"""
 
 
@@ -280,29 +292,48 @@ def home(blocks: dict[str, Block], order: list[str], stories: dict, path_rows: l
 
 
 def slides(blocks: dict[str, Block], order: list[str], version: str) -> str:
-    """Every overview diagram, one per screen, for presenting. Arrow keys or the buttons move between them."""
+    """Every block's map and walkthrough, one per screen, for presenting. The buttons, or the arrow keys,
+    step through a diagram while it plays, and move to the next screen when it is done or not playing."""
     out = []
     for b in order:
-        svg = ROOT / "diagrams" / f"{b}.svg"
-        if svg.exists():
-            out.append(f'<section class="slide" id="{b}"><span class="sn">{blocks[b].number:02d} · {E(blocks[b].front.get("title", ""))}</span>'
-                       f'<div class="sl-fig">{svg.read_text()}</div></section>')
+        head = f'{blocks[b].number:02d} · {E(blocks[b].front.get("title", ""))}'
+        fig = vzlib.map_figure(b)
+        if not fig and (ROOT / "diagrams" / f"{b}.svg").exists():
+            fig = (ROOT / "diagrams" / f"{b}.svg").read_text()
+        if fig:
+            out.append(f'<section class="slide" id="{b}"><span class="sn">{head}</span><div class="sl-fig">{fig}</div></section>')
+        seq = vzlib.sequence_figure(b)
+        if seq:
+            out.append(f'<section class="slide" id="{b}-walk"><span class="sn">{head} · walkthrough</span><div class="sl-fig">{seq}</div></section>')
     return f"""<!doctype html>
 <html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Slides · AI Building Blocks</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="../assets/story.css?v={version}">
+<link rel="stylesheet" href="../assets/vz.css?v={version}">
 </head><body class="deck">
 {"".join(out)}
-<nav class="deck-nav"><a href="../">Site</a><button type="button" id="prev">Previous</button><span id="pos"></span><button type="button" id="next">Next</button><button type="button" id="theme">Theme</button></nav>
+<nav class="deck-nav"><a href="../">Site</a><button type="button" id="prev">Previous slide</button><span id="pos"></span><button type="button" id="next">Next slide</button><button type="button" id="theme">Theme</button></nav>
+<script src="../assets/vz-reveal.js?v={version}"></script>
 <script>
 (() => {{
   const s = [...document.querySelectorAll('.slide')];
   let i = Math.max(0, s.findIndex(x => '#' + x.id === location.hash));
   const show = (k) => {{ i = Math.min(s.length - 1, Math.max(0, k)); s.forEach((x, j) => x.hidden = j !== i);
     document.getElementById('pos').textContent = (i + 1) + ' / ' + s.length; history.replaceState(null, '', '#' + s[i].id); }};
-  addEventListener('keydown', (e) => {{ if (['ArrowRight', 'PageDown', ' '].includes(e.key)) {{ e.preventDefault(); show(i + 1); }}
-    if (['ArrowLeft', 'PageUp'].includes(e.key)) {{ e.preventDefault(); show(i - 1); }} }});
+  const player = () => s[i].querySelector('[data-vz-player]');
+  addEventListener('keydown', (e) => {{
+    if (e.target instanceof Element && e.target.closest('button, input')) return;
+    const p = player(), st = p && p.vz && p.vz.state();
+    if (['ArrowRight', 'PageDown', ' '].includes(e.key)) {{
+      e.preventDefault();
+      if (st && st.mode && st.cur < st.last) p.vz.go(st.cur + 1); else show(i + 1);
+    }}
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) {{
+      e.preventDefault();
+      if (st && st.mode && st.cur > 0) p.vz.go(st.cur - 1); else show(i - 1);
+    }}
+  }});
   document.getElementById('next').onclick = () => show(i + 1);
   document.getElementById('prev').onclick = () => show(i - 1);
   document.getElementById('theme').onclick = () => {{ const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark'; }};

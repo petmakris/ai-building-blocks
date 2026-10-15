@@ -1,0 +1,564 @@
+{
+ "title": "One gateway checks who pays, retries, falls back and prices every model attempt",
+ "aria": "Two features, the rater and the tutor, send every model call into one gateway. The gateway checks who pays, lists the models to try, calls one model with retries inside a time budget, and on failure falls back to the next model with a fresh budget. In the example the rater's Flash Lite call fails with 503 and Flash answers, and the spend log shows the call cost about four times as much. When no model is left, the feature degrades.",
+ "columns": [
+  "Who calls",
+  "The gateway · every call passes here",
+  "Gemini · an example rater call"
+ ],
+ "boxes": [
+  {
+   "id": "rater",
+   "col": 0,
+   "row": 0,
+   "name": "Rater",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    {
+     "text": "gemini-2.5-flash-lite",
+     "mono": true
+    },
+    "2 s budget · 500 tokens"
+   ]
+  },
+  {
+   "id": "tutor",
+   "col": 0,
+   "row": 1,
+   "name": "Tutor",
+   "b": 1,
+   "lines": [
+    {
+     "text": "gemini-2.5-flash",
+     "mono": true
+    },
+    "4 s budget · 700 tokens"
+   ]
+  },
+  {
+   "id": "failed",
+   "col": 0,
+   "row": 4,
+   "tone": "amber",
+   "name": "All models failed",
+   "b": 4,
+   "lines": [
+    "the feature degrades:",
+    {
+     "text": "a line written in advance,",
+     "tone": "amber"
+    },
+    {
+     "text": "or a turn with no score",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "pays",
+   "col": 1,
+   "row": 0,
+   "tone": "green",
+   "name": "1 · Who pays?",
+   "b": 2,
+   "r": 1,
+   "lines": [
+    "a user and a feature, or a reason",
+    {
+     "text": "none: refused, no request sent",
+     "tone": "green"
+    },
+    {
+     "text": "example: userId 42 · `onboarding_level_chat`",
+     "r": 1
+    }
+   ]
+  },
+  {
+   "id": "list",
+   "col": 1,
+   "row": 1,
+   "name": "2 · List the models to try",
+   "b": 2,
+   "r": 2,
+   "lines": [
+    "the named model first, then every",
+    "other enabled model, by priority",
+    {
+     "text": "rater: [Flash Lite, Flash]",
+     "r": 2
+    }
+   ]
+  },
+  {
+   "id": "call",
+   "col": 1,
+   "row": 2,
+   "rows": 2,
+   "tone": "red",
+   "name": "3 · Call one model",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    "holds the API key; no feature sees it",
+    "retries 429, 500, 502, 503, 504",
+    "waits 3 s, then 6 s; at most 3 tries",
+    {
+     "text": "no wait past the budget: give up",
+     "tone": "amber"
+    },
+    {
+     "text": "records every attempt, failures too",
+     "gap": true,
+     "r": 4
+    }
+   ]
+  },
+  {
+   "id": "next",
+   "col": 1,
+   "row": 4,
+   "tone": "red",
+   "name": "4 · Failed? Next model",
+   "b": 4,
+   "r": 5,
+   "lines": [
+    "each model gets a fresh budget",
+    {
+     "text": "other answers, other price",
+     "tone": "amber"
+    },
+    "none left: the call fails"
+   ]
+  },
+  {
+   "id": "worst",
+   "col": 2,
+   "row": 0,
+   "tone": "amber",
+   "name": "Worst-case wait",
+   "b": 4,
+   "lines": [
+    "the budget × the number of models",
+    {
+     "text": "tunatutor: 120 s × 2 models = 4 minutes",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "never",
+   "col": 2,
+   "row": 1,
+   "name": "Never retried: 400, 401, 403",
+   "b": 3,
+   "lines": [
+    "a bad request or a bad key fails",
+    "the same way again, and may cost money"
+   ]
+  },
+  {
+   "id": "lite",
+   "col": 2,
+   "row": 2,
+   "tone": "blue",
+   "name": "gemini-2.5-flash-lite",
+   "mono": true,
+   "b": 3,
+   "r": 3,
+   "lines": [
+    "$0.10 in · $0.40 out per 1M tokens",
+    {
+     "text": "503: a 3 s wait does not fit 2 s",
+     "tone": "red"
+    }
+   ]
+  },
+  {
+   "id": "flash",
+   "col": 2,
+   "row": 3,
+   "tone": "blue",
+   "name": "gemini-2.5-flash",
+   "mono": true,
+   "b": 3,
+   "r": 5,
+   "lines": [
+    "$0.30 in · $2.50 out per 1M tokens",
+    {
+     "text": "200 at 1.1 s: 1,200 in, 150 out",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "spend",
+   "col": 2,
+   "row": 4,
+   "name": "Spend log",
+   "b": 5,
+   "r": 4,
+   "lines": [
+    {
+     "text": "`provider_usage_events`"
+    },
+    "one row per token kind, priced when written",
+    {
+     "text": "Flash Lite · input · 0 tokens · error · $0",
+     "tone": "red",
+     "gap": true
+    },
+    {
+     "text": "Flash · input · 1,200 tokens · $0.00036",
+     "r": 6
+    },
+    {
+     "text": "Flash · output · 150 tokens · $0.000375",
+     "r": 6
+    },
+    {
+     "text": "total $0.000735; on Flash Lite $0.00018",
+     "tone": "amber",
+     "gap": true,
+     "r": 6
+    },
+    {
+     "text": "the fallback made the call about 4× dearer",
+     "tone": "amber",
+     "r": 6
+    },
+    {
+     "text": "a cost report: one `GROUP BY` over feature, user or model",
+     "r": 6
+    }
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "",
+   "tone": "red",
+   "boxes": [
+    "pays",
+    "list",
+    "call",
+    "next"
+   ],
+   "b": 2
+  }
+ ],
+ "arrows": [
+  {
+   "from": "call",
+   "to": "spend",
+   "dash": true,
+   "b": 5,
+   "points": [
+    [
+     619,
+     630
+    ],
+    [
+     662,
+     630
+    ],
+    [
+     662,
+     810
+    ],
+    [
+     701,
+     810
+    ]
+   ]
+  },
+  {
+   "from": "rater",
+   "to": "pays",
+   "b": 2
+  },
+  {
+   "from": "tutor",
+   "to": "pays",
+   "path": "hvh",
+   "b": 2
+  },
+  {
+   "from": "pays",
+   "to": "list",
+   "b": 2
+  },
+  {
+   "from": "list",
+   "to": "call",
+   "b": 3
+  },
+  {
+   "from": "call",
+   "to": "lite",
+   "tone": "blue",
+   "label": "attempt 1",
+   "offset": -14,
+   "b": 3
+  },
+  {
+   "from": "lite",
+   "to": "call",
+   "tone": "red",
+   "dash": true,
+   "offset": 14,
+   "b": 3
+  },
+  {
+   "from": "call",
+   "to": "flash",
+   "tone": "blue",
+   "label": "attempt 2",
+   "offset": -34,
+   "b": 3
+  },
+  {
+   "from": "flash",
+   "to": "call",
+   "tone": "green",
+   "offset": -14,
+   "b": 3
+  },
+  {
+   "from": "call",
+   "to": "tutor",
+   "tone": "green",
+   "label": "answer",
+   "b": 3,
+   "offset_to": 16
+  },
+  {
+   "from": "call",
+   "to": "next",
+   "b": 4
+  },
+  {
+   "from": "next",
+   "to": "call",
+   "tone": "red",
+   "label": "fallback",
+   "offset": 90,
+   "b": 4
+  },
+  {
+   "from": "next",
+   "to": "failed",
+   "tone": "amber",
+   "b": 4
+  },
+  {
+   "layer": "route",
+   "from": "rater",
+   "to": "pays",
+   "n": 1,
+   "r": 1
+  },
+  {
+   "layer": "route",
+   "from": "pays",
+   "to": "list",
+   "n": 2,
+   "r": 2
+  },
+  {
+   "layer": "route",
+   "from": "list",
+   "to": "call",
+   "r": 3
+  },
+  {
+   "layer": "route",
+   "from": "call",
+   "to": "lite",
+   "tone": "blue",
+   "n": 3,
+   "r": 3,
+   "offset": -14,
+   "label": "call, 2 s budget"
+  },
+  {
+   "layer": "route",
+   "from": "lite",
+   "to": "call",
+   "tone": "red",
+   "dash": true,
+   "r": 3,
+   "offset": 14
+  },
+  {
+   "layer": "route",
+   "from": "call",
+   "to": "spend",
+   "dash": true,
+   "n": 4,
+   "r": 4,
+   "label": "0 tokens · error",
+   "points": [
+    [
+     619,
+     618
+    ],
+    [
+     674,
+     618
+    ],
+    [
+     674,
+     790
+    ],
+    [
+     701,
+     790
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "call",
+   "to": "next",
+   "tone": "red",
+   "r": 5
+  },
+  {
+   "layer": "route",
+   "from": "call",
+   "to": "flash",
+   "tone": "blue",
+   "n": 5,
+   "r": 5,
+   "offset": -34,
+   "label": "fallback, fresh 2 s budget"
+  },
+  {
+   "layer": "route",
+   "from": "flash",
+   "to": "call",
+   "tone": "green",
+   "r": 5,
+   "offset": -14
+  },
+  {
+   "layer": "route",
+   "from": "call",
+   "to": "spend",
+   "dash": true,
+   "n": 6,
+   "r": 6,
+   "label": "Flash · $0.000735",
+   "points": [
+    [
+     619,
+     644
+    ],
+    [
+     652,
+     644
+    ],
+    [
+     652,
+     840
+    ],
+    [
+     701,
+     840
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "call",
+   "to": "rater",
+   "tone": "green",
+   "n": 6,
+   "r": 6,
+   "label": "the answer",
+   "offset_to": 16
+  }
+ ],
+ "legend": [
+  {
+   "label": "a feature's call"
+  },
+  {
+   "tone": "blue",
+   "label": "a request to Gemini"
+  },
+  {
+   "tone": "red",
+   "dash": true,
+   "label": "an error reply"
+  },
+  {
+   "tone": "green",
+   "label": "a good reply"
+  },
+  {
+   "tone": "red",
+   "label": "fallback"
+  },
+  {
+   "dash": true,
+   "label": "a spend record"
+  },
+  {
+   "tone": "amber",
+   "label": "no model left"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "Two features call a model",
+    "text": "The rater uses `gemini-2.5-flash-lite` with a 2 s budget. The tutor uses `gemini-2.5-flash` with a 4 s budget."
+   },
+   {
+    "title": "Every call enters one gateway",
+    "text": "The gateway first asks who pays: a user and a feature, or a reason. A call with none is refused before any request leaves. Then it lists the models to try."
+   },
+   {
+    "title": "Call one model, retry inside the budget",
+    "text": "The gateway holds the API key. It retries 429, 500, 502, 503 and 504, waiting 3 s, then 6 s. A wait past the budget means give up. 400, 401 and 403 are never retried."
+   },
+   {
+    "title": "Fall back to the next model",
+    "text": "A failed model hands the call to the next one, with a fresh budget, other answers and another price. The worst-case wait is the budget times the number of models. With no model left, the feature degrades."
+   },
+   {
+    "title": "Price every attempt",
+    "text": "Every attempt goes to the spend log, failures as zero-token rows. Here the fallback made the call about 4× dearer."
+   }
+  ],
+  "route": [
+   {
+    "title": "Check who pays, before any network call",
+    "text": "The rater's call names user 42 (example) and the feature `onboarding_level_chat`. A call without a payer is refused on the spot."
+   },
+   {
+    "title": "Build the list of models to try",
+    "text": "The named model goes first, then every other enabled model by priority: [Flash Lite, Flash]."
+   },
+   {
+    "title": "Retry only what a retry can fix, inside the budget",
+    "text": "Flash Lite answers 503. A second try would come after 3 s, which does not fit the 2 s budget, so the gateway gives up on Flash Lite."
+   },
+   {
+    "title": "Write down the failure too",
+    "text": "The failed attempt reports no tokens. It is still recorded, as a zero-token row marked as an error."
+   },
+   {
+    "title": "Fall back to the next model",
+    "text": "Flash gets a fresh 2 s budget and answers at 1.1 s. The feature never sees the outage, but its answer now comes from a different model."
+   },
+   {
+    "title": "Price the attempt the moment it happens",
+    "text": "The rows are priced at today's rates and written in the background while the answer goes back. One `GROUP BY` over feature, user or model then shows the ×4."
+   }
+  ]
+ }
+}

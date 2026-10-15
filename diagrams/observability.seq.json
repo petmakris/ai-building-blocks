@@ -1,0 +1,46 @@
+{
+ "title": "Records and a scored sample catch a model change that returns 200",
+ "subtitle": "A made-up incident on a real feature, with real model names. The prompt is at version 14.",
+ "actors": [
+  {"id": "wrapper", "label": "Wrapper", "role": "every model call", "tone": "red"},
+  {"id": "gemini", "label": "Gemini", "role": "gemini-flash-latest, an alias", "tone": "blue"},
+  {"id": "records", "label": "Records", "role": "log, text, scores"},
+  {"id": "checker", "label": "Checker", "role": "a second, pinned model", "tone": "blue"},
+  {"id": "owner", "label": "Owner", "role": "gets the alert"}
+ ],
+ "phases": [
+  {"id": "p1", "label": "Monday · every grading call", "start_at": "s1"},
+  {"id": "p2", "label": "Tuesday 06:00 · the nightly job", "start_at": "s8"},
+  {"id": "p3", "label": "The fix", "start_at": "s12"}
+ ],
+ "steps": [
+  {"id": "s1", "from": "wrapper", "to": "gemini", "arrow": "request", "label": "grade \"Eu sou um barista.\"", "sub": "model gemini-flash-latest", "tone": "blue", "n": 1},
+  {"id": "s2", "from": "gemini", "to": "wrapper", "arrow": "event", "label": "200 in 1.4 s · verdict wrong", "tone": "red", "n": 1},
+  {"id": "s3", "from": "wrapper", "to": "records", "arrow": "event", "label": "v14 · preview model · $0.000196", "sub": "gemini-2.5-flash-preview-09-2025", "n": 2},
+  {"id": "s4", "from": "wrapper", "to": "records", "arrow": "event", "label": "redacted prompt and reply", "sub": "kept 14 days", "tone": "amber", "n": 2},
+  {"id": "s5", "from": "wrapper", "to": "wrapper", "arrow": "self", "label": "2% draw, off the request path", "sub": "hash(trace ID) mod 100 < 2", "n": 3},
+  {"id": "s6", "from": "records", "to": "checker", "arrow": "request", "label": "redacted text, verdict, rubric", "tone": "blue", "n": 3},
+  {"id": "s7", "from": "checker", "to": "records", "arrow": "event", "label": "DISAGREE, stored as 0", "sub": "llm_eval", "tone": "red", "n": 3},
+  {"id": "s8", "from": "records", "to": "records", "arrow": "self", "label": "Monday 0.81, alert line 0.92", "sub": "30-day mean − 3 SD", "tone": "red", "n": 4,
+   "checks": [{"label": "rate ≥ 0.92", "ok": false}]},
+  {"id": "s9", "from": "records", "to": "owner", "arrow": "event", "label": "alert at 06:00 Tuesday", "tone": "red", "n": 4},
+  {"id": "s10", "from": "owner", "to": "records", "arrow": "request", "label": "group by version and model", "sub": "prompt_version, response model", "n": 5},
+  {"id": "s11", "from": "records", "to": "owner", "arrow": "event", "label": "v14 both days · graded wrong 4% → 19%", "tone": "red", "n": 5},
+  {"id": "s12", "from": "wrapper", "to": "wrapper", "arrow": "self", "label": "request the pinned model", "sub": "gemini-2.5-flash", "tone": "green", "n": 6},
+  {"id": "s13", "from": "owner", "to": "gemini", "arrow": "request", "label": "5 stored prompts × 10 runs", "tone": "blue", "n": 6},
+  {"id": "s14", "from": "gemini", "to": "owner", "arrow": "event", "label": "50 of 50 pass", "tone": "green", "n": 6}
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "Fixed: the app requests gemini-2.5-flash, never an alias",
+  "lines": ["50 of 50 replays pass. The barista case joins the test set."]
+ },
+ "captions": [
+  {"title": "A wrong grade comes back as a success", "text": "On Monday morning Google points `gemini-flash-latest` at a preview model. The grading feature now marks correct answers wrong. Every call is fast, returns 200 and throws nothing."},
+  {"title": "The wrapper writes one record per call", "text": "It logs prompt version 14 and the model that answered, `gemini-2.5-flash-preview-09-2025`, a real name. It also stores the prompt and reply with names and emails scrubbed, kept 14 days."},
+  {"title": "A second model scores a 2% sample", "text": "Calls that finished normally enter a random 2% draw and go on a queue. The pinned checker model reads the redacted text, the verdict and a rubric. It answers DISAGREE, stored as 0."},
+  {"title": "The nightly job sees Monday fall below its band", "text": "The alert line 0.92 sits three standard deviations below the 30-day mean. Monday scores 0.81, so the alert fires at 06:00 Tuesday. The first learner reports come that afternoon."},
+  {"title": "Grouping by version shows the model moved", "text": "The prompt is version 14 on every call, so no prompt edit caused it. The response model changes on Monday, and answers graded wrong go from 4% to 19%."},
+  {"title": "Pin the model and replay ten times", "text": "The team requests `gemini-2.5-flash` instead of the alias. The owner replays each of the 5 stored prompts 10 times. All 50 runs pass, and the barista case joins the test set."}
+ ]
+}

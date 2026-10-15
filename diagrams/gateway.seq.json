@@ -1,0 +1,184 @@
+{
+ "title": "Flash Lite's 503 sends the rater call to Flash, and the spend log records both attempts",
+ "subtitle": "Example: a made-up timeline with the real rules. The rater has a 2 s budget, and both models are enabled.",
+ "actors": [
+  {
+   "id": "feat",
+   "label": "Feature",
+   "role": "the rater, 2 s budget"
+  },
+  {
+   "id": "gw",
+   "label": "Gateway",
+   "role": "every call passes here",
+   "tone": "red"
+  },
+  {
+   "id": "lite",
+   "label": "Flash Lite",
+   "role": "the named model",
+   "tone": "blue"
+  },
+  {
+   "id": "flash",
+   "label": "Flash",
+   "role": "the fallback model",
+   "tone": "blue"
+  },
+  {
+   "id": "log",
+   "label": "Spend log",
+   "role": "rows priced when written"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "feat",
+   "to": "gw",
+   "arrow": "request",
+   "label": "rate this answer",
+   "n": 1,
+   "checks": [
+    {
+     "label": "who pays",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "from": "gw",
+   "to": "gw",
+   "arrow": "self",
+   "label": "usage context",
+   "sub": "userId 42 (example) · onboarding_level_chat",
+   "tone": "green",
+   "n": 1
+  },
+  {
+   "id": "s3",
+   "from": "gw",
+   "to": "gw",
+   "arrow": "self",
+   "label": "list of models to try",
+   "sub": "[Flash Lite, Flash]",
+   "n": 2
+  },
+  {
+   "id": "s4",
+   "from": "gw",
+   "to": "lite",
+   "arrow": "request",
+   "label": "call, 2 s budget",
+   "tone": "blue",
+   "n": 3
+  },
+  {
+   "id": "s5",
+   "from": "lite",
+   "to": "gw",
+   "arrow": "event",
+   "label": "503 · next try after 3 s",
+   "tone": "red",
+   "n": 3,
+   "checks": [
+    {
+     "label": "503 can be retried",
+     "ok": true
+    },
+    {
+     "label": "3 s wait fits 2 s",
+     "ok": false
+    }
+   ]
+  },
+  {
+   "id": "s6",
+   "from": "gw",
+   "to": "gw",
+   "arrow": "self",
+   "label": "give up on Flash Lite",
+   "tone": "amber",
+   "n": 3
+  },
+  {
+   "id": "s7",
+   "from": "gw",
+   "to": "log",
+   "arrow": "event",
+   "label": "Flash Lite · 0 tokens · error",
+   "tone": "red",
+   "n": 4
+  },
+  {
+   "id": "s8",
+   "from": "gw",
+   "to": "flash",
+   "arrow": "request",
+   "label": "fallback, fresh 2 s budget",
+   "tone": "blue",
+   "n": 5
+  },
+  {
+   "id": "s9",
+   "from": "flash",
+   "to": "gw",
+   "arrow": "event",
+   "label": "200 at 1.1 s",
+   "sub": "1,200 in · 150 out",
+   "tone": "green",
+   "n": 5
+  },
+  {
+   "id": "s10",
+   "from": "gw",
+   "to": "log",
+   "arrow": "request",
+   "label": "Flash · $0.000735 · priced now",
+   "n": 6
+  },
+  {
+   "id": "s11",
+   "from": "gw",
+   "to": "feat",
+   "arrow": "event",
+   "label": "the answer",
+   "tone": "green",
+   "n": 6
+  }
+ ],
+ "outcome": {
+  "tone": "amber",
+  "title": "Answered by Flash, at about 4× the price",
+  "lines": [
+   "$0.000735 instead of $0.00018 on Flash Lite. The feature never saw the outage. One GROUP BY over feature, user or model shows the ×4."
+  ]
+ },
+ "captions": [
+  {
+   "title": "Check who pays, before any network call",
+   "text": "The rater's call names user 42 (example) and the feature `onboarding_level_chat`. A call without a payer is refused on the spot."
+  },
+  {
+   "title": "Build the list of models to try",
+   "text": "The named model goes first, then every other enabled model by priority: [Flash Lite, Flash]."
+  },
+  {
+   "title": "Retry only what a retry can fix, inside the budget",
+   "text": "Flash Lite answers 503. A second try would come after 3 s, which does not fit the 2 s budget, so the gateway gives up on Flash Lite."
+  },
+  {
+   "title": "Write down the failure too",
+   "text": "The failed attempt reports no tokens. It is still recorded, as a zero-token row marked as an error."
+  },
+  {
+   "title": "Fall back to the next model",
+   "text": "Flash gets a fresh 2 s budget and answers at 1.1 s. The feature never sees the outage, but its answer now comes from a different model."
+  },
+  {
+   "title": "Price the attempt the moment it happens",
+   "text": "The rows are priced at today's rates and written in the background while the answer goes back. One `GROUP BY` over feature, user or model then shows the ×4."
+  }
+ ]
+}

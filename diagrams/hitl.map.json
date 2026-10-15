@@ -1,0 +1,510 @@
+{
+ "title": "A risky write waits for a person's click, and only the stored call runs, once",
+ "aria": "The model asks for mark_paid. Code checks a constant confirm list: reads and four adds run at once, while 31 tools are checked against the stored bill, saved as a proposal that expires in 10 minutes, and shown to the person as a card built from stored data. The click is a new request that sends only a reference; the server checks owner, expiry and single use, runs exactly the stored call with the version checked again, and gives the model the result under its own call id.",
+ "columns": [
+  "The model",
+  "Code: hold or run",
+  "Code: card and proposal",
+  "The person"
+ ],
+ "boxes": [
+  {
+   "id": "model",
+   "col": 0,
+   "row": 0,
+   "rows": 3,
+   "tone": "blue",
+   "name": "The model",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "Gemini Flash in Billpod",
+    "runs no code, only asks",
+    {
+     "text": "example call:",
+     "gap": true,
+     "r": 2
+    },
+    {
+     "text": "`mark_paid b17 v3`",
+     "tone": "blue",
+     "r": 2
+    },
+    {
+     "text": "`card · id c2`",
+     "tone": "blue",
+     "r": 2
+    },
+    {
+     "text": "reads and adds: results",
+     "gap": true,
+     "b": 2
+    },
+    {
+     "text": "in the same request",
+     "b": 2
+    },
+    {
+     "text": "the click's request loads",
+     "gap": true,
+     "b": 4,
+     "r": 7
+    },
+    {
+     "text": "the chat, adds the result",
+     "b": 4,
+     "r": 7
+    },
+    {
+     "text": "under c2, asks again",
+     "b": 4,
+     "r": 7
+    },
+    {
+     "text": "\"Done: marked paid.\"",
+     "tone": "blue",
+     "b": 4,
+     "r": 7
+    },
+    {
+     "text": "Cancel: a declined result",
+     "b": 4
+    }
+   ]
+  },
+  {
+   "id": "confirm",
+   "col": 1,
+   "row": 0,
+   "tone": "red",
+   "name": "Confirm list in code",
+   "b": 1,
+   "r": 2,
+   "lines": [
+    {
+     "text": "`CONFIRM_TOOLS`"
+    },
+    "31 of the 46 tools need a yes",
+    "a constant: no text the model",
+    "reads can change it"
+   ]
+  },
+  {
+   "id": "precheck",
+   "col": 2,
+   "row": 0,
+   "name": "Pre-check, then a card",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    "bill exists? version 3? unpaid?",
+    {
+     "text": "fails: error to model, no card",
+     "tone": "amber"
+    },
+    {
+     "text": "card: stored row + checked args",
+     "r": 4
+    },
+    {
+     "text": "never the model's own words",
+     "r": 4
+    }
+   ]
+  },
+  {
+   "id": "runsnow",
+   "col": 1,
+   "row": 1,
+   "tone": "green",
+   "name": "Runs at once",
+   "b": 2,
+   "r": 1,
+   "lines": [
+    "11 reads, such as `find_bills`",
+    "4 adds, such as `add_bill`",
+    {
+     "text": "`add_bill` gets an Undo button",
+     "tone": "green"
+    },
+    {
+     "text": "an injected add runs too:",
+     "tone": "amber",
+     "b": 5
+    },
+    {
+     "text": "Undo is its only defence",
+     "tone": "amber",
+     "b": 5
+    },
+    {
+     "text": "example: b17 · CHF 84.20 · version 3",
+     "gap": true,
+     "r": 1
+    }
+   ]
+  },
+  {
+   "id": "proposal",
+   "col": 2,
+   "row": 1,
+   "tone": "red",
+   "name": "Proposal stored",
+   "b": 3,
+   "r": 4,
+   "lines": [
+    "row: call, args, version 3",
+    "expires in 10 minutes",
+    "Billpod: a sealed AES-256-GCM",
+    "token the browser carries",
+    {
+     "text": "the turn ends, nothing waits",
+     "tone": "red"
+    }
+   ]
+  },
+  {
+   "id": "runstored",
+   "col": 1,
+   "row": 2,
+   "tone": "green",
+   "name": "Runs the stored call",
+   "b": 4,
+   "r": 6,
+   "lines": [
+    "exact args, under id c2",
+    {
+     "text": "`WHERE version = 3`"
+    },
+    {
+     "text": "1 row updated: paid",
+     "tone": "green",
+     "r": 6
+    },
+    {
+     "text": "0 rows: refusal to the model",
+     "tone": "amber"
+    },
+    "later writes of that step:",
+    {
+     "text": "`NOT_RUN`"
+    }
+   ]
+  },
+  {
+   "id": "clickcheck",
+   "col": 2,
+   "row": 2,
+   "tone": "green",
+   "name": "Server checks the click",
+   "b": 4,
+   "r": 5,
+   "lines": [
+    "same user, same chat? else 400",
+    "under 10 minutes old? else 410",
+    "never answered? else 409",
+    "Cancel runs nothing and tells",
+    "the model it was declined"
+   ]
+  },
+  {
+   "id": "person",
+   "col": 3,
+   "row": 0,
+   "rows": 2,
+   "name": "The person",
+   "b": 3,
+   "r": 4,
+   "lines": [
+    "reads the card, decides",
+    {
+     "text": "93%: Claude Code users",
+     "tone": "amber",
+     "gap": true,
+     "b": 5
+    },
+    {
+     "text": "approve almost every prompt",
+     "tone": "amber",
+     "b": 5
+    },
+    {
+     "text": "ask only where it matters",
+     "b": 5
+    }
+   ],
+   "children": [
+    {
+     "id": "card",
+     "tone": "red",
+     "name": "example card",
+     "r": 4,
+     "lines": [
+      "Mark this bill as paid?",
+      "City Power AG",
+      "CHF 84.20, by card",
+      "15 Oct 2026",
+      "Approve, Change, Cancel"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "click",
+   "col": 3,
+   "row": 2,
+   "name": "The click",
+   "b": 4,
+   "r": 5,
+   "lines": [
+    "sends only",
+    "`row id + approve`",
+    "no arguments, so it cannot",
+    "swap in another call"
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "Request 1 · the person's message",
+   "boxes": [
+    "confirm",
+    "precheck",
+    "runsnow",
+    "proposal"
+   ],
+   "b": 1
+  },
+  {
+   "label": "Request 2 · the click",
+   "boxes": [
+    "runstored",
+    "clickcheck",
+    "click"
+   ],
+   "b": 4
+  }
+ ],
+ "arrows": [
+  {
+   "from": "model",
+   "to": "confirm",
+   "tone": "blue",
+   "b": 1
+  },
+  {
+   "from": "confirm",
+   "to": "runsnow",
+   "tone": "green",
+   "label": "not on list",
+   "b": 2
+  },
+  {
+   "from": "runsnow",
+   "to": "model",
+   "tone": "blue",
+   "label": "result",
+   "b": 2
+  },
+  {
+   "from": "confirm",
+   "to": "precheck",
+   "tone": "red",
+   "label": "on list",
+   "b": 3
+  },
+  {
+   "from": "precheck",
+   "to": "person",
+   "tone": "red",
+   "label": "card",
+   "b": 3
+  },
+  {
+   "from": "precheck",
+   "to": "proposal",
+   "tone": "red",
+   "label": "saves",
+   "b": 3
+  },
+  {
+   "from": "proposal",
+   "to": "clickcheck",
+   "tone": "red",
+   "label": "loads",
+   "b": 4
+  },
+  {
+   "from": "click",
+   "to": "clickcheck",
+   "label": "click",
+   "b": 4
+  },
+  {
+   "from": "clickcheck",
+   "to": "runstored",
+   "tone": "green",
+   "label": "passes",
+   "b": 4
+  },
+  {
+   "from": "runstored",
+   "to": "model",
+   "tone": "blue",
+   "label": "c2",
+   "b": 4
+  },
+  {
+   "layer": "route",
+   "from": "model",
+   "to": "runsnow",
+   "tone": "blue",
+   "n": 1,
+   "r": 1,
+   "mono": true,
+   "label": "find_bills"
+  },
+  {
+   "layer": "route",
+   "from": "model",
+   "to": "confirm",
+   "tone": "blue",
+   "n": 2,
+   "r": 2,
+   "mono": true,
+   "label": "mark_paid · id c2"
+  },
+  {
+   "layer": "route",
+   "from": "confirm",
+   "to": "precheck",
+   "tone": "red",
+   "n": 3,
+   "r": 3,
+   "label": "pre-check"
+  },
+  {
+   "layer": "route",
+   "from": "precheck",
+   "to": "person",
+   "tone": "red",
+   "n": 4,
+   "r": 4,
+   "label": "card"
+  },
+  {
+   "layer": "route",
+   "from": "precheck",
+   "to": "proposal",
+   "tone": "red",
+   "r": 4,
+   "label": "saves"
+  },
+  {
+   "layer": "route",
+   "from": "click",
+   "to": "clickcheck",
+   "n": 5,
+   "r": 5,
+   "label": "approve · row id"
+  },
+  {
+   "layer": "route",
+   "from": "proposal",
+   "to": "clickcheck",
+   "tone": "red",
+   "r": 5,
+   "label": "loads"
+  },
+  {
+   "layer": "route",
+   "from": "clickcheck",
+   "to": "runstored",
+   "tone": "green",
+   "n": 6,
+   "r": 6,
+   "mono": true,
+   "label": "WHERE version = 3"
+  },
+  {
+   "layer": "route",
+   "from": "runstored",
+   "to": "model",
+   "tone": "blue",
+   "n": 7,
+   "r": 7,
+   "label": "result for c2"
+  }
+ ],
+ "legend": [
+  {
+   "tone": "blue",
+   "label": "the model's call and its result"
+  },
+  {
+   "tone": "red",
+   "label": "a held call on its way to a person"
+  },
+  {
+   "tone": "green",
+   "label": "code runs it now"
+  },
+  {
+   "label": "the person's click"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "The model only asks",
+    "text": "The model, Gemini Flash in Billpod, runs no code. It asks for a tool call. A confirm list in code, `CONFIRM_TOOLS`, decides what happens next. No text the model reads can change it."
+   },
+   {
+    "title": "Reads and adds run at once",
+    "text": "A tool not on the list runs in the same request: 11 reads and 4 adds. The result goes back to the model at once. `add_bill` gets an Undo button."
+   },
+   {
+    "title": "A risky write becomes a card",
+    "text": "31 of the 46 tools need a yes. Code checks the call against the stored bill, then draws a card from stored data, never the model's words. The proposal is saved for 10 minutes and the turn ends."
+   },
+   {
+    "title": "The click is a new request",
+    "text": "The click sends only a row id and the decision. The server checks user, expiry and single use (400, 410, 409). It runs exactly the stored call with `WHERE version = 3` and gives the model the result under c2."
+   },
+   {
+    "title": "Ask only where it matters",
+    "text": "Claude Code users approve 93% of prompts, so a card on every call is a weak check. An injected add still runs at once, and Undo is its only defence."
+   }
+  ],
+  "route": [
+   {
+    "title": "Let the harmless read run at once",
+    "text": "The model asks for `find_bills`. Reading changes nothing, so it runs at once. The bill goes back with its version: b17, CHF 84.20, version 3."
+   },
+   {
+    "title": "Hold the risky write instead of running it",
+    "text": "The model asks for `mark_paid` with b17, version 3 and card, under call id c2. `mark_paid` is on the confirm list, a constant in code, so it does not run."
+   },
+   {
+    "title": "Check the change can happen before asking anyone",
+    "text": "Code checks that the bill exists, is at version 3 and is unpaid. A call that would fail goes back to the model at once, with no card."
+   },
+   {
+    "title": "Code draws the card from the stored bill",
+    "text": "Payee and amount come from the stored bill: City Power AG, CHF 84.20. The proposal is saved with an expiry and the chat request ends. Billpod seals it in a token instead, valid 10 minutes."
+   },
+   {
+    "title": "The click sends only the row id and the decision",
+    "text": "The server runs only what it stored, for the user it was made for, once. Billpod: a changed token gets 400, an expired one 410, a second answer 409."
+   },
+   {
+    "title": "Run exactly the stored call, checking the version again",
+    "text": "The write runs `WHERE version = 3`: 1 row updated. If the bill had changed, 0 rows, and that refusal goes to the model. Either way, the card is used up."
+   },
+   {
+    "title": "Give the model its answer under its own call id",
+    "text": "The click's request loads the stored chat, adds the result under c2 and asks the model again. It replies \"Done: marked paid.\" On Cancel, the model gets a declined result under c2."
+   }
+  ]
+ }
+}

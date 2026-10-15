@@ -1,0 +1,620 @@
+{
+ "title": "Real rows show change, golden rows show correctness, each check has its own bar",
+ "aria": "An eval gate for a new grading prompt. Up to 200 real learner answers and 36 golden rows that a person labelled run through the old and the new prompt. Real rows are scored against the old verdict, which shows only change. Golden rows are scored against the person's verdict, which shows correctness. Each of four checks has its own bar set before the run. A person reads the results, keeps the feature flag off on a miss, fixes the prompt and never the bar, and moves real-row fixes into the golden rows. A 2-point gap between prompts on 200 rows is within noise.",
+ "columns": [
+  "The rows",
+  "The model",
+  "The checks · bars set before the run",
+  "The decision"
+ ],
+ "boxes": [
+  {
+   "id": "real",
+   "col": 0,
+   "row": 0,
+   "name": "Real rows",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "up to 200 learner answers",
+    "no person's label",
+    {
+     "text": "old verdict is the reference",
+     "r": 3
+    },
+    {
+     "text": "exact matches to the key skipped",
+     "r": 1
+    }
+   ]
+  },
+  {
+   "id": "golden",
+   "col": 0,
+   "row": 1,
+   "tone": "green",
+   "name": "Golden rows",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "36 rows a person labelled",
+    {
+     "text": "15 paraphrases must be right",
+     "tone": "green"
+    },
+    "21 errors must be wrong",
+    {
+     "text": "note: `negation lost`",
+     "gap": true,
+     "r": 4
+    }
+   ]
+  },
+  {
+   "id": "model",
+   "col": 1,
+   "row": 0,
+   "rows": 2,
+   "tone": "blue",
+   "name": "Model, two prompts",
+   "b": 2,
+   "r": 2,
+   "lines": [
+    "old: frozen card prompt",
+    {
+     "text": "new: arc prompt + underlines",
+     "tone": "blue"
+    },
+    "same rows for both",
+    {
+     "text": "≈470 paid calls a run",
+     "tone": "amber",
+     "gap": true
+    },
+    {
+     "text": "temperature 0.3: replies vary",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "c1a",
+   "col": 2,
+   "row": 0,
+   "tone": "red",
+   "name": "1a · Real rows: old vs new",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    "bar 95% agree",
+    {
+     "text": "shows change only",
+     "tone": "red"
+    },
+    "each disagreement: break or fix?"
+   ]
+  },
+  {
+   "id": "c1b",
+   "col": 2,
+   "row": 1,
+   "tone": "green",
+   "name": "1b · Golden rows: vs person",
+   "b": 3,
+   "r": 4,
+   "lines": [
+    "bar 95% right, 0 paraphrase misses",
+    {
+     "text": "shows correctness",
+     "tone": "green"
+    },
+    {
+     "text": "example: 34 of 36 right, FAIL",
+     "tone": "red"
+    }
+   ]
+  },
+  {
+   "id": "c2",
+   "col": 2,
+   "row": 2,
+   "name": "2 · Underlines land",
+   "b": 3,
+   "r": 5,
+   "lines": [
+    "95% land on the learner's words",
+    {
+     "text": "no underlines counts as a pass",
+     "r": 5
+    }
+   ]
+  },
+  {
+   "id": "c3",
+   "col": 2,
+   "row": 3,
+   "name": "3 · Underline is an error",
+   "b": 3,
+   "lines": [
+    "90% of words, a person reads"
+   ]
+  },
+  {
+   "id": "c4",
+   "col": 2,
+   "row": 4,
+   "name": "4 · Speed",
+   "b": 3,
+   "r": 5,
+   "lines": [
+    "95% of new replies within 2.5 s"
+   ]
+  },
+  {
+   "id": "flag",
+   "col": 3,
+   "row": 0,
+   "tone": "green",
+   "name": "Feature flag",
+   "b": 4,
+   "r": 6,
+   "lines": [
+    "`TD_JUDGE_MARKS`",
+    {
+     "text": "false: underlines off",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "person",
+   "col": 3,
+   "row": 1,
+   "rows": 2,
+   "name": "A person",
+   "b": 4,
+   "r": 6,
+   "lines": [
+    "reads every check",
+    "and every miss",
+    "decides; no exit code",
+    {
+     "text": "the script prints PASS or FAIL",
+     "r": 6
+    }
+   ]
+  },
+  {
+   "id": "noise",
+   "col": 0,
+   "row": 6,
+   "cols": 3,
+   "tone": "amber",
+   "name": "Small gaps are noise",
+   "b": 5,
+   "lines": [
+    "200 rows: the rate lands within ±3 points of the true rate 95% of the time. 40 rows: ±7 points.",
+    {
+     "text": "Example: 96% vs 94% on 200 rows proves nothing. Run both prompts on the same rows, read each flipped row.",
+     "tone": "amber"
+    }
+   ]
+  }
+ ],
+ "arrows": [
+  {
+   "from": "real",
+   "to": "model",
+   "tone": "blue",
+   "b": 2
+  },
+  {
+   "from": "golden",
+   "to": "model",
+   "tone": "blue",
+   "b": 2
+  },
+  {
+   "from": "model",
+   "to": "c1a",
+   "b": 3
+  },
+  {
+   "from": "model",
+   "to": "c1b",
+   "b": 3
+  },
+  {
+   "from": "model",
+   "to": "c2",
+   "b": 3,
+   "points": [
+    [
+     550,
+     400
+    ],
+    [
+     590,
+     400
+    ],
+    [
+     590,
+     499
+    ],
+    [
+     602,
+     499
+    ]
+   ]
+  },
+  {
+   "from": "model",
+   "to": "c3",
+   "b": 3,
+   "points": [
+    [
+     550,
+     385
+    ],
+    [
+     578,
+     385
+    ],
+    [
+     578,
+     622
+    ],
+    [
+     602,
+     622
+    ]
+   ]
+  },
+  {
+   "from": "model",
+   "to": "c4",
+   "b": 3,
+   "points": [
+    [
+     550,
+     370
+    ],
+    [
+     566,
+     370
+    ],
+    [
+     566,
+     734
+    ],
+    [
+     602,
+     734
+    ]
+   ]
+  },
+  {
+   "from": "c1a",
+   "to": "person",
+   "b": 4,
+   "points": [
+    [
+     911,
+     144
+    ],
+    [
+     939,
+     144
+    ],
+    [
+     939,
+     296
+    ],
+    [
+     963,
+     296
+    ]
+   ]
+  },
+  {
+   "from": "c1b",
+   "to": "person",
+   "b": 4
+  },
+  {
+   "from": "c2",
+   "to": "person",
+   "b": 4
+  },
+  {
+   "from": "c3",
+   "to": "person",
+   "b": 4,
+   "points": [
+    [
+     911,
+     622
+    ],
+    [
+     951,
+     622
+    ],
+    [
+     951,
+     516
+    ],
+    [
+     963,
+     516
+    ]
+   ]
+  },
+  {
+   "from": "c4",
+   "to": "person",
+   "b": 4,
+   "points": [
+    [
+     911,
+     734
+    ],
+    [
+     963,
+     734
+    ],
+    [
+     963,
+     530
+    ],
+    [
+     963,
+     530
+    ]
+   ]
+  },
+  {
+   "from": "person",
+   "to": "flag",
+   "tone": "green",
+   "label": "if all pass",
+   "b": 4
+  },
+  {
+   "from": "person",
+   "to": "model",
+   "tone": "amber",
+   "dash": true,
+   "label": "a miss: fix the prompt, never the bar, and run again",
+   "b": 5,
+   "points": [
+    [
+     1007,
+     544
+    ],
+    [
+     1007,
+     805
+    ],
+    [
+     442,
+     805
+    ],
+    [
+     442,
+     414
+    ]
+   ]
+  },
+  {
+   "from": "person",
+   "to": "golden",
+   "tone": "green",
+   "dash": true,
+   "label": "a real-row fix joins the golden rows with a person's verdict",
+   "b": 5,
+   "points": [
+    [
+     1142,
+     544
+    ],
+    [
+     1142,
+     843
+    ],
+    [
+     158,
+     843
+    ],
+    [
+     158,
+     414
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "real",
+   "to": "model",
+   "tone": "blue",
+   "n": 1,
+   "r": 1
+  },
+  {
+   "layer": "route",
+   "from": "golden",
+   "to": "model",
+   "tone": "blue",
+   "n": 1,
+   "r": 1
+  },
+  {
+   "layer": "route",
+   "from": "model",
+   "to": "c1a",
+   "n": 3,
+   "r": 3
+  },
+  {
+   "layer": "route",
+   "from": "model",
+   "to": "c1b",
+   "tone": "green",
+   "n": 4,
+   "r": 4
+  },
+  {
+   "layer": "route",
+   "from": "model",
+   "to": "c2",
+   "n": 5,
+   "r": 5,
+   "points": [
+    [
+     550,
+     400
+    ],
+    [
+     590,
+     400
+    ],
+    [
+     590,
+     499
+    ],
+    [
+     602,
+     499
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "model",
+   "to": "c4",
+   "n": 5,
+   "r": 5,
+   "points": [
+    [
+     550,
+     370
+    ],
+    [
+     566,
+     370
+    ],
+    [
+     566,
+     734
+    ],
+    [
+     602,
+     734
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "c1b",
+   "to": "person",
+   "n": 6,
+   "r": 6
+  },
+  {
+   "layer": "route",
+   "from": "person",
+   "to": "model",
+   "tone": "amber",
+   "dash": true,
+   "n": 6,
+   "r": 6,
+   "label": "fix the prompt, run again",
+   "points": [
+    [
+     1007,
+     544
+    ],
+    [
+     1007,
+     805
+    ],
+    [
+     442,
+     805
+    ],
+    [
+     442,
+     414
+    ]
+   ]
+  }
+ ],
+ "legend": [
+  {
+   "tone": "blue",
+   "label": "a model call"
+  },
+  {
+   "label": "verdicts and results"
+  },
+  {
+   "tone": "amber",
+   "dash": true,
+   "label": "fix and run again"
+  },
+  {
+   "tone": "green",
+   "dash": true,
+   "label": "a row moves to golden"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "Two kinds of rows",
+    "text": "Real rows are up to 200 learner answers with no person's label. Golden rows are 36 answers a person labelled: 15 paraphrases must be graded right and 21 errors wrong."
+   },
+   {
+    "title": "Both prompts run on the same rows",
+    "text": "The model grades every row with the old and the new prompt, about 470 paid calls a run. At temperature 0.3 the replies vary from run to run."
+   },
+   {
+    "title": "Each quality gets its own check and bar",
+    "text": "Real rows against the old verdict show change. Golden rows against the person's verdict show correctness. Underlines and speed have their own bars, all set before the run."
+   },
+   {
+    "title": "A person decides",
+    "text": "A person reads every check and every miss. Only if all pass does `TD_JUDGE_MARKS` turn on. The script has no exit code that decides."
+   },
+   {
+    "title": "A miss fixes the prompt, never the bar",
+    "text": "On a miss the prompt is fixed and the run starts again. A real-row fix joins the golden rows. On 200 rows a 2-point gap is inside the ±3-point noise."
+   }
+  ],
+  "route": [
+   {
+    "title": "Load real rows and golden rows",
+    "text": "Up to 200 real rows come from the staging database, with no person's label. 36 golden rows carry a person's verdict and a note. Answers that exactly match the answer key are skipped, as in production."
+   },
+   {
+    "title": "Run the old and the new prompt on every row",
+    "text": "Two paid calls per row: up to 236 × 2, about 470 per run. The model picks words with some randomness, so a row can come back different tomorrow."
+   },
+   {
+    "title": "Score real rows against the old verdict",
+    "text": "Real rows have no human label, so the old verdict is the reference and agreement shows change only. Each disagreement is a break or a fix. A person reads each one."
+   },
+   {
+    "title": "Score golden rows against the person's verdict",
+    "text": "The golden check needs 95% right and no paraphrase graded wrong. 34 of 36 are right, just under the bar. The misses print with their notes, here \"negation lost\" and \"article error\" (example)."
+   },
+   {
+    "title": "Keep each quality as its own check",
+    "text": "Underlines: 95% of replies must put one on a word the learner wrote, and no underlines is a pass. Speed: 95% of new replies within 2.5 seconds. Both checks are plain code."
+   },
+   {
+    "title": "A person reads the misses and fixes the prompt",
+    "text": "The script prints PASS or FAIL per check and exits normally either way. The golden check failed, so `TD_JUDGE_MARKS` stays off. The bar is never lowered after a miss."
+   }
+  ]
+ }
+}

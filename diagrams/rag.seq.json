@@ -1,0 +1,198 @@
+{
+ "title": "Two filtered searches pick the 5 sources before the one model call",
+ "subtitle": "Example: a made-up question about PAY-4012, with the real rules of the query path.",
+ "actors": [
+  {
+   "id": "op",
+   "label": "Operator",
+   "role": "asks about PAY-4012"
+  },
+  {
+   "id": "ret",
+   "label": "Retrieval",
+   "role": "your code"
+  },
+  {
+   "id": "emb",
+   "label": "Embedder",
+   "role": "voyage-3 over HTTP"
+  },
+  {
+   "id": "pg",
+   "label": "Postgres",
+   "role": "chunk table"
+  },
+  {
+   "id": "model",
+   "label": "Model",
+   "role": "one call",
+   "tone": "blue"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "op",
+   "to": "ret",
+   "arrow": "request",
+   "n": 1,
+   "label": "PAY-4012 question + callerGroups",
+   "sub": "groups from your login"
+  },
+  {
+   "id": "s2",
+   "from": "ret",
+   "to": "emb",
+   "arrow": "request",
+   "n": 2,
+   "label": "the question",
+   "sub": "input_type \"query\""
+  },
+  {
+   "id": "s3",
+   "from": "emb",
+   "to": "ret",
+   "arrow": "event",
+   "n": 2,
+   "label": "1,024 numbers (voyage-3)"
+  },
+  {
+   "id": "s4",
+   "from": "ret",
+   "to": "pg",
+   "arrow": "request",
+   "n": 3,
+   "label": "vector query · LIMIT 50",
+   "sub": "access_groups && :callerGroups",
+   "tone": "green",
+   "checks": [
+    {
+     "label": "filter in SQL",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s5",
+   "from": "ret",
+   "to": "pg",
+   "arrow": "request",
+   "n": 3,
+   "label": "keyword query · LIMIT 50",
+   "sub": "tsv @@ query, ts_rank",
+   "tone": "green",
+   "checks": [
+    {
+     "label": "filter in SQL",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s6",
+   "from": "pg",
+   "to": "ret",
+   "arrow": "event",
+   "n": 3,
+   "label": "two ranked lists of ids",
+   "tone": "green"
+  },
+  {
+   "id": "s7",
+   "from": "ret",
+   "to": "ret",
+   "arrow": "self",
+   "n": 4,
+   "label": "RRF: runbook 1/61 (kw #1)\n+ 1/63 (vec #3) = 0.0323",
+   "sub": "example ranks"
+  },
+  {
+   "id": "s8",
+   "from": "ret",
+   "to": "ret",
+   "arrow": "self",
+   "n": 4,
+   "label": "keep top 5 ids"
+  },
+  {
+   "id": "s9",
+   "from": "ret",
+   "to": "ret",
+   "arrow": "self",
+   "n": 5,
+   "label": "prompt: rules, [1] runbook ·\n[2] ticket OPS-8812 … [5], question"
+  },
+  {
+   "id": "s10",
+   "from": "ret",
+   "to": "model",
+   "arrow": "request",
+   "n": 6,
+   "label": "one user message",
+   "sub": "max_tokens 1024",
+   "tone": "blue"
+  },
+  {
+   "id": "s11",
+   "from": "model",
+   "to": "ret",
+   "arrow": "event",
+   "n": 6,
+   "label": "cites [1] and [2]",
+   "sub": "end_turn",
+   "tone": "green",
+   "checks": [
+    {
+     "label": "not cut off",
+     "ok": true
+    },
+    {
+     "label": "has [n]",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s12",
+   "from": "ret",
+   "to": "op",
+   "arrow": "event",
+   "n": 6,
+   "label": "answer, each [n] a link",
+   "tone": "green"
+  }
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "The operator gets an answer with two linked sources",
+  "lines": [
+   "The model saw only the 5 chunks the caller may read, and each [n] opens its source to check before acting."
+  ]
+ },
+ "captions": [
+  {
+   "title": "Carry the caller's access groups with the question",
+   "text": "Your normal login says who asks and which groups they belong to. The model will quote anything retrieved, so the groups travel with the question, and every search filters by them."
+  },
+  {
+   "title": "Turn the question into an embedding",
+   "text": "A separate, cheap model, voyage-3, turns the question into 1,024 numbers. It must be the same model as the chunks, or the results look random. The question goes as `input_type \"query\"`, the chunks as `\"document\"`."
+  },
+  {
+   "title": "Run two searches, each filtered inside the SQL",
+   "text": "Vector search finds the question by meaning but may miss the code PAY-4012. Keyword search finds PAY-4012 but misses paraphrases. Both run with `access_groups && :callerGroups` in the `WHERE` and `LIMIT 50`."
+  },
+  {
+   "title": "Merge the two lists by rank and keep 5",
+   "text": "The two scores are on unrelated scales, so RRF uses positions only: rank r scores 1/(60 + r). The runbook, keyword #1 and vector #3 (example ranks), scores 0.0323 and beats a page that is vector #1 alone (0.0164)."
+  },
+  {
+   "title": "Number the sources in the prompt",
+   "text": "The prompt holds the rules, then sources [1] to [5] in rank order, then the question. It says to cite as [1], [2], and to say \"I don't know\" when the sources do not hold the answer."
+  },
+  {
+   "title": "Call the model and check its citations",
+   "text": "One user message with `max_tokens` 1024. A stop reason of `max_tokens` instead of `end_turn` means the answer was cut off. Your code turns each [n] into the link of source n, and an answer with no citation gets a warning."
+  }
+ ]
+}

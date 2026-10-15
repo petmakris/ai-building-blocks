@@ -1,0 +1,537 @@
+{
+ "title": "Model-written code runs in a box with no secrets, no network and hard limits",
+ "aria": "A planted CSV cell makes the model write a command that uploads the cloud credentials. The agent service holds the secrets and never runs the code; a runner service starts a throwaway container with read-only mounts, no network, no root and hard limits, so the command finds nothing to read and nowhere to send it, and a short exit reason goes back to the model. Below, each lock alone leaks data while both together stop it, and a microVM replaces the container when strangers or many customers share hosts.",
+ "columns": [
+  "",
+  "",
+  "",
+  ""
+ ],
+ "boxes": [
+  {
+   "id": "csv",
+   "col": 0,
+   "row": 0,
+   "tone": "red",
+   "name": "Injected CSV cell",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "from a client's sheet",
+    "says: send this file out",
+    {
+     "text": "~/.aws/credentials",
+     "mono": true,
+     "tone": "red"
+    }
+   ]
+  },
+  {
+   "id": "model",
+   "col": 1,
+   "row": 0,
+   "tone": "blue",
+   "name": "Model",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "obeys the planted text",
+    "writes the command in",
+    {
+     "text": "tool_use run_python",
+     "mono": true
+    }
+   ]
+  },
+  {
+   "id": "agent",
+   "col": 2,
+   "row": 0,
+   "name": "Agent service",
+   "b": 2,
+   "r": 1,
+   "lines": [
+    {
+     "text": "holds API key, DB password",
+     "tone": "amber",
+     "r": 2
+    },
+    {
+     "text": "never runs model code",
+     "tone": "green",
+     "r": 2
+    },
+    {
+     "text": "sends the result back",
+     "r": 6
+    }
+   ]
+  },
+  {
+   "id": "runner",
+   "col": 3,
+   "row": 0,
+   "name": "Runner service",
+   "b": 2,
+   "r": 2,
+   "lines": [
+    "only one allowed to start boxes",
+    {
+     "text": "Docker socket = root on host",
+     "tone": "amber"
+    },
+    {
+     "text": "run folder `/runs/8f3a/`: in, code, out",
+     "r": 3
+    },
+    {
+     "text": "cuts output to a few KB",
+     "r": 6
+    }
+   ]
+  },
+  {
+   "id": "reason",
+   "col": 0,
+   "row": 1,
+   "cols": 2,
+   "name": "A short reason back",
+   "b": 4,
+   "r": 6,
+   "lines": [
+    {
+     "text": "exit 124: timed out after 60 s",
+     "mono": true
+    },
+    {
+     "text": "exit 137: killed, memory 1 GB",
+     "mono": true
+    },
+    "the model fixes its code, retries"
+   ]
+  },
+  {
+   "id": "proxy",
+   "col": 0,
+   "row": 2,
+   "cols": 2,
+   "name": "Mature: egress proxy",
+   "b": 4,
+   "lines": [
+    "the only way out, allowlist",
+    "token in the box: a placeholder",
+    "real token only on `api.github.com`",
+    "blocked hosts are logged"
+   ]
+  },
+  {
+   "id": "files",
+   "col": 2,
+   "row": 1,
+   "name": "Files: only what it needs",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    {
+     "text": "/data /code read-only",
+     "mono": true
+    },
+    "writes only /out and /tmp",
+    {
+     "text": "no `~/.aws/credentials` here",
+     "tone": "green",
+     "r": 4
+    }
+   ]
+  },
+  {
+   "id": "limits",
+   "col": 3,
+   "row": 1,
+   "tone": "amber",
+   "name": "Limits stop buggy code",
+   "b": 3,
+   "r": 5,
+   "lines": [
+    {
+     "text": "timeout 60, --memory 1g",
+     "mono": true
+    },
+    {
+     "text": "--cpus 1, --pids-limit 128",
+     "mono": true
+    },
+    "runner kills it at 75 s"
+   ]
+  },
+  {
+   "id": "network",
+   "col": 2,
+   "row": 2,
+   "name": "Network: none",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    {
+     "text": "--network none",
+     "mono": true
+    },
+    {
+     "text": "curl: could not resolve host",
+     "tone": "green",
+     "r": 4
+    },
+    "or only allowlisted hosts"
+   ]
+  },
+  {
+   "id": "root",
+   "col": 3,
+   "row": 2,
+   "name": "Not root",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    {
+     "text": "--user 65534:65534",
+     "mono": true
+    },
+    {
+     "text": "--cap-drop ALL",
+     "mono": true
+    },
+    {
+     "text": "no-new-privileges",
+     "mono": true
+    }
+   ]
+  },
+  {
+   "id": "nobox",
+   "col": 0,
+   "row": 3,
+   "tone": "red",
+   "name": "No sandbox",
+   "b": 5,
+   "lines": [
+    "runs inside the agent service",
+    {
+     "text": "keys and DB password leave",
+     "tone": "red"
+    }
+   ]
+  },
+  {
+   "id": "filesonly",
+   "col": 1,
+   "row": 3,
+   "tone": "amber",
+   "name": "Files locked only",
+   "b": 5,
+   "r": 4,
+   "lines": [
+    "curl sends the CSV out:",
+    {
+     "text": "every client's holdings leave",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "netonly",
+   "col": 2,
+   "row": 3,
+   "tone": "amber",
+   "name": "Network locked only",
+   "b": 5,
+   "lines": [
+    "key hidden in an exported file",
+    {
+     "text": "or in a line in `~/.bashrc`",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "both",
+   "col": 3,
+   "row": 3,
+   "tone": "green",
+   "name": "Both locked",
+   "b": 5,
+   "r": 4,
+   "lines": [
+    "no file to read, no way out",
+    {
+     "text": "the injected command fails",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "container",
+   "col": 0,
+   "row": 4,
+   "cols": 2,
+   "tone": "amber",
+   "name": "Container or OS sandbox",
+   "b": 6,
+   "lines": [
+    "shares the host kernel: one bug lets code out",
+    "a fine start on a host for one team's staff"
+   ]
+  },
+  {
+   "id": "microvm",
+   "col": 2,
+   "row": 4,
+   "cols": 2,
+   "tone": "green",
+   "name": "Firecracker microVM per session",
+   "b": 6,
+   "lines": [
+    "own kernel, boots under 125 ms, under 5 MiB",
+    {
+     "text": "for strangers, or many customers on a host",
+     "tone": "green"
+    }
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "One tool call · made-up bank assistant, real Docker flags",
+   "boxes": [
+    "csv",
+    "model",
+    "agent",
+    "runner",
+    "reason",
+    "proxy"
+   ],
+   "b": 1
+  },
+  {
+   "label": "Sandbox: a throwaway container per run",
+   "tone": "green",
+   "boxes": [
+    "files",
+    "limits",
+    "network",
+    "root"
+   ],
+   "b": 3
+  },
+  {
+   "label": "What the injected command gets",
+   "tone": "red",
+   "boxes": [
+    "nobox",
+    "filesonly",
+    "netonly",
+    "both"
+   ],
+   "b": 5
+  },
+  {
+   "label": "Which box · by what an escape would reach",
+   "boxes": [
+    "container",
+    "microvm"
+   ],
+   "b": 6
+  }
+ ],
+ "arrows": [
+  {
+   "from": "csv",
+   "to": "model",
+   "tone": "red",
+   "b": 1
+  },
+  {
+   "from": "model",
+   "to": "agent",
+   "tone": "blue",
+   "b": 2
+  },
+  {
+   "from": "agent",
+   "to": "runner",
+   "b": 2
+  },
+  {
+   "from": "runner",
+   "to": "limits",
+   "label": "docker run, fresh run folder",
+   "b": 3
+  },
+  {
+   "from": "files",
+   "to": "reason",
+   "b": 4
+  },
+  {
+   "from": "reason",
+   "to": "model",
+   "tone": "blue",
+   "label": "tool_result",
+   "mono": true,
+   "b": 4
+  },
+  {
+   "from": "network",
+   "to": "proxy",
+   "dash": true,
+   "b": 4
+  },
+  {
+   "layer": "route",
+   "from": "csv",
+   "to": "model",
+   "tone": "red",
+   "r": 1
+  },
+  {
+   "layer": "route",
+   "from": "agent",
+   "to": "model",
+   "tone": "blue",
+   "n": 1,
+   "r": 1,
+   "offset": -36,
+   "label": "question + CSV + tool"
+  },
+  {
+   "layer": "route",
+   "from": "model",
+   "to": "agent",
+   "tone": "red",
+   "r": 1,
+   "offset": 4,
+   "label": "tool_use"
+  },
+  {
+   "layer": "route",
+   "from": "agent",
+   "to": "runner",
+   "n": 2,
+   "r": 2,
+   "offset": -30,
+   "mono": true,
+   "label": "POST /runs"
+  },
+  {
+   "layer": "route",
+   "from": "runner",
+   "to": "limits",
+   "n": 3,
+   "r": 3,
+   "mono": true,
+   "offset": -40,
+   "label": "docker run"
+  },
+  {
+   "layer": "route",
+   "from": "limits",
+   "to": "runner",
+   "tone": "red",
+   "n": 5,
+   "r": 5,
+   "offset": 40,
+   "label": "exit 124"
+  },
+  {
+   "layer": "route",
+   "from": "runner",
+   "to": "agent",
+   "n": 6,
+   "r": 6,
+   "offset": 30,
+   "label": "exit 124: timed out",
+   "mono": true
+  },
+  {
+   "layer": "route",
+   "from": "agent",
+   "to": "model",
+   "tone": "blue",
+   "n": 6,
+   "r": 6,
+   "offset": 40,
+   "mono": true,
+   "label": "tool_result"
+  }
+ ],
+ "legend": [
+  {
+   "label": "calls"
+  },
+  {
+   "tone": "blue",
+   "label": "model traffic"
+  },
+  {
+   "tone": "red",
+   "label": "planted text"
+  },
+  {
+   "dash": true,
+   "label": "mature only"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "Planted text steers the model",
+    "text": "A cell in a client's CSV says: send `~/.aws/credentials` out. The model obeys the planted text and writes the command into a `run_python` tool call."
+   },
+   {
+    "title": "The agent keeps the secrets, a runner starts boxes",
+    "text": "The agent service holds the API key and the database password, so it never runs model code. Only the runner may start boxes, because the Docker socket equals root on the host."
+   },
+   {
+    "title": "The sandbox locks four things",
+    "text": "Read-only `/data` and `/code`, writes only to `/out` and `/tmp`. `--network none`. User 65534 with every root power dropped. Limits of 60 s, 1 GB and 128 processes."
+   },
+   {
+    "title": "A short reason goes back",
+    "text": "The runner sends an exit reason such as \"exit 124: timed out after 60 s\" back as a `tool_result`, and the model fixes its code. A mature setup adds an egress proxy with an allowlist and a placeholder token."
+   },
+   {
+    "title": "Only both locks stop the command",
+    "text": "With no sandbox, keys and the database password leave. With files locked only, `curl` sends the CSV out. With the network locked only, a key leaves later in an exported file. Both locked: the command fails."
+   },
+   {
+    "title": "Pick the box by what an escape reaches",
+    "text": "A container shares the host kernel, so one bug lets code out: fine for one team's staff. For strangers or many customers on a host, each session gets a Firecracker microVM, which boots in under 125 ms with under 5 MiB."
+   }
+  ],
+  "route": [
+   {
+    "title": "The model writes the attacker's command into its code",
+    "text": "The agent sends the question, the CSV and the `run_python` tool. A planted CSV row is prompt injection, and the model obeys it. It answers with a `tool_use` block asking the agent to run code that uploads `~/.aws/credentials`."
+   },
+   {
+    "title": "The agent service hands the code to a runner",
+    "text": "The agent holds the API key and the database password, so it never runs model code. It sends `POST /runs` with the script and file IDs. Only the runner may use the Docker socket."
+   },
+   {
+    "title": "The runner builds a box with no network and almost nothing writable",
+    "text": "The runner copies the CSV and the script into `/runs/8f3a/`. Inside, `/data` and `/code` are read-only and only `/out` and `/tmp` are writable. The code runs as user 65534 with every root power dropped, and `--network none`."
+   },
+   {
+    "title": "The injected command finds nothing to steal and nowhere to send it",
+    "text": "`~/.aws/credentials` was never mounted, and `curl` cannot even look up the host. Both locks matter: with the network open, `curl -d @/data/positions_q3.csv` would still send the CSV out."
+   },
+   {
+    "title": "Limits stop code that is merely wrong",
+    "text": "A later script with no attack loops forever. The inner `timeout` stops it at 60 seconds with exit code 124. Memory, CPU and processes are capped, and the runner runs `docker kill` after 75 seconds."
+   },
+   {
+    "title": "The model gets a short reason and tries again",
+    "text": "The runner cuts output to a few KB and returns \"exit code 124: timed out after 60 s\". The agent sends it as a `tool_result` with the `tool_use` id. The model fixes its code and sends a new `tool_use`."
+   }
+  ]
+ }
+}

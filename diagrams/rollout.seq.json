@@ -1,0 +1,209 @@
+{
+ "title": "The judge's level is checked and stored, but the learner sees the rules' level",
+ "subtitle": "The chat is real test data from Lomem's code. The readout numbers in step 6 are made up (example).",
+ "actors": [
+  {
+   "id": "learner",
+   "label": "Learner",
+   "role": "sees one level"
+  },
+  {
+   "id": "server",
+   "label": "Server",
+   "role": "rules in code",
+   "tone": "red"
+  },
+  {
+   "id": "judge",
+   "label": "Judge",
+   "role": "a model, in shadow",
+   "tone": "blue"
+  },
+  {
+   "id": "db",
+   "label": "DB",
+   "role": "the judge's columns",
+   "tone": "green"
+  },
+  {
+   "id": "team",
+   "label": "Team",
+   "role": "reads disagreements"
+  }
+ ],
+ "phases": [
+  {
+   "id": "p1",
+   "label": "One chat · shadow mode",
+   "start_at": "s1"
+  },
+  {
+   "id": "p2",
+   "label": "Later · the readout",
+   "start_at": "s12"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "learner",
+   "to": "server",
+   "arrow": "request",
+   "label": "the answer that reaches the wind-down",
+   "n": 1
+  },
+  {
+   "id": "s2",
+   "from": "server",
+   "to": "server",
+   "arrow": "self",
+   "label": "claim the judge for this chat",
+   "sub": "writes a start time, once",
+   "n": 1,
+   "checks": [
+    {
+     "label": "claimed",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s3",
+   "from": "server",
+   "to": "learner",
+   "arrow": "request",
+   "label": "tutor reply, no wait for the judge",
+   "n": 1
+  },
+  {
+   "id": "s4",
+   "from": "server",
+   "to": "judge",
+   "arrow": "request",
+   "label": "answered turns + their facts",
+   "tone": "blue",
+   "n": 2
+  },
+  {
+   "id": "s5",
+   "from": "judge",
+   "to": "server",
+   "arrow": "event",
+   "label": "B2 · cited turns 5 and 7",
+   "tone": "blue",
+   "n": 2
+  },
+  {
+   "id": "s6",
+   "from": "server",
+   "to": "server",
+   "arrow": "self",
+   "label": "rules say B1 · judge says B2,\none level up",
+   "n": 3
+  },
+  {
+   "id": "s7",
+   "from": "server",
+   "to": "server",
+   "arrow": "self",
+   "label": "accepted · would change the level",
+   "tone": "green",
+   "n": 3,
+   "checks": [
+    {
+     "label": "2 cited turns pass B2",
+     "ok": true
+    },
+    {
+     "label": "no B2 question failed",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s8",
+   "from": "server",
+   "to": "db",
+   "arrow": "event",
+   "sub": "judge_level B2 · judge_would_change true",
+   "tone": "green",
+   "n": 4
+  },
+  {
+   "id": "s9",
+   "from": "server",
+   "to": "learner",
+   "arrow": "request",
+   "label": "your level: B1",
+   "tone": "green",
+   "n": 5
+  },
+  {
+   "id": "s10",
+   "from": "server",
+   "to": "server",
+   "arrow": "self",
+   "label": "judge error → log it,\nkeep the rules' level",
+   "tone": "amber",
+   "n": 5
+  },
+  {
+   "id": "s12",
+   "from": "team",
+   "to": "team",
+   "arrow": "self",
+   "label": "bar written first:\nright in ≥ 30 of 38",
+   "tone": "amber",
+   "n": 6
+  },
+  {
+   "id": "s13",
+   "from": "team",
+   "to": "db",
+   "arrow": "request",
+   "sub": "count judge_would_change",
+   "n": 6
+  },
+  {
+   "id": "s14",
+   "from": "db",
+   "to": "team",
+   "arrow": "event",
+   "label": "38 of 412 chats (example)",
+   "n": 6
+  }
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "No learner saw a change: Lomem dropped its real judge the same day",
+  "lines": [
+   "The judge only ran in shadow. Had it cleared the bar, a flag would show learners its accepted level."
+  ]
+ },
+ "captions": [
+  {
+   "title": "Start the judge once, then answer without waiting",
+   "text": "When the chat reaches its wind-down, the server claims the judge by writing a start time. The claim succeeds only once per chat. The tutor's reply goes back without waiting for the judge."
+  },
+  {
+   "title": "The judge reads the answers, never the rules' level",
+   "text": "The judge gets the answered turns and their facts, but not the rules' level, so it cannot copy it. In the real test it replies B2 and cites turns 5 and 7."
+  },
+  {
+   "title": "Code checks whether the judge's level has evidence",
+   "text": "Two or more levels from the rules is rejected. One level up needs two cited turns that pass the B2 check and no failed B2 question. Rules B1, judge B2: accepted."
+  },
+  {
+   "title": "Store the comparison next to the answer",
+   "text": "The server writes `judge_level` B2 and `judge_would_change` true, only in the judge's own columns. Later someone can count disagreements without re-running anything."
+  },
+  {
+   "title": "The learner still sees the rules' level",
+   "text": "Nothing the judge says reaches the learner yet: the learner sees B1. If the judge fails, the server logs it and keeps the rules' level."
+  },
+  {
+   "title": "A person reads the disagreements against a bar written first",
+   "text": "The team counts `judge_would_change`: 38 of 412 chats (example). A person reads each one against the bar, right in ≥ 30 of 38. Lomem dropped its real judge the same day, and no learner saw a change."
+  }
+ ]
+}

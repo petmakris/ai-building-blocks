@@ -1,0 +1,618 @@
+{
+ "title": "Your code searches first; the model answers only from the passages it is given",
+ "aria": "Offline, an indexing job cuts each document into chunks, adds a context line, embeds each chunk with voyage-3 and stores text, vector, keywords and copied access groups in one Postgres chunk table. For each question, your code embeds the question with the same model, runs a vector search and a keyword search that both filter by the caller's groups inside the SQL, merges the two ranked lists with reciprocal rank fusion, keeps the best 5, numbers them in the prompt and calls the model, then turns each citation into a link. Anthropic's failure rate drops from 5.7% to 1.9% as context lines, keyword search and a reranker are added.",
+ "columns": [
+  "Source · caller · model",
+  "Chunk · prompt",
+  "Context line · top 5",
+  "Embed · merge",
+  "Search",
+  "Postgres"
+ ],
+ "boxes": [
+  {
+   "id": "src",
+   "col": 0,
+   "row": 0,
+   "name": "Confluence, Jira",
+   "b": 1,
+   "lines": [
+    "pages and tickets",
+    "240,000 (example)",
+    {
+     "text": "access groups copied",
+     "tone": "amber"
+    },
+    {
+     "text": "re-index on change",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "chunker",
+   "col": 1,
+   "row": 0,
+   "name": "Chunker",
+   "b": 1,
+   "lines": [
+    "page: cut at headings",
+    "ticket: one per comment",
+    "≤ about 500 tokens",
+    "starts with its source"
+   ]
+  },
+  {
+   "id": "ctx",
+   "col": 2,
+   "row": 0,
+   "tone": "amber",
+   "name": "Context line (an LLM)",
+   "b": 1,
+   "lines": [
+    "\"Ticket OPS-8812, PAY-4012",
+    "on Swiss payments\" (example)",
+    {
+     "text": "$1.02 per 1M document tokens",
+     "tone": "amber"
+    },
+    {
+     "text": "misses 5.7% → 3.7%",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "embedder",
+   "col": 3,
+   "row": 0,
+   "name": "Embedder",
+   "b": 1,
+   "r": 2,
+   "lines": [
+    {
+     "text": "voyage-3",
+     "mono": true
+    },
+    "1,024 numbers",
+    "per chunk, as",
+    {
+     "text": "\"document\"",
+     "mono": true
+    }
+   ]
+  },
+  {
+   "id": "table",
+   "col": 5,
+   "row": 0,
+   "rows": 3,
+   "name": "chunk table",
+   "b": 1,
+   "r": 3,
+   "lines": [
+    "Postgres + pgvector",
+    {
+     "text": "body",
+     "mono": true,
+     "gap": true
+    },
+    "text + context line",
+    {
+     "text": "embedding",
+     "mono": true,
+     "gap": true
+    },
+    "vector(1024), hnsw",
+    {
+     "text": "tsv",
+     "mono": true,
+     "gap": true
+    },
+    "keywords, gin index",
+    {
+     "text": "access_groups",
+     "mono": true,
+     "gap": true
+    },
+    "copied from the source",
+    {
+     "text": "doc_url",
+     "mono": true,
+     "gap": true
+    },
+    "link to the source",
+    {
+     "text": "new model or new cuts:",
+     "tone": "amber",
+     "gap": true
+    },
+    {
+     "text": "re-embed every row",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "op",
+   "col": 0,
+   "row": 1,
+   "name": "Operator (example)",
+   "b": 2,
+   "r": 1,
+   "lines": [
+    "\"What does PAY-4012",
+    "mean? What do we do?\"",
+    {
+     "text": "groups come from your login",
+     "gap": true,
+     "r": 1
+    }
+   ]
+  },
+  {
+   "id": "embq",
+   "col": 3,
+   "row": 1,
+   "name": "Embed the question",
+   "b": 2,
+   "r": 1,
+   "lines": [
+    "same model: voyage-3",
+    {
+     "text": "input_type \"query\"",
+     "mono": true,
+     "r": 2
+    },
+    {
+     "text": "other model: random hits",
+     "tone": "red"
+    }
+   ]
+  },
+  {
+   "id": "vec",
+   "col": 4,
+   "row": 1,
+   "name": "Vector search",
+   "b": 2,
+   "r": 3,
+   "lines": [
+    "meaning · LIMIT 50",
+    {
+     "text": "access filter in SQL",
+     "tone": "green"
+    },
+    {
+     "text": "may miss PAY-4012",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "kw",
+   "col": 4,
+   "row": 2,
+   "name": "Keyword search",
+   "b": 2,
+   "r": 3,
+   "lines": [
+    "full-text · LIMIT 50",
+    {
+     "text": "access filter in SQL",
+     "tone": "green"
+    },
+    {
+     "text": "misses 3.7% → 2.9%",
+     "tone": "green"
+    },
+    {
+     "text": "`tsv @@` query, `ts_rank`, 'simple'",
+     "r": 3
+    }
+   ]
+  },
+  {
+   "id": "trap",
+   "col": 1,
+   "row": 2,
+   "cols": 2,
+   "tone": "red",
+   "name": "Trap: filtering after the search",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    "drop forbidden rows after LIMIT 50: maybe none left",
+    "hnsw scans 40, then filters: if 10% pass, ~4 rows",
+    {
+     "text": "fix: filter inside the SQL and run",
+     "tone": "green"
+    },
+    {
+     "text": "SET hnsw.iterative_scan = strict_order",
+     "tone": "green",
+     "mono": true
+    },
+    {
+     "text": "`access_groups && :callerGroups` in each WHERE",
+     "tone": "green",
+     "r": 3
+    }
+   ]
+  },
+  {
+   "id": "merge",
+   "col": 3,
+   "row": 3,
+   "cols": 2,
+   "name": "Merge both lists by rank (RRF)",
+   "b": 4,
+   "r": 4,
+   "lines": [
+    "rank r scores 1/(60 + r) in each list; scores add up",
+    "scales differ, so only positions count",
+    {
+     "text": "example: runbook keyword #1 + vector #3 = 0.0323",
+     "gap": true
+    },
+    {
+     "text": "beats vector #1 alone: 0.0164",
+     "r": 4
+    }
+   ]
+  },
+  {
+   "id": "keep",
+   "col": 2,
+   "row": 3,
+   "name": "Keep the best 5",
+   "b": 4,
+   "r": 4,
+   "lines": [
+    "more chunks bring",
+    "more near-misses",
+    {
+     "text": "reranker: keep 20",
+     "tone": "amber"
+    },
+    {
+     "text": "misses 2.9% → 1.9%",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "prompt",
+   "col": 1,
+   "row": 3,
+   "name": "Numbered prompt",
+   "b": 4,
+   "r": 5,
+   "lines": [
+    "rules, [1]…[5], question",
+    "\"cite as [1], [2]\"",
+    "\"else say I don't know\""
+   ]
+  },
+  {
+   "id": "model",
+   "col": 0,
+   "row": 3,
+   "tone": "blue",
+   "name": "The model",
+   "b": 4,
+   "r": 6,
+   "lines": [
+    "one user message",
+    "max_tokens 1024",
+    {
+     "text": "may obey a chunk's",
+     "tone": "amber"
+    },
+    {
+     "text": "hidden instructions",
+     "tone": "amber"
+    },
+    {
+     "text": "`end_turn` · cites [1] and [2]",
+     "tone": "green",
+     "gap": true,
+     "r": 6
+    },
+    {
+     "text": "no [n]: a warning",
+     "tone": "amber",
+     "gap": true,
+     "b": 4
+    },
+    {
+     "text": "cut off: an error",
+     "tone": "amber",
+     "b": 4
+    }
+   ]
+  },
+  {
+   "id": "measure",
+   "col": 0,
+   "row": 4,
+   "cols": 3,
+   "tone": "green",
+   "name": "Measure search alone: recall@5",
+   "b": 5,
+   "lines": [
+    "30 labelled real questions; found if the document is in the top 5",
+    "no model call · rerun on every change to chunking, model or ranking",
+    {
+     "text": "misses: share of Anthropic's test questions whose document is not in the top 20",
+     "gap": true
+    }
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "Indexing · offline, once per document and again on every change",
+   "boxes": [
+    "src",
+    "chunker",
+    "ctx",
+    "embedder"
+   ],
+   "b": 1
+  },
+  {
+   "label": "Each question · before the model call",
+   "boxes": [
+    "op",
+    "embq",
+    "vec",
+    "kw",
+    "trap",
+    "model",
+    "prompt",
+    "keep",
+    "merge"
+   ],
+   "b": 2
+  }
+ ],
+ "arrows": [
+  {
+   "from": "src",
+   "to": "chunker",
+   "b": 1
+  },
+  {
+   "from": "chunker",
+   "to": "ctx",
+   "b": 1
+  },
+  {
+   "from": "ctx",
+   "to": "embedder",
+   "b": 1
+  },
+  {
+   "from": "embedder",
+   "to": "table",
+   "b": 1
+  },
+  {
+   "from": "op",
+   "to": "embq",
+   "label": "question + callerGroups",
+   "b": 2
+  },
+  {
+   "from": "embq",
+   "to": "vec",
+   "b": 2
+  },
+  {
+   "from": "embq",
+   "to": "kw",
+   "b": 2,
+   "path": "vh"
+  },
+  {
+   "from": "vec",
+   "to": "table",
+   "b": 2
+  },
+  {
+   "from": "kw",
+   "to": "table",
+   "b": 2
+  },
+  {
+   "from": "table",
+   "to": "merge",
+   "label": "two ranked lists of ids",
+   "b": 4,
+   "path": "vh",
+   "offset": -60
+  },
+  {
+   "from": "merge",
+   "to": "keep",
+   "b": 4
+  },
+  {
+   "from": "keep",
+   "to": "prompt",
+   "b": 4
+  },
+  {
+   "from": "prompt",
+   "to": "model",
+   "tone": "blue",
+   "b": 4
+  },
+  {
+   "from": "model",
+   "to": "op",
+   "label": "each [n] becomes a link",
+   "b": 4
+  },
+  {
+   "layer": "route",
+   "from": "op",
+   "to": "embq",
+   "n": 1,
+   "r": 1,
+   "label": "PAY-4012 question + callerGroups"
+  },
+  {
+   "layer": "route",
+   "from": "embq",
+   "to": "embedder",
+   "n": 2,
+   "r": 2,
+   "label": "question · input_type \"query\"",
+   "offset": -20
+  },
+  {
+   "layer": "route",
+   "from": "embedder",
+   "to": "embq",
+   "n": 2,
+   "r": 2,
+   "label": "1,024 numbers (voyage-3)",
+   "offset": 20
+  },
+  {
+   "layer": "route",
+   "from": "embq",
+   "to": "vec",
+   "n": 3,
+   "r": 3,
+   "label": "vector query · filtered · LIMIT 50"
+  },
+  {
+   "layer": "route",
+   "from": "embq",
+   "to": "kw",
+   "n": 3,
+   "r": 3,
+   "label": "keyword query · filtered · LIMIT 50",
+   "path": "vh",
+   "offset": -30
+  },
+  {
+   "layer": "route",
+   "from": "vec",
+   "to": "table",
+   "r": 3
+  },
+  {
+   "layer": "route",
+   "from": "kw",
+   "to": "table",
+   "r": 3
+  },
+  {
+   "layer": "route",
+   "from": "table",
+   "to": "merge",
+   "tone": "green",
+   "n": 3,
+   "r": 3,
+   "label": "two ranked lists of ids",
+   "path": "vh",
+   "offset": -60
+  },
+  {
+   "layer": "route",
+   "from": "merge",
+   "to": "keep",
+   "n": 4,
+   "r": 4,
+   "label": "top 5 ids"
+  },
+  {
+   "layer": "route",
+   "from": "keep",
+   "to": "prompt",
+   "n": 5,
+   "r": 5,
+   "label": "[1] runbook · [2] ticket OPS-8812"
+  },
+  {
+   "layer": "route",
+   "from": "prompt",
+   "to": "model",
+   "tone": "blue",
+   "n": 6,
+   "r": 6,
+   "label": "one user message"
+  },
+  {
+   "layer": "route",
+   "from": "model",
+   "to": "op",
+   "n": 6,
+   "r": 6,
+   "label": "answer, each [n] a link"
+  }
+ ],
+ "legend": [
+  {
+   "label": "text, queries and ids"
+  },
+  {
+   "tone": "blue",
+   "label": "the one model call"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "Index every document offline",
+    "text": "An indexing job cuts each page and ticket into chunks of about 500 tokens, adds a context line from an LLM, and embeds each chunk with voyage-3. One Postgres table keeps the text, the vector, the keywords and a copy of the access groups."
+   },
+   {
+    "title": "Each question runs two searches",
+    "text": "Your code embeds the question with the same model. A vector search and a keyword search each return 50 rows, both filtered by the caller's groups inside the SQL."
+   },
+   {
+    "title": "Filtering after the search can leave nothing",
+    "text": "Dropping forbidden rows after `LIMIT 50` may leave none. pgvector's hnsw index scans only 40 candidates before it filters, so turn on iterative scan."
+   },
+   {
+    "title": "Merge, keep 5, number them, call the model",
+    "text": "RRF merges the two lists by rank. The best 5 go into the prompt as numbered sources, the model answers in one call, and each [n] becomes a link. Each step lowered Anthropic's misses, from 5.7% to 1.9%."
+   },
+   {
+    "title": "Measure search alone",
+    "text": "Recall@5 on 30 labelled real questions needs no model call. Rerun it on every change to chunking, model or ranking."
+   }
+  ],
+  "route": [
+   {
+    "title": "Carry the caller's access groups with the question",
+    "text": "Your normal login says who asks and which groups they belong to. The model will quote anything retrieved, so the groups travel with the question, and every search filters by them."
+   },
+   {
+    "title": "Turn the question into an embedding",
+    "text": "A separate, cheap model, voyage-3, turns the question into 1,024 numbers. It must be the same model as the chunks, or the results look random. The question goes as `input_type \"query\"`, the chunks as `\"document\"`."
+   },
+   {
+    "title": "Run two searches, each filtered inside the SQL",
+    "text": "Vector search finds the question by meaning but may miss the code PAY-4012. Keyword search finds PAY-4012 but misses paraphrases. Both run with `access_groups && :callerGroups` in the `WHERE` and `LIMIT 50`."
+   },
+   {
+    "title": "Merge the two lists by rank and keep 5",
+    "text": "The two scores are on unrelated scales, so RRF uses positions only: rank r scores 1/(60 + r). The runbook, keyword #1 and vector #3 (example ranks), scores 0.0323 and beats a page that is vector #1 alone (0.0164)."
+   },
+   {
+    "title": "Number the sources in the prompt",
+    "text": "The prompt holds the rules, then sources [1] to [5] in rank order, then the question. It says to cite as [1], [2], and to say \"I don't know\" when the sources do not hold the answer."
+   },
+   {
+    "title": "Call the model and check its citations",
+    "text": "One user message with `max_tokens` 1024. A stop reason of `max_tokens` instead of `end_turn` means the answer was cut off. Your code turns each [n] into the link of source n, and an answer with no citation gets a warning."
+   }
+  ]
+ }
+}

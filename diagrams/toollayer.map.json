@@ -1,0 +1,435 @@
+{
+ "title": "Three kinds of caller, one set of rules: every path ends in the same services",
+ "aria": "Three kinds of caller reach Billpod's services. The screens call REST routes, which call the services directly. The in-app assistant and outside assistants over MCP both hand tool calls to one runner, which runs one of 50 tools, and each tool calls the same services. A rate limit kept on one REST route had to be copied into a tool by hand. A parity test checks that every route has a tool or a written reason.",
+ "columns": [
+  "Who asks",
+  "Entry point · its own rules",
+  "The tool layer",
+  "The services"
+ ],
+ "boxes": [
+  {
+   "id": "screens",
+   "col": 0,
+   "row": 0,
+   "name": "A person on the screens",
+   "lines": [
+    "taps Pay on a bill"
+   ],
+   "b": 1
+  },
+  {
+   "id": "chat",
+   "col": 0,
+   "row": 1,
+   "tone": "blue",
+   "name": "A person in the app's chat",
+   "lines": [
+    "\"I paid the electricity bill\""
+   ],
+   "b": 1,
+   "r": 1
+  },
+  {
+   "id": "claude",
+   "col": 0,
+   "row": 2,
+   "tone": "blue",
+   "name": "Claude or ChatGPT",
+   "b": 1,
+   "r": 5,
+   "lines": [
+    "an outside assistant, own model",
+    {
+     "text": "`destructiveHint: true`: it decides",
+     "tone": "amber",
+     "r": 6
+    },
+    {
+     "text": "gets `isError: true` back",
+     "tone": "red",
+     "r": 7
+    }
+   ]
+  },
+  {
+   "id": "rest",
+   "col": 1,
+   "row": 0,
+   "name": "REST /api/billpod",
+   "mono": true,
+   "b": 2,
+   "lines": [
+    "signed-in session",
+    {
+     "text": "upload limit: 30 a minute",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "ask",
+   "col": 1,
+   "row": 1,
+   "tone": "blue",
+   "name": "Ask Billpod",
+   "b": 2,
+   "r": 1,
+   "lines": [
+    "ctx: person, household, all scopes",
+    {
+     "text": "a card first for 31 tools",
+     "tone": "blue",
+     "r": 2
+    }
+   ],
+   "children": [
+    {
+     "id": "gemini",
+     "tone": "blue",
+     "name": "Gemini",
+     "lines": [
+      "picks `mark_paid` of 46 tools"
+     ],
+     "r": 2
+    }
+   ]
+  },
+  {
+   "id": "mcp",
+   "col": 1,
+   "row": 2,
+   "tone": "blue",
+   "name": "MCP /mcp",
+   "mono": true,
+   "b": 2,
+   "r": 5,
+   "lines": [
+    "OAuth token, scopes per tool",
+    {
+     "text": "tools/list shows all 50",
+     "tone": "blue"
+    },
+    {
+     "text": "ctx: the token's person and scopes",
+     "r": 5
+    }
+   ]
+  },
+  {
+   "id": "runtool",
+   "col": 2,
+   "row": 1,
+   "tone": "red",
+   "name": "runTool",
+   "mono": true,
+   "b": 3,
+   "r": 3,
+   "lines": [
+    {
+     "text": "scopes ✓  input ✓",
+     "tone": "green"
+    },
+    "a failure becomes a result"
+   ]
+  },
+  {
+   "id": "tools",
+   "col": 2,
+   "row": 2,
+   "tone": "red",
+   "name": "50 tools",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    "`mark_paid` and 49 more",
+    "typed input, one handler",
+    {
+     "text": "upload limit copied in",
+     "tone": "amber",
+     "b": 5
+    }
+   ]
+  },
+  {
+   "id": "services",
+   "col": 3,
+   "row": 1,
+   "rows": 2,
+   "tone": "green",
+   "name": "Billpod services",
+   "b": 4,
+   "r": 4,
+   "lines": [
+    "the rules live here",
+    {
+     "text": "`bills.pay`",
+     "gap": true
+    },
+    {
+     "text": "refuses a 2nd payment",
+     "tone": "green"
+    },
+    {
+     "text": "checks the household",
+     "tone": "green"
+    },
+    {
+     "text": "✓ paid · the first request",
+     "tone": "green",
+     "gap": true,
+     "r": 4
+    },
+    {
+     "text": "\"This bill is already paid.\"",
+     "tone": "red",
+     "r": 7
+    }
+   ]
+  },
+  {
+   "id": "parity",
+   "col": 1,
+   "row": 3,
+   "cols": 2,
+   "tone": "green",
+   "name": "Parity test",
+   "b": 5,
+   "lines": [
+    "all 79 REST routes: 47 have a tool, 32 a written reason why not"
+   ]
+  },
+  {
+   "id": "db",
+   "col": 3,
+   "row": 3,
+   "name": "Database",
+   "lines": [
+    "households, bills, payments"
+   ],
+   "b": 4
+  }
+ ],
+ "zones": [
+  {
+   "label": "defined once, shared by both AI entry points",
+   "tone": "red",
+   "boxes": [
+    "runtool",
+    "tools"
+   ]
+  }
+ ],
+ "arrows": [
+  {
+   "from": "screens",
+   "to": "rest",
+   "b": 2
+  },
+  {
+   "from": "chat",
+   "to": "ask",
+   "tone": "blue",
+   "b": 2
+  },
+  {
+   "from": "claude",
+   "to": "mcp",
+   "tone": "blue",
+   "b": 2
+  },
+  {
+   "from": "rest",
+   "to": "services",
+   "label": "calls the services directly",
+   "path": "hv",
+   "b": 4
+  },
+  {
+   "from": "ask",
+   "to": "runtool",
+   "tone": "blue",
+   "b": 3
+  },
+  {
+   "from": "mcp",
+   "to": "runtool",
+   "tone": "blue",
+   "path": "hvh",
+   "b": 3
+  },
+  {
+   "from": "runtool",
+   "to": "tools",
+   "tone": "red",
+   "label": "runs one",
+   "b": 3
+  },
+  {
+   "from": "tools",
+   "to": "services",
+   "tone": "red",
+   "b": 4
+  },
+  {
+   "from": "services",
+   "to": "db",
+   "b": 4
+  },
+  {
+   "from": "rest",
+   "to": "tools",
+   "tone": "amber",
+   "dash": true,
+   "label": "copied by hand into a tool",
+   "path": "hvh",
+   "b": 5
+  },
+  {
+   "layer": "route",
+   "from": "chat",
+   "to": "ask",
+   "tone": "blue",
+   "n": 1,
+   "r": 1,
+   "offset": -10
+  },
+  {
+   "layer": "route",
+   "from": "ask",
+   "to": "chat",
+   "tone": "blue",
+   "n": 2,
+   "r": 2,
+   "offset": 12,
+   "label": "card · Approve"
+  },
+  {
+   "layer": "route",
+   "from": "ask",
+   "to": "runtool",
+   "tone": "blue",
+   "n": 3,
+   "r": 3,
+   "mono": true,
+   "label": "runTool(mark_paid, args, ctx)"
+  },
+  {
+   "layer": "route",
+   "from": "runtool",
+   "to": "tools",
+   "tone": "red",
+   "r": 3
+  },
+  {
+   "layer": "route",
+   "from": "tools",
+   "to": "services",
+   "tone": "blue",
+   "n": 4,
+   "r": 4,
+   "offset": -14,
+   "mono": true,
+   "label": "bills.pay(…)"
+  },
+  {
+   "layer": "route",
+   "from": "claude",
+   "to": "mcp",
+   "tone": "blue",
+   "dash": true,
+   "n": 5,
+   "r": 5
+  },
+  {
+   "layer": "route",
+   "from": "mcp",
+   "to": "runtool",
+   "tone": "blue",
+   "dash": true,
+   "n": 7,
+   "r": 7,
+   "path": "hvh",
+   "mono": true,
+   "label": "runTool(mark_paid, args, ctx)"
+  },
+  {
+   "layer": "route",
+   "from": "tools",
+   "to": "services",
+   "tone": "blue",
+   "dash": true,
+   "n": 7,
+   "r": 7,
+   "offset": 14
+  }
+ ],
+ "legend": [
+  {
+   "label": "calls"
+  },
+  {
+   "tone": "blue",
+   "label": "an AI call"
+  },
+  {
+   "tone": "amber",
+   "dash": true,
+   "label": "a rule copied by hand"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "Who asks",
+    "text": "Three kinds of caller: a person on the app's screens, a person in the app's own chat, and an outside assistant such as Claude or ChatGPT."
+   },
+   {
+    "title": "Where each one comes in",
+    "text": "The screens call REST routes. The chat goes to Ask Billpod, where Gemini picks a tool. Outside assistants call the MCP endpoint with an OAuth token. Each entry point keeps only its own rules, such as Ask Billpod's card."
+   },
+   {
+    "title": "One tool layer for both AI callers",
+    "text": "Ask Billpod and `/mcp` hand every tool call to `runTool`. It checks the scopes and the input, then runs one of 50 tools, each defined once."
+   },
+   {
+    "title": "Every path ends in the same services",
+    "text": "The tools call the same service functions as the REST routes. The rules live there, so all three callers obey them."
+   },
+   {
+    "title": "A rule kept in one entry point",
+    "text": "The upload limit sits on a REST route, so Billpod had to copy it into a tool by hand. A parity test fails when a new route has neither a tool nor a written reason."
+   }
+  ],
+  "route": [
+   {
+    "title": "The app's chat builds the caller's context",
+    "text": "A person tells Ask Billpod, the app's own assistant, that they paid the electricity bill. Before any tool runs, Ask Billpod builds one context: who asks, which household, which permissions (scopes), and that the caller is the assistant."
+   },
+   {
+    "title": "A card before any change",
+    "text": "Gemini picks `mark_paid` from the 46 tools Ask Billpod offers. `mark_paid` is on the confirm list of 31 tools, so nothing runs yet. The person sees a card built from the stored bill and presses Approve."
+   },
+   {
+    "title": "The approved call goes into the one runner",
+    "text": "Every AI entry point hands its calls to `runTool`. It checks the scopes and the input against the tool's schema, then runs `mark_paid`'s handler."
+   },
+   {
+    "title": "The handler calls the service the Pay button calls",
+    "text": "The handler calls `bills.pay`, the same function the screen's REST route calls. The rules live there: the household filter and \"already paid\". The bill is now paid."
+   },
+   {
+    "title": "An hour later, Claude calls the same tool",
+    "text": "The person forgot and asks Claude to pay the bill. Claude runs its own model and calls `mark_paid` over MCP with an access token. `/mcp` builds the same kind of context. Only the scopes and the caller differ."
+   },
+   {
+    "title": "Here the confirmation is Claude's choice",
+    "text": "Billpod draws no card inside Claude. `mark_paid` carries `destructiveHint: true`, so Claude decides whether to ask first. The scopes, the input check and the service's rules still apply."
+   },
+   {
+    "title": "Same runner, same service, same refusal",
+    "text": "The call goes through the same `runTool` to the same `bills.pay`, and the service refuses: \"This bill is already paid.\" Claude gets it back as `isError: true`. The Pay button would get the same answer."
+   }
+  ]
+ }
+}

@@ -1,0 +1,221 @@
+{
+ "title": "The server rebuilds the request for each of 3 model calls and keeps nothing between the 2 requests",
+ "subtitle": "Example: the person types \"Mark it paid, by e-banking.\" Names and values are made up; rules and limits are real.",
+ "actors": [
+  {
+   "id": "browser",
+   "label": "Browser",
+   "role": "holds the chat"
+  },
+  {
+   "id": "asm",
+   "label": "Assembler",
+   "role": "builds every call",
+   "tone": "red"
+  },
+  {
+   "id": "model",
+   "label": "Model",
+   "role": "keeps nothing between calls",
+   "tone": "blue"
+  },
+  {
+   "id": "tools",
+   "label": "Bill tools",
+   "role": "read fresh every time"
+  }
+ ],
+ "phases": [
+  {
+   "id": "p1",
+   "label": "Request 1 · the new message",
+   "start_at": "s1"
+  },
+  {
+   "id": "p2",
+   "label": "Request 2 · the person's yes",
+   "start_at": "s10"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "browser",
+   "to": "asm",
+   "arrow": "request",
+   "label": "3 messages, never more than 40",
+   "n": 1,
+   "checks": [
+    {
+     "label": "at most 40",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "from": "asm",
+   "to": "asm",
+   "arrow": "self",
+   "label": "keep the newest whole messages\nwithin 24,000 chars,\nstarting on a person's message",
+   "tone": "red",
+   "n": 2
+  },
+  {
+   "id": "s3",
+   "from": "asm",
+   "to": "asm",
+   "arrow": "self",
+   "label": "system prompt + Tue 2026-10-13, CHF",
+   "tone": "red",
+   "n": 3
+  },
+  {
+   "id": "s4",
+   "from": "asm",
+   "to": "model",
+   "arrow": "request",
+   "label": "prompt · 46 tools · history · message",
+   "tone": "blue",
+   "n": 4
+  },
+  {
+   "id": "s5",
+   "from": "model",
+   "to": "asm",
+   "arrow": "event",
+   "label": "which bill?",
+   "sub": "call find_bills",
+   "tone": "blue",
+   "n": 4
+  },
+  {
+   "id": "s6",
+   "from": "asm",
+   "to": "tools",
+   "arrow": "request",
+   "sub": "find_bills(\"electricity\")",
+   "n": 5
+  },
+  {
+   "id": "s7",
+   "from": "tools",
+   "to": "asm",
+   "arrow": "event",
+   "label": "b_19 · version 3 · 84.20 CHF",
+   "tone": "green",
+   "n": 5
+  },
+  {
+   "id": "s7b",
+   "from": "asm",
+   "to": "model",
+   "arrow": "request",
+   "label": "2nd call · + the bill",
+   "tone": "blue",
+   "n": 5
+  },
+  {
+   "id": "s8",
+   "from": "model",
+   "to": "asm",
+   "arrow": "event",
+   "sub": "call mark_paid b_19",
+   "tone": "blue",
+   "n": 6
+  },
+  {
+   "id": "s9",
+   "from": "asm",
+   "to": "browser",
+   "arrow": "request",
+   "label": "card + sealed ticket\nvalid 10 minutes · the server keeps nothing",
+   "tone": "amber",
+   "n": 6,
+   "checks": [
+    {
+     "label": "runs without a yes",
+     "ok": false
+    }
+   ]
+  },
+  {
+   "id": "s10",
+   "from": "browser",
+   "to": "asm",
+   "arrow": "request",
+   "label": "yes + same chat + ticket",
+   "tone": "amber",
+   "n": 7
+  },
+  {
+   "id": "s11",
+   "from": "asm",
+   "to": "tools",
+   "arrow": "request",
+   "sub": "mark_paid(b_19)",
+   "n": 7
+  },
+  {
+   "id": "s12",
+   "from": "asm",
+   "to": "model",
+   "arrow": "request",
+   "label": "3rd call",
+   "tone": "blue",
+   "n": 7
+  },
+  {
+   "id": "s13",
+   "from": "model",
+   "to": "asm",
+   "arrow": "event",
+   "label": "\"Done\" · no tool calls",
+   "tone": "green",
+   "n": 7,
+   "checks": [
+    {
+     "label": "6-call cap",
+     "ok": true
+    }
+   ]
+  }
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "Done: 3 model calls across 2 requests",
+  "lines": [
+   "Each call carried only what the step needed. The server kept nothing between the two requests; the ticket carried layer 5."
+  ]
+ },
+ "captions": [
+  {
+   "title": "The browser resends the whole conversation",
+   "text": "The browser holds the chat and sends it with every new message, at most the newest 40. Here it sends 3. The server stores none of it."
+  },
+  {
+   "title": "Trim the history to a budget, newest first",
+   "text": "The server walks back from the newest message and keeps whole messages within 24,000 characters. The kept slice starts on a message from the person. Older messages are dropped whole."
+  },
+  {
+   "title": "Write in the facts the model cannot know",
+   "text": "The model has no clock. The server writes today's date in the household's timezone, plus the currency and language, into the system prompt (example: Tue 2026-10-13, CHF)."
+  },
+  {
+   "title": "Call the model with prompt, tools, history and message",
+   "text": "The request carries the system prompt, 46 tool definitions, the trimmed history and the new message. The history drops earlier tool results, so the model asks for `find_bills` to find the bill again."
+  },
+  {
+   "title": "Fetch the bill fresh, because bills change",
+   "text": "The server runs `find_bills(\"electricity\")` and gets b_19, version 3, 84.20 CHF (example). It adds the call and its result to the messages and calls the model again."
+  },
+  {
+   "title": "Pause the loop for the person's yes",
+   "text": "The model asks for `mark_paid` b_19, a write that needs the person's yes. The server seals this message's tool calls and results into a ticket, sends the card and the ticket, and keeps nothing."
+  },
+  {
+   "title": "Resume from the ticket and stop on a reply with no tool calls",
+   "text": "The browser sends yes, the same chat and the ticket. The server restores the tool calls, runs `mark_paid` and calls the model a third time. A reply with no tool calls ends the loop: 3 model calls over 2 requests."
+  }
+ ]
+}

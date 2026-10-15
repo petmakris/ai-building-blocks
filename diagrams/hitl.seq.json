@@ -1,0 +1,225 @@
+{
+ "title": "The bill changes only after the click, and only the stored call runs",
+ "subtitle": "Example: the person says \"I paid the electricity bill by card\". The values are made up; the design is the usual one.",
+ "actors": [
+  {
+   "id": "person",
+   "label": "Person",
+   "role": "reads the card, decides"
+  },
+  {
+   "id": "backend",
+   "label": "Backend",
+   "role": "Billpod's code, decides",
+   "tone": "red"
+  },
+  {
+   "id": "model",
+   "label": "Model",
+   "role": "Gemini Flash, only asks",
+   "tone": "blue"
+  },
+  {
+   "id": "bills",
+   "label": "Bills",
+   "role": "stored bills, with versions",
+   "tone": "green"
+  }
+ ],
+ "phases": [
+  {
+   "id": "p1",
+   "label": "Request 1 · the person's message",
+   "start_at": "s1"
+  },
+  {
+   "id": "p2",
+   "label": "Request 2 · the click",
+   "start_at": "s9"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "model",
+   "to": "backend",
+   "arrow": "request",
+   "n": 1,
+   "sub": "find_bills",
+   "tone": "blue"
+  },
+  {
+   "id": "s2",
+   "from": "bills",
+   "to": "backend",
+   "arrow": "event",
+   "n": 1,
+   "label": "b17 · CHF 84.20 · version 3",
+   "tone": "green"
+  },
+  {
+   "id": "s3",
+   "from": "model",
+   "to": "backend",
+   "arrow": "request",
+   "n": 2,
+   "sub": "mark_paid b17 · v3 · card · id c2",
+   "tone": "blue"
+  },
+  {
+   "id": "s4",
+   "from": "backend",
+   "to": "backend",
+   "arrow": "self",
+   "n": 2,
+   "label": "on the confirm list:\ndo not run",
+   "tone": "red"
+  },
+  {
+   "id": "s5",
+   "from": "backend",
+   "to": "bills",
+   "arrow": "request",
+   "n": 3,
+   "label": "exists? version 3? unpaid?",
+   "checks": [
+    {
+     "label": "exists",
+     "ok": true
+    },
+    {
+     "label": "version 3",
+     "ok": true
+    },
+    {
+     "label": "unpaid",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s6",
+   "from": "bills",
+   "to": "backend",
+   "arrow": "event",
+   "n": 3,
+   "label": "yes · yes · yes",
+   "tone": "green"
+  },
+  {
+   "id": "s7",
+   "from": "backend",
+   "to": "person",
+   "arrow": "request",
+   "n": 4,
+   "label": "card: City Power AG · CHF 84.20",
+   "sub": "proposal saved · expires in 10 min",
+   "tone": "red"
+  },
+  {
+   "id": "s8",
+   "from": "person",
+   "to": "person",
+   "arrow": "self",
+   "n": 4,
+   "label": "Approve or Cancel?"
+  },
+  {
+   "id": "s9",
+   "from": "person",
+   "to": "backend",
+   "arrow": "request",
+   "n": 5,
+   "label": "approve · row id"
+  },
+  {
+   "id": "s10",
+   "from": "backend",
+   "to": "backend",
+   "arrow": "self",
+   "n": 5,
+   "label": "right user · not expired\nunused: all pass",
+   "tone": "green"
+  },
+  {
+   "id": "s11",
+   "from": "backend",
+   "to": "bills",
+   "arrow": "request",
+   "n": 6,
+   "sub": "mark paid WHERE version = 3",
+   "tone": "green",
+   "checks": [
+    {
+     "label": "version 3",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s12",
+   "from": "bills",
+   "to": "backend",
+   "arrow": "event",
+   "n": 6,
+   "label": "1 row updated",
+   "tone": "green"
+  },
+  {
+   "id": "s13",
+   "from": "backend",
+   "to": "model",
+   "arrow": "request",
+   "n": 7,
+   "label": "stored chat + result",
+   "sub": "result for c2",
+   "tone": "blue"
+  },
+  {
+   "id": "s14",
+   "from": "model",
+   "to": "person",
+   "arrow": "event",
+   "n": 7,
+   "label": "\"Done: marked paid.\"",
+   "tone": "green"
+  }
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "Paid: City Power AG, CHF 84.20, by card",
+  "lines": [
+   "Only the stored call ran, once. On Cancel nothing runs, and the model gets a declined result under c2."
+  ]
+ },
+ "captions": [
+  {
+   "title": "Let the harmless read run at once",
+   "text": "The model asks for `find_bills`. Reading changes nothing, so it runs at once. The bill goes back with its version: b17, CHF 84.20, version 3."
+  },
+  {
+   "title": "Hold the risky write instead of running it",
+   "text": "The model asks for `mark_paid` with b17, version 3 and card, under call id c2. `mark_paid` is on the confirm list, a constant in code, so it does not run."
+  },
+  {
+   "title": "Check the change can happen before asking anyone",
+   "text": "Code checks that the bill exists, is at version 3 and is unpaid. A call that would fail goes back to the model at once, with no card."
+  },
+  {
+   "title": "Code draws the card from the stored bill",
+   "text": "Payee and amount come from the stored bill: City Power AG, CHF 84.20. The proposal is saved with an expiry and the chat request ends. Billpod seals it in a token instead, valid 10 minutes."
+  },
+  {
+   "title": "The click sends only the row id and the decision",
+   "text": "The server runs only what it stored, for the user it was made for, once. Billpod: a changed token gets 400, an expired one 410, a second answer 409."
+  },
+  {
+   "title": "Run exactly the stored call, checking the version again",
+   "text": "The write runs `WHERE version = 3`: 1 row updated. If the bill had changed, 0 rows, and that refusal goes to the model. Either way, the card is used up."
+  },
+  {
+   "title": "Give the model its answer under its own call id",
+   "text": "The click's request loads the stored chat, adds the result under c2 and asks the model again. It replies \"Done: marked paid.\" On Cancel, the model gets a declined result under c2."
+  }
+ ]
+}

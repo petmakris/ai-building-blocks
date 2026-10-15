@@ -1,0 +1,206 @@
+{
+ "title": "The startup heal finds no admin edit, so the code copy overwrites the stale July row",
+ "subtitle": "A replay of today's fixed startup against the July row, following the real code and its test for a stale, never-edited row.",
+ "actors": [
+  {
+   "id": "app",
+   "label": "App",
+   "role": "one tunatutor process",
+   "tone": "red"
+  },
+  {
+   "id": "db",
+   "label": "Database",
+   "role": "row and archive"
+  },
+  {
+   "id": "cache",
+   "label": "Cache",
+   "role": "per process"
+  },
+  {
+   "id": "model",
+   "label": "Model",
+   "mono": false,
+   "role": "gemini-2.5-flash",
+   "tone": "blue"
+  }
+ ],
+ "phases": [
+  {
+   "id": "p1",
+   "label": "At startup · the fixed heal",
+   "start_at": "s1"
+  },
+  {
+   "id": "p2",
+   "label": "On each turn",
+   "start_at": "s10"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "app",
+   "to": "app",
+   "arrow": "self",
+   "label": "register the code copy",
+   "sub": "ai-tutor-layer1 · 8 slots",
+   "tone": "green",
+   "n": 1
+  },
+  {
+   "id": "s2",
+   "from": "app",
+   "to": "db",
+   "arrow": "request",
+   "label": "read row",
+   "sub": "ai-tutor-layer1",
+   "n": 2
+  },
+  {
+   "id": "s3",
+   "from": "db",
+   "to": "app",
+   "arrow": "event",
+   "label": "old text · no rules 14, 15",
+   "tone": "red",
+   "n": 2
+  },
+  {
+   "id": "s4",
+   "from": "app",
+   "to": "cache",
+   "arrow": "request",
+   "label": "keep the row's text",
+   "tone": "red",
+   "n": 2
+  },
+  {
+   "id": "s5",
+   "from": "app",
+   "to": "app",
+   "arrow": "self",
+   "label": "cached text ≠ code default",
+   "tone": "amber",
+   "n": 3
+  },
+  {
+   "id": "s6",
+   "from": "app",
+   "to": "db",
+   "arrow": "request",
+   "label": "count archived versions",
+   "sub": "prompt_template_versions",
+   "n": 4
+  },
+  {
+   "id": "s7",
+   "from": "db",
+   "to": "app",
+   "arrow": "event",
+   "label": "0: never edited by an admin",
+   "tone": "green",
+   "n": 4,
+   "checks": [
+    {
+     "label": "a person edited it",
+     "ok": false
+    }
+   ]
+  },
+  {
+   "id": "s8",
+   "from": "app",
+   "to": "db",
+   "arrow": "request",
+   "label": "write the code default",
+   "sub": "archive: false",
+   "tone": "green",
+   "n": 5
+  },
+  {
+   "id": "s9",
+   "from": "app",
+   "to": "cache",
+   "arrow": "request",
+   "label": "reload the healed text",
+   "tone": "green",
+   "n": 5
+  },
+  {
+   "id": "s10",
+   "from": "cache",
+   "to": "app",
+   "arrow": "request",
+   "label": "rules text, at session start",
+   "tone": "green",
+   "n": 6
+  },
+  {
+   "id": "s11",
+   "from": "app",
+   "to": "model",
+   "arrow": "request",
+   "label": "rendered prompt, all 15 rules",
+   "sub": "8 slots filled by code",
+   "tone": "blue",
+   "n": 6
+  },
+  {
+   "id": "s12",
+   "from": "model",
+   "to": "app",
+   "arrow": "event",
+   "label": "a fluent reply",
+   "tone": "green",
+   "n": 6
+  },
+  {
+   "id": "s13",
+   "from": "app",
+   "to": "db",
+   "arrow": "event",
+   "label": "lesson note",
+   "sub": "prompt \"v1\" · model id",
+   "n": 7
+  }
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "The model reads all 15 rules again",
+  "lines": [
+   "The heal writes no archive row, so the next startup can heal again. Tutor replies still carry no prompt version; only lesson notes do."
+  ]
+ },
+ "captions": [
+  {
+   "title": "Register the code copy before reading anything",
+   "text": "The app records the key `ai-tutor-layer1`, its default text in code and the 8 `{{name}}` slots that code fills. Engineers review this copy in git."
+  },
+  {
+   "title": "Load the database row into the cache",
+   "text": "The row has the old text, without rules 14 and 15. Each process keeps it in memory. Before the fix, startup ended here and the row won."
+  },
+  {
+   "title": "Compare the cached text with the code copy",
+   "text": "If the two are equal, there is nothing to heal. Here they differ, so the app must decide which copy wins."
+  },
+  {
+   "title": "Ask whether a person ever edited the row",
+   "text": "Every admin save first copies the old text into an archive table. 0 archived versions means no person changed it, so the code copy wins."
+  },
+  {
+   "title": "Reset the row without writing an archive",
+   "text": "The heal writes the code copy over the row and reloads the cache. It writes no archive row, which would make the row look edited and stop later heals."
+  },
+  {
+   "title": "Fill the slots and send the whole prompt on each turn",
+   "text": "A session reads the rules from the cache once. On every turn code computes the 8 slot values, and the filled text with all 15 rules goes to the model."
+  },
+  {
+   "title": "Stamp the prompt version and model on the result",
+   "text": "Tutor replies carry no stamp today. The lesson-note writer saves prompt \"v1\" and the model id in two columns, so a bad note can be traced months later."
+  }
+ ]
+}

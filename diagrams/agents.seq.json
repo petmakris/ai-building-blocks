@@ -1,0 +1,228 @@
+{
+ "title": "The model picks every step, and the loop checks, pauses and stops it",
+ "subtitle": "Example: \"Mark the electricity bill paid and tell me what is still due.\" The bill id, version and amount are made up; the rules are Billpod's.",
+ "actors": [
+  {
+   "id": "person",
+   "label": "Person",
+   "role": "pays the bills"
+  },
+  {
+   "id": "loop",
+   "label": "Loop",
+   "role": "your code, cap 6 calls",
+   "tone": "green"
+  },
+  {
+   "id": "model",
+   "label": "Model",
+   "role": "Gemini, runs nothing",
+   "tone": "blue"
+  },
+  {
+   "id": "tools",
+   "label": "Tools",
+   "role": "46 declared"
+  }
+ ],
+ "phases": [
+  {
+   "id": "p1",
+   "label": "Request 1",
+   "start_at": "s1"
+  },
+  {
+   "id": "p2",
+   "label": "Request 2 · after Approve",
+   "start_at": "s12"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "person",
+   "to": "loop",
+   "arrow": "request",
+   "label": "\"Mark the electricity bill paid…\"",
+   "n": 1
+  },
+  {
+   "id": "s2",
+   "from": "loop",
+   "to": "loop",
+   "arrow": "self",
+   "label": "model call 1 of 6",
+   "tone": "green",
+   "n": 1
+  },
+  {
+   "id": "s3",
+   "from": "loop",
+   "to": "model",
+   "arrow": "request",
+   "label": "system prompt, conversation, tool list",
+   "tone": "blue",
+   "n": 1
+  },
+  {
+   "id": "s4",
+   "from": "model",
+   "to": "loop",
+   "arrow": "event",
+   "label": "tool call",
+   "sub": "find_bills \"electricity\"",
+   "tone": "blue",
+   "n": 1
+  },
+  {
+   "id": "s5",
+   "from": "loop",
+   "to": "tools",
+   "arrow": "request",
+   "sub": "find_bills",
+   "label": "a read: runs at once",
+   "n": 2
+  },
+  {
+   "id": "s6",
+   "from": "tools",
+   "to": "loop",
+   "arrow": "event",
+   "label": "bill b42 · version 3",
+   "tone": "green",
+   "n": 2
+  },
+  {
+   "id": "s7",
+   "from": "loop",
+   "to": "model",
+   "arrow": "request",
+   "label": "call 2: whole transcript + result",
+   "tone": "blue",
+   "n": 2
+  },
+  {
+   "id": "s8",
+   "from": "model",
+   "to": "loop",
+   "arrow": "event",
+   "label": "tool call",
+   "sub": "mark_paid b42 · version 3",
+   "tone": "blue",
+   "n": 3
+  },
+  {
+   "id": "s9",
+   "from": "loop",
+   "to": "loop",
+   "arrow": "self",
+   "label": "a proposal, checked first:\nallow-listed, bill exists, version 3",
+   "tone": "green",
+   "n": 3
+  },
+  {
+   "id": "s10",
+   "from": "loop",
+   "to": "person",
+   "arrow": "event",
+   "label": "confirmation card",
+   "tone": "red",
+   "n": 4
+  },
+  {
+   "id": "s11",
+   "from": "loop",
+   "to": "loop",
+   "arrow": "self",
+   "label": "encrypt state into a\n10-min resume token",
+   "sub": "AES-256-GCM",
+   "tone": "red",
+   "n": 4
+  },
+  {
+   "id": "s12",
+   "from": "person",
+   "to": "loop",
+   "arrow": "request",
+   "label": "Approve + token, second request",
+   "tone": "green",
+   "n": 5,
+   "checks": [
+    {
+     "label": "token used once",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s13",
+   "from": "loop",
+   "to": "tools",
+   "arrow": "request",
+   "label": "sealed arguments only",
+   "sub": "mark_paid",
+   "tone": "red",
+   "n": 5
+  },
+  {
+   "id": "s14",
+   "from": "loop",
+   "to": "model",
+   "arrow": "request",
+   "label": "model calls 3 and 4",
+   "tone": "blue",
+   "n": 6
+  },
+  {
+   "id": "s15",
+   "from": "model",
+   "to": "loop",
+   "arrow": "event",
+   "label": "plain text, no tool call",
+   "tone": "green",
+   "n": 6
+  },
+  {
+   "id": "s16",
+   "from": "loop",
+   "to": "person",
+   "arrow": "event",
+   "label": "\"Done. Still due: water, 48.20\"",
+   "tone": "green",
+   "n": 6
+  }
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "Done in 4 of the 6 model calls, across two HTTP requests",
+  "lines": [
+   "No code wrote \"search, then mark paid, then list\". Nothing changed until the person said yes."
+  ]
+ },
+ "captions": [
+  {
+   "title": "Check the cap, then ask the model",
+   "text": "Model call 1 of 6. The loop sends the system prompt, the conversation and the tool list. The model cannot run anything: it replies with a tool call, find_bills “electricity”."
+  },
+  {
+   "title": "Run the read at once and send everything back",
+   "text": "find_bills runs straight away and returns bill b42, version 3 (example). The model remembers nothing, so call 2 resends call 1, its reply and the result. Every call id gets a result."
+  },
+  {
+   "title": "Check the write against stored data before showing it",
+   "text": "The model asks for `mark_paid` b42, version 3. A tool call is only a proposal: it must be on the allow-list, match its schema, name a bill in this household and carry the version the model read."
+  },
+  {
+   "title": "Save the paused loop and end the request",
+   "text": "Marking a bill paid needs the person's yes. The loop seals the transcript, the results, the call count and the checked arguments into a 10-minute AES-256-GCM token, shows a card, and the request ends. Nothing is written yet."
+  },
+  {
+   "title": "Resume once and run exactly what was checked",
+   "text": "Approve sends the token in a second request. The token works once, so a second click gets 409. The loop runs the sealed arguments only, and 2 of the 6 model calls are already used."
+  },
+  {
+   "title": "Stop when a reply has no tool call",
+   "text": "Call 3 asks for list_due. Call 4 answers in plain text: “Done. Still due: water, 48.20”. That is 4 of 6 calls across two HTTP requests, and no code wrote the order of steps."
+  }
+ ]
+}

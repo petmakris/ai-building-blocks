@@ -1,0 +1,632 @@
+{
+ "title": "A wrong answer returns 200, so record every call and score a sample to catch it",
+ "aria": "Every model call goes through one wrapper. In the example, Google moves the alias gemini-flash-latest to a preview model, and the grading feature marks a correct answer wrong while the call returns 200 in 1.4 seconds, so latency and error monitoring see nothing. The wrapper writes a call record with the prompt version and the model that answered, stores the redacted prompt and reply of every call for 14 days, and sends a 2% sample to a queue. A pinned checker model scores the sample, a nightly job compares the daily agreement rate with its alert line, and the owner finds that the response model changed. Pinning the model and replaying the stored prompts fixes it.",
+ "columns": [
+  "The request path",
+  "",
+  "",
+  "What monitoring sees"
+ ],
+ "boxes": [
+  {
+   "id": "feature",
+   "col": 0,
+   "row": 0,
+   "name": "Grading feature",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "\"Eu sou um barista.\"",
+    {
+     "text": "correct Portuguese",
+     "tone": "green"
+    },
+    "asks the model to grade"
+   ]
+  },
+  {
+   "id": "wrapper",
+   "col": 1,
+   "row": 0,
+   "tone": "red",
+   "name": "One wrapper",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "every model call goes through it",
+    "after each call, failures too,",
+    "writes the 3 things below",
+    {
+     "text": "fix: requests `gemini-2.5-flash`",
+     "tone": "green",
+     "gap": true,
+     "r": 6,
+     "b": 5
+    }
+   ]
+  },
+  {
+   "id": "gemini",
+   "col": 2,
+   "row": 0,
+   "tone": "blue",
+   "name": "Gemini",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "asked: `gemini-flash-latest`",
+    "an alias Google can move",
+    {
+     "text": "replies 200, grade: wrong",
+     "tone": "red"
+    }
+   ]
+  },
+  {
+   "id": "monitor",
+   "col": 3,
+   "row": 0,
+   "tone": "amber",
+   "name": "Latency and errors",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "1.4 s, HTTP 200",
+    "error tracker empty",
+    {
+     "text": "no alert fires",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "record",
+   "col": 0,
+   "row": 1,
+   "name": "Call record (example)",
+   "b": 2,
+   "r": 2,
+   "lines": [
+    "one log line, kept as long as logs",
+    "`prompt_version 14`",
+    "model asked, and model that answered:",
+    {
+     "text": "`gemini-2.5-flash-preview-09-2025`",
+     "tone": "red"
+    },
+    "tokens 912 in, 640 cached, 38 out",
+    "cost $0.000196, latency 1412 ms",
+    "finish reason, grade, trace ID"
+   ]
+  },
+  {
+   "id": "redacted",
+   "col": 1,
+   "row": 1,
+   "cols": 2,
+   "name": "Redacted prompt and reply",
+   "b": 2,
+   "r": 2,
+   "lines": [
+    "every call, not only the sample",
+    "names → <PERSON>, emails → <EMAIL>",
+    {
+     "text": "kept 14 days, on-call only",
+     "tone": "amber"
+    },
+    {
+     "text": "the owner reads the 5 reported calls",
+     "gap": true,
+     "r": 5
+    }
+   ]
+  },
+  {
+   "id": "sample",
+   "col": 3,
+   "row": 1,
+   "name": "2% sample, to a queue",
+   "b": 2,
+   "r": 3,
+   "lines": [
+    "`hash(trace ID) mod 100 < 2`",
+    "only calls that ended normally",
+    "≈200 scored a day: ±1.5 points",
+    {
+     "text": "never scored inside the request",
+     "tone": "amber",
+     "gap": true
+    }
+   ]
+  },
+  {
+   "id": "owner",
+   "col": 0,
+   "row": 2,
+   "name": "Owner",
+   "b": 4,
+   "r": 4,
+   "lines": [
+    {
+     "text": "groups by `prompt_version`",
+     "r": 5
+    },
+    {
+     "text": "and response model:",
+     "r": 5
+    },
+    {
+     "text": "v14 both days, so no edit",
+     "r": 5
+    },
+    {
+     "text": "graded wrong: 4% → 19%",
+     "tone": "red",
+     "r": 5
+    },
+    {
+     "text": "on the preview model",
+     "tone": "red",
+     "r": 5
+    }
+   ]
+  },
+  {
+   "id": "nightly",
+   "col": 1,
+   "row": 2,
+   "tone": "red",
+   "name": "Nightly job, 06:00",
+   "b": 4,
+   "r": 4,
+   "lines": [
+    "daily agreement rate",
+    "alert line 0.92 =",
+    "30-day mean − 3 SD",
+    {
+     "text": "Monday 0.81: alert",
+     "tone": "red"
+    }
+   ]
+  },
+  {
+   "id": "llmeval",
+   "col": 2,
+   "row": 2,
+   "name": "`llm_eval`",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    "one score per trace",
+    "no text, so it is",
+    "kept for months"
+   ]
+  },
+  {
+   "id": "checker",
+   "col": 3,
+   "row": 2,
+   "tone": "blue",
+   "name": "Checker model",
+   "b": 3,
+   "r": 3,
+   "lines": [
+    "second model, pinned version",
+    "reads redacted text + rubric",
+    "AGREE = 1, DISAGREE = 0",
+    {
+     "text": "billed under its own feature",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "fix",
+   "col": 0,
+   "row": 3,
+   "cols": 3,
+   "tone": "green",
+   "name": "Fix (example)",
+   "b": 5,
+   "r": 6,
+   "lines": [
+    "Request the pinned `gemini-2.5-flash`, never an alias. Replay the 5 stored prompts 10 times each.",
+    {
+     "text": "50 of 50 runs pass. The barista case joins the test set.",
+     "tone": "green"
+    }
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "written for every call",
+   "boxes": [
+    "record",
+    "redacted",
+    "sample"
+   ],
+   "b": 2
+  },
+  {
+   "label": "off the request path",
+   "boxes": [
+    "llmeval",
+    "checker"
+   ],
+   "b": 3
+  }
+ ],
+ "arrows": [
+  {
+   "from": "feature",
+   "to": "wrapper",
+   "b": 1
+  },
+  {
+   "from": "wrapper",
+   "to": "gemini",
+   "tone": "blue",
+   "b": 1,
+   "offset": -14
+  },
+  {
+   "from": "gemini",
+   "to": "wrapper",
+   "tone": "red",
+   "b": 1,
+   "offset": 14
+  },
+  {
+   "from": "gemini",
+   "to": "monitor",
+   "b": 1
+  },
+  {
+   "from": "wrapper",
+   "to": "record",
+   "b": 2,
+   "points": [
+    [
+     468,
+     232
+    ],
+    [
+     468,
+     252
+    ],
+    [
+     272,
+     252
+    ],
+    [
+     272,
+     304
+    ]
+   ]
+  },
+  {
+   "from": "wrapper",
+   "to": "redacted",
+   "b": 2
+  },
+  {
+   "from": "wrapper",
+   "to": "sample",
+   "b": 2,
+   "points": [
+    [
+     528,
+     232
+    ],
+    [
+     528,
+     252
+    ],
+    [
+     1074,
+     252
+    ],
+    [
+     1074,
+     304
+    ]
+   ]
+  },
+  {
+   "from": "redacted",
+   "to": "checker",
+   "tone": "blue",
+   "b": 3,
+   "points": [
+    [
+     839,
+     452
+    ],
+    [
+     839,
+     482
+    ],
+    [
+     1005,
+     482
+    ],
+    [
+     1005,
+     596
+    ]
+   ]
+  },
+  {
+   "from": "sample",
+   "to": "checker",
+   "b": 3
+  },
+  {
+   "from": "checker",
+   "to": "llmeval",
+   "b": 3
+  },
+  {
+   "from": "llmeval",
+   "to": "nightly",
+   "b": 4
+  },
+  {
+   "from": "record",
+   "to": "nightly",
+   "label": "joined by trace ID",
+   "b": 4,
+   "points": [
+    [
+     322,
+     484
+    ],
+    [
+     428,
+     484
+    ],
+    [
+     428,
+     596
+    ]
+   ]
+  },
+  {
+   "from": "nightly",
+   "to": "owner",
+   "tone": "red",
+   "b": 4
+  },
+  {
+   "from": "owner",
+   "to": "record",
+   "label": "group by version",
+   "b": 4
+  },
+  {
+   "from": "owner",
+   "to": "fix",
+   "tone": "green",
+   "b": 5
+  },
+  {
+   "layer": "route",
+   "from": "feature",
+   "to": "wrapper",
+   "r": 1
+  },
+  {
+   "layer": "route",
+   "from": "wrapper",
+   "to": "gemini",
+   "tone": "blue",
+   "n": 1,
+   "r": 1,
+   "offset": -14
+  },
+  {
+   "layer": "route",
+   "from": "gemini",
+   "to": "wrapper",
+   "tone": "red",
+   "n": 1,
+   "r": 1,
+   "offset": 14
+  },
+  {
+   "layer": "route",
+   "from": "gemini",
+   "to": "monitor",
+   "r": 1
+  },
+  {
+   "layer": "route",
+   "from": "wrapper",
+   "to": "record",
+   "n": 2,
+   "r": 2,
+   "points": [
+    [
+     468,
+     232
+    ],
+    [
+     468,
+     252
+    ],
+    [
+     272,
+     252
+    ],
+    [
+     272,
+     304
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "wrapper",
+   "to": "redacted",
+   "n": 2,
+   "r": 2
+  },
+  {
+   "layer": "route",
+   "from": "wrapper",
+   "to": "sample",
+   "n": 3,
+   "r": 3,
+   "points": [
+    [
+     528,
+     232
+    ],
+    [
+     528,
+     252
+    ],
+    [
+     1074,
+     252
+    ],
+    [
+     1074,
+     304
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "redacted",
+   "to": "checker",
+   "tone": "blue",
+   "n": 3,
+   "r": 3,
+   "points": [
+    [
+     839,
+     452
+    ],
+    [
+     839,
+     482
+    ],
+    [
+     1005,
+     482
+    ],
+    [
+     1005,
+     596
+    ]
+   ]
+  },
+  {
+   "layer": "route",
+   "from": "checker",
+   "to": "llmeval",
+   "tone": "red",
+   "n": 3,
+   "r": 3
+  },
+  {
+   "layer": "route",
+   "from": "llmeval",
+   "to": "nightly",
+   "n": 4,
+   "r": 4
+  },
+  {
+   "layer": "route",
+   "from": "nightly",
+   "to": "owner",
+   "tone": "red",
+   "n": 4,
+   "r": 4
+  },
+  {
+   "layer": "route",
+   "from": "owner",
+   "to": "record",
+   "n": 5,
+   "r": 5
+  },
+  {
+   "layer": "route",
+   "from": "owner",
+   "to": "fix",
+   "tone": "green",
+   "n": 6,
+   "r": 6
+  }
+ ],
+ "legend": [
+  {
+   "tone": "blue",
+   "label": "a model call"
+  },
+  {
+   "tone": "red",
+   "label": "the wrong grade, its alert"
+  },
+  {
+   "label": "records and data"
+  },
+  {
+   "tone": "green",
+   "label": "the fix"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "A wrong grade looks like a success",
+    "text": "The grading feature asks Gemini through one wrapper, by the alias `gemini-flash-latest`. The reply is fast and returns 200, so latency and error monitoring see nothing."
+   },
+   {
+    "title": "The wrapper writes three things per call",
+    "text": "A call record with the prompt version and the model that answered. The redacted prompt and reply, kept 14 days. A 2% sample, sent to a queue."
+   },
+   {
+    "title": "A second model scores the sample",
+    "text": "Off the request path, a pinned checker model reads the redacted text and a rubric. Its AGREE or DISAGREE lands in `llm_eval` as 1 or 0, kept for months."
+   },
+   {
+    "title": "A nightly job raises the alert",
+    "text": "At 06:00 the job compares the daily agreement rate with its alert line, 0.92. The owner groups the records by prompt version and response model to find the cause."
+   },
+   {
+    "title": "Pin the model and replay",
+    "text": "The fix requests the pinned `gemini-2.5-flash`. The 5 stored prompts replay 10 times each, and 50 of 50 runs pass."
+   }
+  ],
+  "route": [
+   {
+    "title": "A wrong grade comes back as a success",
+    "text": "On Monday morning Google points `gemini-flash-latest` at a preview model. The grading feature now marks correct answers wrong. Every call is fast, returns 200 and throws nothing."
+   },
+   {
+    "title": "The wrapper writes one record per call",
+    "text": "It logs prompt version 14 and the model that answered, `gemini-2.5-flash-preview-09-2025`, a real name. It also stores the prompt and reply with names and emails scrubbed, kept 14 days."
+   },
+   {
+    "title": "A second model scores a 2% sample",
+    "text": "Calls that finished normally enter a random 2% draw and go on a queue. The pinned checker model reads the redacted text, the verdict and a rubric. It answers DISAGREE, stored as 0."
+   },
+   {
+    "title": "The nightly job sees Monday fall below its band",
+    "text": "The alert line 0.92 sits three standard deviations below the 30-day mean. Monday scores 0.81, so the alert fires at 06:00 Tuesday. The first learner reports come that afternoon."
+   },
+   {
+    "title": "Grouping by version shows the model moved",
+    "text": "The prompt is version 14 on every call, so no prompt edit caused it. The response model changes on Monday, and answers graded wrong go from 4% to 19%."
+   },
+   {
+    "title": "Pin the model and replay ten times",
+    "text": "The team requests `gemini-2.5-flash` instead of the alias. The owner replays each of the 5 stored prompts 10 times. All 50 runs pass, and the barista case joins the test set."
+   }
+  ]
+ }
+}

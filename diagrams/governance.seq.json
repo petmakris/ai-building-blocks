@@ -1,0 +1,195 @@
+{
+ "title": "The gateway stores each draft before it returns, so audit reads it 14 months later",
+ "subtitle": "Example: a made-up Swiss bank, one meeting note. The OpenAI names are real.",
+ "actors": [
+  {
+   "id": "notes",
+   "label": "Notes app",
+   "role": "advisory-notes service"
+  },
+  {
+   "id": "gw",
+   "label": "Gateway",
+   "role": "holds the OpenAI keys",
+   "tone": "red"
+  },
+  {
+   "id": "inv",
+   "label": "Inventory",
+   "role": "one row per use case"
+  },
+  {
+   "id": "oa",
+   "label": "OpenAI",
+   "role": "pinned snapshot, Europe",
+   "tone": "blue"
+  },
+  {
+   "id": "log",
+   "label": "Audit log",
+   "role": "insert-only rows",
+   "tone": "green"
+  }
+ ],
+ "phases": [
+  {
+   "id": "p1",
+   "label": "15:41 · the draft",
+   "start_at": "s1"
+  },
+  {
+   "id": "p2",
+   "label": "15:52 · the adviser's edit",
+   "start_at": "s9"
+  },
+  {
+   "id": "p3",
+   "label": "14 months later · audit",
+   "start_at": "s10"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "notes",
+   "to": "notes",
+   "arrow": "self",
+   "label": "transcript not empty, not cut off",
+   "n": 1,
+   "checks": [
+    {
+     "label": "transcript",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "from": "notes",
+   "to": "gw",
+   "arrow": "request",
+   "label": "prompt + 3 headers",
+   "sub": "meeting-note-draft · v7 · rm.jmuster",
+   "n": 1
+  },
+  {
+   "id": "s3",
+   "from": "gw",
+   "to": "inv",
+   "arrow": "request",
+   "label": "row for this use case and caller?",
+   "n": 2
+  },
+  {
+   "id": "s4",
+   "from": "inv",
+   "to": "gw",
+   "arrow": "event",
+   "label": "Medium · gpt-4o-2024-08-06 · Europe",
+   "tone": "green",
+   "n": 2,
+   "checks": [
+    {
+     "label": "row found",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s5",
+   "from": "gw",
+   "to": "oa",
+   "arrow": "request",
+   "sub": "gpt-4o-2024-08-06 at eu.api.openai.com",
+   "tone": "blue",
+   "n": 3
+  },
+  {
+   "id": "s6",
+   "from": "oa",
+   "to": "gw",
+   "arrow": "event",
+   "label": "draft",
+   "sub": "model: gpt-4o-2024-08-06",
+   "tone": "blue",
+   "n": 3,
+   "checks": [
+    {
+     "label": "reported = pinned",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s7",
+   "from": "gw",
+   "to": "log",
+   "arrow": "event",
+   "label": "prompt, draft, call row",
+   "sub": "in/c-81f2 · out/c-81f2",
+   "tone": "green",
+   "n": 4
+  },
+  {
+   "id": "s8",
+   "from": "gw",
+   "to": "notes",
+   "arrow": "request",
+   "label": "draft",
+   "sub": "call_id c-81f2",
+   "n": 4
+  },
+  {
+   "id": "s9",
+   "from": "notes",
+   "to": "log",
+   "arrow": "event",
+   "label": "new event row",
+   "sub": "c-81f2 · edited · note/44120",
+   "tone": "green",
+   "n": 5
+  },
+  {
+   "id": "s10",
+   "from": "log",
+   "to": "log",
+   "arrow": "self",
+   "label": "model · prompt v7 · draft\nedit · region",
+   "tone": "green",
+   "n": 6
+  }
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "Audit reads the answers from rows, not from a rerun",
+  "lines": [
+   "The call row names gpt-4o-2024-08-06, prompt v7 and the EU region. out/c-81f2 holds the draft before the edit, and the event row shows who changed it."
+  ]
+ },
+ "captions": [
+  {
+   "title": "The notes service checks the transcript and names its use case",
+   "text": "The notes service refuses an empty or cut-off transcript. Then it sends the prompt with its own service credential. Three headers name the use case, the prompt version v7 and the user `rm.jmuster`."
+  },
+  {
+   "title": "The gateway finds the inventory row or refuses the call",
+   "text": "If no row has this use case with this credential, the call is refused and nothing reaches OpenAI. The row gives the risk class Medium, the model and the Europe region, so the caller cannot choose them."
+  },
+  {
+   "title": "The gateway calls a pinned snapshot and checks what answered",
+   "text": "It calls the snapshot `gpt-4o-2024-08-06`, never the alias `gpt-4o`, and records the version OpenAI reports. A mismatch alerts the row's owner. On a High row it also refuses the call."
+  },
+  {
+   "title": "The gateway stores the draft itself",
+   "text": "A rerun may give a different draft. So the prompt and the draft go into the encrypted content store, and a call row that is never updated points at them. The draft goes back with `call_id` c-81f2."
+  },
+  {
+   "title": "The adviser's edit becomes a new row",
+   "text": "The notes service keeps the final note `note/44120` in its own store and inserts an event row keyed by c-81f2. The draft in the content store stays as the model wrote it."
+  },
+  {
+   "title": "Fourteen months later, audit reads the answers from rows",
+   "text": "Audit follows the note to c-81f2. The call row names the snapshot, the prompt version and the region. The content store holds the draft before the edit, and the event row shows who changed it."
+  }
+ ]
+}

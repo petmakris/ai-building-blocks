@@ -1,0 +1,547 @@
+{
+ "title": "The model only asks for a tool call; your code decides whether it runs",
+ "aria": "Two loops call Billpod's tools. In the app, Billpod's loop sends Gemini the rules, the chat and 46 tool definitions; Gemini only replies with a request to call a tool, and the loop runs reads at once, stops a listed write at a confirmation card, and ends at 6 model calls or a reply with no call. Over MCP, Claude or ChatGPT runs its own loop and sends tools/call with an OAuth token, where a missing scope is refused with 403. Every call from both loops goes through one runner, runTool, which checks scopes, input, the handler and the output, and calls the same services the REST routes use.",
+ "columns": [
+  "The person and the doors",
+  "The loop and the runner",
+  "The model and the services"
+ ],
+ "boxes": [
+  {
+   "id": "person",
+   "col": 0,
+   "row": 0,
+   "name": "The person",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "\"I paid the electricity",
+    "bill by Twint today.\""
+   ]
+  },
+  {
+   "id": "card",
+   "col": 0,
+   "row": 1,
+   "tone": "green",
+   "name": "Confirmation card",
+   "b": 3,
+   "r": 5,
+   "lines": [
+    "31 writes need one first",
+    "shows the stored record",
+    {
+     "text": "Approve runs it as shown",
+     "tone": "green",
+     "r": 6
+    }
+   ]
+  },
+  {
+   "id": "loop",
+   "col": 1,
+   "row": 0,
+   "rows": 2,
+   "name": "Billpod's loop",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    {
+     "text": "createAssistant",
+     "mono": true
+    },
+    {
+     "text": "each call resends rules,",
+     "gap": true
+    },
+    "chat and all calls so far",
+    {
+     "text": "a result goes back under role `user`",
+     "r": 4
+    },
+    {
+     "text": "stops at 6 model calls",
+     "tone": "amber",
+     "gap": true
+    },
+    {
+     "text": "ends on a reply with no call",
+     "tone": "green",
+     "r": 7
+    },
+    {
+     "text": "behind a card, later writes",
+     "gap": true,
+     "b": 3
+    },
+    {
+     "text": "are answered \"not run\"",
+     "b": 3
+    }
+   ]
+  },
+  {
+   "id": "gemini",
+   "col": 2,
+   "row": 0,
+   "tone": "blue",
+   "name": "Gemini Flash",
+   "b": 1,
+   "r": 1,
+   "lines": [
+    "sees 46 of the 50 tools",
+    {
+     "text": "keeps nothing between calls",
+     "r": 4
+    },
+    {
+     "text": "replies text or a call",
+     "tone": "blue",
+     "r": 2
+    },
+    {
+     "text": "can be steered by text",
+     "tone": "amber"
+    },
+    {
+     "text": "inside a tool result",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "runtool",
+   "col": 1,
+   "row": 2,
+   "name": "runTool",
+   "mono": true,
+   "tone": "red",
+   "b": 2,
+   "r": 3,
+   "lines": [
+    "one runner for every tool call",
+    {
+     "text": "1 · caller holds the scopes",
+     "gap": true
+    },
+    {
+     "text": "else \"Tell the person; do not retry.\"",
+     "tone": "amber"
+    },
+    "2 · zod validates the input",
+    {
+     "text": "else one message per wrong field",
+     "tone": "amber"
+    },
+    "3 · handler calls the service",
+    {
+     "text": "a crash: one fixed message, logged",
+     "tone": "amber"
+    },
+    "4 · output fits its schema",
+    {
+     "text": "else INTERNAL_ERROR, logged",
+     "tone": "amber"
+    },
+    {
+     "text": "always returns data or an error the model can act on",
+     "tone": "green",
+     "gap": true
+    }
+   ]
+  },
+  {
+   "id": "services",
+   "col": 2,
+   "row": 2,
+   "tone": "green",
+   "name": "Billpod services",
+   "b": 2,
+   "r": 3,
+   "lines": [
+    "REST routes call them too",
+    {
+     "text": "refuse a stale version",
+     "tone": "green",
+     "r": 6
+    },
+    {
+     "text": "bind screens and AI alike",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "mcp",
+   "col": 0,
+   "row": 3,
+   "tone": "green",
+   "name": "POST /mcp",
+   "mono": true,
+   "b": 4,
+   "lines": [
+    "OAuth 2.1 Bearer token",
+    "scopes the person ticked",
+    {
+     "text": "a missing scope: 403",
+     "tone": "green"
+    },
+    {
+     "text": "the tool never runs",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "claude",
+   "col": 1,
+   "row": 3,
+   "tone": "blue",
+   "name": "Claude or ChatGPT",
+   "b": 4,
+   "lines": [
+    "keeps the chat, runs the loop",
+    "one tools/call per call",
+    {
+     "text": "Billpod's cap and card",
+     "tone": "amber"
+    },
+    {
+     "text": "do not apply here",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "own",
+   "col": 2,
+   "row": 3,
+   "tone": "blue",
+   "name": "Their own model",
+   "b": 4,
+   "lines": [
+    "Anthropic's, inside Claude",
+    {
+     "text": "sees all 50 tools",
+     "tone": "blue"
+    }
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "In the app",
+   "tone": "blue",
+   "boxes": [
+    "person",
+    "card",
+    "loop",
+    "gemini"
+   ],
+   "b": 1
+  },
+  {
+   "label": "Over MCP",
+   "tone": "blue",
+   "boxes": [
+    "mcp",
+    "claude",
+    "own"
+   ],
+   "b": 4
+  }
+ ],
+ "arrows": [
+  {
+   "from": "person",
+   "to": "loop",
+   "label": "message",
+   "b": 1
+  },
+  {
+   "from": "loop",
+   "to": "gemini",
+   "label": "rules + chat + 46 tools",
+   "b": 1,
+   "offset": -16
+  },
+  {
+   "from": "gemini",
+   "to": "loop",
+   "tone": "blue",
+   "label": "functionCall: name + args · a request only; nothing ran",
+   "b": 1,
+   "offset": 16
+  },
+  {
+   "from": "loop",
+   "to": "runtool",
+   "label": "no card needed: runs now",
+   "b": 2,
+   "offset": -60
+  },
+  {
+   "from": "runtool",
+   "to": "loop",
+   "label": "result appended for the next call",
+   "b": 2,
+   "offset": 60
+  },
+  {
+   "from": "runtool",
+   "to": "services",
+   "tone": "red",
+   "b": 2
+  },
+  {
+   "from": "loop",
+   "to": "card",
+   "label": "on confirm list",
+   "b": 3
+  },
+  {
+   "from": "person",
+   "to": "card",
+   "label": "presses Approve",
+   "b": 3
+  },
+  {
+   "from": "card",
+   "to": "runtool",
+   "label": "the approved call",
+   "b": 3,
+   "path": "vh",
+   "offset": -30,
+   "offset_to": -60
+  },
+  {
+   "from": "claude",
+   "to": "own",
+   "label": "chat + all 50 tools",
+   "b": 4,
+   "offset": -16
+  },
+  {
+   "from": "own",
+   "to": "claude",
+   "tone": "blue",
+   "label": "a tool call",
+   "b": 4,
+   "offset": 16
+  },
+  {
+   "from": "claude",
+   "to": "mcp",
+   "label": "`tools/call`",
+   "b": 4
+  },
+  {
+   "from": "mcp",
+   "to": "runtool",
+   "b": 4,
+   "path": "vh",
+   "offset": 50,
+   "offset_to": 80
+  },
+  {
+   "from": "runtool",
+   "to": "claude",
+   "label": "JSON result; isError on failure",
+   "b": 4
+  },
+  {
+   "layer": "route",
+   "from": "person",
+   "to": "loop",
+   "n": 1,
+   "r": 1,
+   "label": "\"I paid the electricity bill…\""
+  },
+  {
+   "layer": "route",
+   "from": "loop",
+   "to": "gemini",
+   "n": 1,
+   "r": 1,
+   "label": "rules + conversation + 46 tools",
+   "offset": -80
+  },
+  {
+   "layer": "route",
+   "from": "gemini",
+   "to": "loop",
+   "tone": "blue",
+   "n": 2,
+   "r": 2,
+   "mono": true,
+   "offset": -48,
+   "label": "find_bills(\"electricity\")"
+  },
+  {
+   "layer": "route",
+   "from": "loop",
+   "to": "runtool",
+   "n": 3,
+   "r": 3,
+   "label": "find_bills + who is asking",
+   "offset": -150
+  },
+  {
+   "layer": "route",
+   "from": "runtool",
+   "to": "services",
+   "tone": "red",
+   "r": 3
+  },
+  {
+   "layer": "route",
+   "from": "runtool",
+   "to": "loop",
+   "tone": "green",
+   "n": 3,
+   "r": 3,
+   "label": "ok · bill b_81, version 3",
+   "offset": -60
+  },
+  {
+   "layer": "route",
+   "from": "loop",
+   "to": "gemini",
+   "n": 4,
+   "r": 4,
+   "label": "same body + call + result",
+   "offset": -16
+  },
+  {
+   "layer": "route",
+   "from": "gemini",
+   "to": "loop",
+   "tone": "blue",
+   "n": 4,
+   "r": 4,
+   "mono": true,
+   "offset": 16,
+   "label": "mark_paid(b_81, v3)"
+  },
+  {
+   "layer": "route",
+   "from": "loop",
+   "to": "card",
+   "n": 5,
+   "r": 5,
+   "label": "example: EWZ, CHF 79.90, Twint, today?"
+  },
+  {
+   "layer": "route",
+   "from": "person",
+   "to": "card",
+   "tone": "green",
+   "n": 6,
+   "r": 6,
+   "label": "Approve"
+  },
+  {
+   "layer": "route",
+   "from": "card",
+   "to": "runtool",
+   "n": 6,
+   "r": 6,
+   "label": "mark_paid, as the card showed",
+   "path": "vh",
+   "offset": -30,
+   "offset_to": -60
+  },
+  {
+   "layer": "route",
+   "from": "runtool",
+   "to": "loop",
+   "tone": "green",
+   "n": 6,
+   "r": 6,
+   "label": "ok · bill b_81 paid",
+   "offset": 150
+  },
+  {
+   "layer": "route",
+   "from": "loop",
+   "to": "gemini",
+   "n": 7,
+   "r": 7,
+   "label": "same body + mark_paid result",
+   "offset": 48
+  },
+  {
+   "layer": "route",
+   "from": "gemini",
+   "to": "loop",
+   "tone": "green",
+   "n": 7,
+   "r": 7,
+   "label": "text only, no function call",
+   "offset": 80
+  }
+ ],
+ "legend": [
+  {
+   "label": "sends a message, call or result"
+  },
+  {
+   "tone": "blue",
+   "label": "a model asks for a tool call"
+  },
+  {
+   "tone": "red",
+   "label": "the runner runs the tool"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "The loop and the model",
+    "text": "The person writes to Billpod's loop. Each call resends the rules, the chat and 46 tools to Gemini. Gemini replies with text or a function call, and nothing has run yet. The loop stops at 6 model calls."
+   },
+   {
+    "title": "One runner for every tool call",
+    "text": "A call with no card runs at once through `runTool`. It checks scopes, input, the handler and the output, and always returns data or an error the model can act on. The handler calls the same services as the REST routes."
+   },
+   {
+    "title": "A card stops 31 writes",
+    "text": "A write on the confirm list waits at a card built from the stored record. Approve runs it as shown. Later writes behind a card are answered \"not run\"."
+   },
+   {
+    "title": "Over MCP, the outside assistant runs the loop",
+    "text": "Claude or ChatGPT keeps the chat and sends one `tools/call` per call to `POST /mcp` with an OAuth token. Billpod's cap and card do not apply. A missing scope gets 403, and the call still goes through `runTool`."
+   }
+  ],
+  "route": [
+   {
+    "title": "Send the sentence with the tool definitions",
+    "text": "Billpod sends Gemini its fixed rules, the conversation and 46 tool definitions. A definition is a name, a description and a JSON Schema for the arguments. The model reads the description as instructions."
+   },
+   {
+    "title": "The model asks for a lookup; nothing has run",
+    "text": "The model has no bill id, and `mark_paid`'s description says the id comes from `find_bills`. So it replies with a function call: a tool name and its arguments. It is only a request."
+   },
+   {
+    "title": "The runner checks the call before the handler runs",
+    "text": "Every call goes through `runTool`. It checks the scopes and the input, then runs the handler, which calls the same service as the REST API. Version 3 is the bill's change counter; `mark_paid` must send it back."
+   },
+   {
+    "title": "Resend everything, with the call and result appended",
+    "text": "The model API keeps no state, so Billpod sends the same body again with the call and its result added. The result travels under role `user`. Gemini now asks for `mark_paid(b_81, v3)`."
+   },
+   {
+    "title": "A write waits for the person's yes",
+    "text": "`mark_paid` is on Billpod's confirm list. The card is built from the stored bill, never from the model's words (example values). Billpod's request ends here; nothing is paid yet."
+   },
+   {
+    "title": "Approve runs exactly the call the card showed",
+    "text": "The runner runs the arguments the card showed. It checks the version again, so a bill changed since the card comes back as a conflict the model can read."
+   },
+   {
+    "title": "A plain-text reply ends the loop",
+    "text": "Billpod sends the result on a third model call. The reply is plain text, \"Done, the electricity bill is marked paid via Twint.\", so the loop ends."
+   }
+  ]
+ }
+}

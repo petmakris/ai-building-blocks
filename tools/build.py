@@ -505,7 +505,8 @@ def main() -> int:
     global ASSET_VERSION
     import hashlib
     h = hashlib.sha256()
-    for p in sorted(ASSETS.iterdir()):
+    import vzlib
+    for p in sorted(ASSETS.iterdir()) + [vzlib.STATIC / "vz.css", vzlib.STATIC / "vz-reveal.js"]:
         shutil.copy(p, out / "assets" / p.name)
         h.update(p.read_bytes())
     ASSET_VERSION = h.hexdigest()[:10]
@@ -534,6 +535,11 @@ def main() -> int:
             (out / b / "index.html").write_text(story_page.story_page(blk, stories[b], blocks, order, stories, counts, ASSET_VERSION))
         else:
             (out / b / "index.html").write_text(ref.replace('href="../../', 'href="../').replace('src="../../', 'src="../'))
+    (out / "diagrams").mkdir(exist_ok=True)
+    for b in order:
+        for kind, svg in (("map", vzlib.map_svg_of(b)), ("seq", vzlib.seq_svg_of(b))):
+            if svg:
+                (out / "diagrams" / f"{b}.{kind}.svg").write_text(svg)
     (out / "slides").mkdir()
     (out / "slides" / "index.html").write_text(story_page.slides(blocks, order, ASSET_VERSION))
     (out / ".nojekyll").write_text("")

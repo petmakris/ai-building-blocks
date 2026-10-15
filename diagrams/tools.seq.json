@@ -1,0 +1,230 @@
+{
+ "title": "One sentence takes three model calls, and the write waits at a card",
+ "subtitle": "Billpod's real rules. The ids and values are an example.",
+ "actors": [
+  {
+   "id": "person",
+   "label": "Person",
+   "role": "pays the bills"
+  },
+  {
+   "id": "asst",
+   "label": "Assistant",
+   "role": "Billpod's loop",
+   "mono": false
+  },
+  {
+   "id": "gemini",
+   "label": "Gemini",
+   "role": "keeps no state",
+   "tone": "blue"
+  },
+  {
+   "id": "run",
+   "label": "runTool",
+   "mono": true,
+   "role": "one runner",
+   "tone": "red"
+  }
+ ],
+ "phases": [
+  {
+   "id": "p1",
+   "label": "Request 1 · the sentence",
+   "start_at": "s1"
+  },
+  {
+   "id": "p2",
+   "label": "Request 2 · Approve",
+   "start_at": "s11"
+  }
+ ],
+ "steps": [
+  {
+   "id": "s1",
+   "from": "person",
+   "to": "asst",
+   "arrow": "request",
+   "n": 1,
+   "label": "\"I paid the electricity bill…\""
+  },
+  {
+   "id": "s2",
+   "from": "asst",
+   "to": "gemini",
+   "arrow": "request",
+   "n": 1,
+   "label": "rules + conversation + 46 tools"
+  },
+  {
+   "id": "s3",
+   "from": "gemini",
+   "to": "asst",
+   "arrow": "event",
+   "n": 2,
+   "label": "functionCall, nothing ran",
+   "sub": "find_bills(\"electricity\")",
+   "tone": "blue"
+  },
+  {
+   "id": "s4",
+   "from": "asst",
+   "to": "run",
+   "arrow": "request",
+   "n": 3,
+   "label": "find_bills + who is asking",
+   "tone": "red",
+   "checks": [
+    {
+     "label": "scopes",
+     "ok": true
+    },
+    {
+     "label": "input",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s5",
+   "from": "run",
+   "to": "asst",
+   "arrow": "event",
+   "n": 3,
+   "label": "ok · bill b_81, version 3",
+   "tone": "green"
+  },
+  {
+   "id": "s6",
+   "from": "asst",
+   "to": "gemini",
+   "arrow": "request",
+   "n": 4,
+   "label": "same body + call + result",
+   "sub": "role: user"
+  },
+  {
+   "id": "s7",
+   "from": "gemini",
+   "to": "asst",
+   "arrow": "event",
+   "n": 4,
+   "sub": "mark_paid(b_81, v3)",
+   "tone": "blue"
+  },
+  {
+   "id": "s8",
+   "from": "asst",
+   "to": "asst",
+   "arrow": "self",
+   "n": 5,
+   "label": "mark_paid is on the confirm list",
+   "tone": "amber"
+  },
+  {
+   "id": "s9",
+   "from": "asst",
+   "to": "person",
+   "arrow": "event",
+   "n": 5,
+   "label": "card: EWZ, CHF 79.90, Twint, today?",
+   "sub": "built from the stored bill",
+   "tone": "green"
+  },
+  {
+   "id": "s11",
+   "from": "person",
+   "to": "asst",
+   "arrow": "request",
+   "n": 6,
+   "label": "Approve",
+   "tone": "green"
+  },
+  {
+   "id": "s12",
+   "from": "asst",
+   "to": "run",
+   "arrow": "request",
+   "n": 6,
+   "label": "mark_paid, as the card showed",
+   "tone": "red",
+   "checks": [
+    {
+     "label": "scopes",
+     "ok": true
+    },
+    {
+     "label": "input",
+     "ok": true
+    },
+    {
+     "label": "version 3",
+     "ok": true
+    }
+   ]
+  },
+  {
+   "id": "s13",
+   "from": "run",
+   "to": "asst",
+   "arrow": "event",
+   "n": 6,
+   "label": "ok · bill b_81 paid",
+   "tone": "green"
+  },
+  {
+   "id": "s14",
+   "from": "asst",
+   "to": "gemini",
+   "arrow": "request",
+   "n": 7,
+   "label": "same body + mark_paid result"
+  },
+  {
+   "id": "s15",
+   "from": "gemini",
+   "to": "asst",
+   "arrow": "event",
+   "n": 7,
+   "label": "text only, no function call",
+   "tone": "green"
+  }
+ ],
+ "outcome": {
+  "tone": "green",
+  "title": "Loop ends: \"Done, the electricity bill is marked paid via Twint.\"",
+  "lines": [
+   "Gemini asked twice and ran nothing. Billpod's runner ran both calls, and the write waited for Approve."
+  ]
+ },
+ "captions": [
+  {
+   "title": "Send the sentence with the tool definitions",
+   "text": "Billpod sends Gemini its fixed rules, the conversation and 46 tool definitions. A definition is a name, a description and a JSON Schema for the arguments. The model reads the description as instructions."
+  },
+  {
+   "title": "The model asks for a lookup; nothing has run",
+   "text": "The model has no bill id, and `mark_paid`'s description says the id comes from `find_bills`. So it replies with a function call: a tool name and its arguments. It is only a request."
+  },
+  {
+   "title": "The runner checks the call before the handler runs",
+   "text": "Every call goes through `runTool`. It checks the scopes and the input, then runs the handler, which calls the same service as the REST API. Version 3 is the bill's change counter; `mark_paid` must send it back."
+  },
+  {
+   "title": "Resend everything, with the call and result appended",
+   "text": "The model API keeps no state, so Billpod sends the same body again with the call and its result added. The result travels under role `user`. Gemini now asks for `mark_paid(b_81, v3)`."
+  },
+  {
+   "title": "A write waits for the person's yes",
+   "text": "`mark_paid` is on Billpod's confirm list. The card is built from the stored bill, never from the model's words (example values). Billpod's request ends here; nothing is paid yet."
+  },
+  {
+   "title": "Approve runs exactly the call the card showed",
+   "text": "The runner runs the arguments the card showed. It checks the version again, so a bill changed since the card comes back as a conflict the model can read."
+  },
+  {
+   "title": "A plain-text reply ends the loop",
+   "text": "Billpod sends the result on a third model call. The reply is plain text, \"Done, the electricity bill is marked paid via Twint.\", so the loop ends."
+  }
+ ]
+}

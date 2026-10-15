@@ -1,0 +1,55 @@
+{
+ "title": "User B reuses user A's 6,000-token prefix at 0.1×, until a timestamp on top breaks every hit",
+ "subtitle": "Example: a made-up app scores videos against each user's goal, with the real rules of Anthropic's prompt caching.",
+ "actors": [
+  {"id": "service", "label": "Service", "role": "your app"},
+  {"id": "provider", "label": "Provider", "role": "runs the model", "tone": "blue"},
+  {"id": "cache", "label": "Prefix cache", "role": "5 min after last hit", "tone": "red"},
+  {"id": "log", "label": "Usage log", "role": "three counts per call", "tone": "green"}
+ ],
+ "phases": [
+  {"id": "p1", "label": "User A · the first call", "start_at": "s2"},
+  {"id": "p2", "label": "User B · within 5 minutes", "start_at": "s5"},
+  {"id": "p3", "label": "Later · a timestamp on top", "start_at": "s10"}
+ ],
+ "steps": [
+  {"id": "s1", "from": "service", "to": "service", "arrow": "self", "n": 1, "tone": "green",
+   "label": "fixed rules, 6,000 tokens ▸ marker\nthen goal + videos, 900 tokens",
+   "sub": "cache_control: {\"type\": \"ephemeral\"}"},
+  {"id": "s2", "from": "service", "to": "provider", "arrow": "request", "n": 2, "tone": "blue",
+   "label": "user A", "sub": "6,000 + 900 tokens"},
+  {"id": "s3", "from": "provider", "to": "cache", "arrow": "request", "n": 2, "tone": "amber",
+   "label": "miss · store 6,000 at 1.25×",
+   "checks": [{"label": "prefix cached", "ok": false}]},
+  {"id": "s4", "from": "provider", "to": "service", "arrow": "event", "n": 2, "tone": "amber",
+   "sub": "write 6,000 · read 0 · input 900"},
+  {"id": "s5", "from": "service", "to": "provider", "arrow": "request", "n": 3, "tone": "blue",
+   "label": "user B", "sub": "same 6,000 + new 900"},
+  {"id": "s6", "from": "cache", "to": "provider", "arrow": "event", "n": 3, "tone": "green",
+   "label": "hit · lifetime renewed",
+   "checks": [{"label": "same 6,000 tokens", "ok": true}]},
+  {"id": "s7", "from": "provider", "to": "service", "arrow": "event", "n": 3, "tone": "green",
+   "label": "6,000 read at 0.1×", "sub": "write 0 · read 6,000 · input 900"},
+  {"id": "s8", "from": "service", "to": "log", "arrow": "event", "n": 4,
+   "sub": "read 6,000 · write 0 · input 900"},
+  {"id": "s9", "from": "log", "to": "log", "arrow": "self", "n": 4, "tone": "green",
+   "label": "share 6,000 / 6,900 ≈ 87%", "sub": "the ceiling: healthy"},
+  {"id": "s10", "from": "service", "to": "provider", "arrow": "request", "n": 5, "tone": "red",
+   "label": "\"Now 14:02\" + same 6,000 tokens",
+   "checks": [{"label": "exact from the first token", "ok": false}]},
+  {"id": "s11", "from": "provider", "to": "service", "arrow": "event", "n": 5, "tone": "red",
+   "sub": "write 6,000 · read 0, every call"}
+ ],
+ "outcome": {
+  "tone": "red",
+  "title": "Every call pays the 1.25× write, and nothing is read",
+  "lines": ["Put changing values last. In the example day of 10,000 calls, that is about $225 against about $18 cached."]
+ },
+ "captions": [
+  {"title": "Put the fixed text first and mark its end", "text": "Tools, then the 6,000-token system prompt with a `cache_control` marker at its end. The user's goal and videos, 900 tokens, go last with no marker. `ephemeral` means 5 minutes, `\"ttl\": \"1h\"` one hour."},
+  {"title": "User A misses, so the provider stores the prefix", "text": "Nothing is cached yet, so the provider processes all 6,900 tokens and keeps its work over the 6,000-token prefix. The usage says write 6,000, read 0, input 900. Storing costs 1.25× the input price."},
+  {"title": "User B hits and pays a tenth for the prefix", "text": "Within 5 minutes, user B's request starts with the same 6,000 tokens. The provider reads them at 0.1× the input price on most models and replies sooner. Every hit restarts the 5-minute clock."},
+  {"title": "Log three counts to prove it works", "text": "The usage splits input into read 6,000, write 0 and input 900. The read share is 6,000 / 6,900 ≈ 87%. It cannot reach 100% while an uncached tail exists, so 87% is healthy."},
+  {"title": "A timestamp at the top breaks every hit", "text": "The match must be exact from the first token. \"Now 14:02\" (made up) on top makes every prefix new, so every call pays the 1.25× write and nothing is read. Tools in a different order on each call break it the same way."}
+ ]
+}

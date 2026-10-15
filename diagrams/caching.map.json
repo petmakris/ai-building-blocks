@@ -1,0 +1,572 @@
+{
+ "title": "A stored answer skips the model; a reused prompt opening is billed at 0.1×",
+ "aria": "Two caches skip repeated model work. Above, Tunatutor's answer cache: a normalised key with no user id finds a row in panel_content_cache; a hit makes no model call, a miss calls the model, validates the answer and stores it at version 6, and two wrong-language reports delete a row. Below, the provider's prompt cache: a request with its fixed text first reuses the stored prefix at 0.1 times the input price, while a timestamp on top makes every call a miss that pays 1.25 times to write.",
+ "columns": [
+  "",
+  "",
+  "",
+  ""
+ ],
+ "boxes": [
+  {
+   "id": "learner",
+   "col": 0,
+   "row": 0,
+   "name": "A learner asks",
+   "b": 1,
+   "lines": [
+    "« un tire-bouchon »",
+    "a word or a sentence"
+   ]
+  },
+  {
+   "id": "key",
+   "col": 1,
+   "row": 0,
+   "name": "Cache key",
+   "b": 1,
+   "lines": [
+    "text trimmed, lower-cased",
+    "SHA-256 for a sentence",
+    {
+     "text": "no user id in the key",
+     "tone": "green"
+    }
+   ]
+  },
+  {
+   "id": "cache",
+   "col": 2,
+   "row": 0,
+   "name": "panel_content_cache",
+   "mono": true,
+   "b": 2,
+   "lines": [
+    "Postgres, rows never expire",
+    "hit only if version ≥ 6",
+    {
+     "text": "a version bump: old rows miss",
+     "tone": "amber",
+     "b": 4
+    }
+   ]
+  },
+  {
+   "id": "ahit",
+   "col": 3,
+   "row": 0,
+   "tone": "green",
+   "name": "Hit: 0 model calls",
+   "b": 2,
+   "lines": [
+    "learner's own words added",
+    "after the lookup, never stored"
+   ]
+  },
+  {
+   "id": "semantic",
+   "col": 0,
+   "row": 1,
+   "tone": "red",
+   "name": "Semantic cache",
+   "b": 4,
+   "lines": [
+    "matches by meaning",
+    {
+     "text": "can be wrong, no error",
+     "tone": "red"
+    }
+   ]
+  },
+  {
+   "id": "validate",
+   "col": 1,
+   "row": 1,
+   "tone": "green",
+   "name": "Validate, then store",
+   "b": 3,
+   "lines": [
+    "missing field: nothing stored",
+    "upsert stamps version 6"
+   ]
+  },
+  {
+   "id": "model",
+   "col": 2,
+   "row": 1,
+   "tone": "blue",
+   "name": "Model call",
+   "b": 3,
+   "lines": [
+    "fixed system prompt first",
+    "learner's text last"
+   ]
+  },
+  {
+   "id": "report",
+   "col": 3,
+   "row": 1,
+   "tone": "amber",
+   "name": "Wrong-language report",
+   "b": 4,
+   "lines": [
+    "2 saved learners: row deleted",
+    "next read writes it again"
+   ]
+  },
+  {
+   "id": "fixed",
+   "col": 0,
+   "row": 2,
+   "cols": 2,
+   "tone": "green",
+   "name": "Fixed text first: the prefix is reused",
+   "b": 5,
+   "r": 1,
+   "lines": [
+    {
+     "text": "tools, then system prompt: 6,000 tokens, marker at end",
+     "tone": "green"
+    },
+    {
+     "text": "`cache_control`: `ephemeral` is 5 min, `\"ttl\": \"1h\"` 1 hour",
+     "r": 1
+    },
+    "then goal + videos: 900 tokens, changes"
+   ]
+  },
+  {
+   "id": "stamp",
+   "col": 0,
+   "row": 3,
+   "cols": 2,
+   "tone": "red",
+   "name": "A timestamp on top: no call ever matches",
+   "b": 6,
+   "r": 5,
+   "lines": [
+    {
+     "text": "\"Now 14:02\" first",
+     "tone": "red"
+    },
+    "then tools, system prompt: same 6,000 tokens",
+    "then goal + videos: 900 tokens"
+   ]
+  },
+  {
+   "id": "usage",
+   "col": 0,
+   "row": 4,
+   "cols": 2,
+   "rows": 2,
+   "name": "Usage counts, user B",
+   "b": 6,
+   "r": 4,
+   "lines": [
+    {
+     "text": "cache_read_input_tokens: 6000",
+     "mono": true,
+     "tone": "green"
+    },
+    {
+     "text": "cache_creation_input_tokens: 0",
+     "mono": true
+    },
+    {
+     "text": "input_tokens: 900",
+     "mono": true
+    },
+    "read share 6,000 / 6,900 ≈ 87%: the ceiling, healthy",
+    {
+     "text": "both cache counts 0: nothing was cached",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "provider",
+   "col": 2,
+   "row": 2,
+   "rows": 3,
+   "tone": "red",
+   "name": "Provider prefix cache",
+   "b": 5,
+   "r": 2,
+   "lines": [
+    "keeps the model's work",
+    "over the marked prefix",
+    {
+     "text": "match from the first token",
+     "gap": true,
+     "r": 5
+    },
+    "kept per organization",
+    {
+     "text": "lives 5 min after last hit",
+     "gap": true,
+     "r": 3
+    },
+    {
+     "text": "or 1 hour on request"
+    },
+    {
+     "text": "output still paid in full",
+     "tone": "blue",
+     "gap": true
+    }
+   ]
+  },
+  {
+   "id": "phit",
+   "col": 3,
+   "row": 2,
+   "tone": "green",
+   "name": "Hit: read at 0.1×",
+   "b": 5,
+   "r": 3,
+   "lines": [
+    "on most models, reply sooner",
+    {
+     "text": "user B: read 6,000 · write 0",
+     "tone": "green",
+     "r": 3
+    },
+    {
+     "text": "each hit restarts the 5 min",
+     "r": 3
+    }
+   ]
+  },
+  {
+   "id": "pmiss",
+   "col": 3,
+   "row": 3,
+   "tone": "amber",
+   "name": "Miss: write at 1.25×",
+   "b": 5,
+   "r": 2,
+   "lines": [
+    "1-hour lifetime: write at 2×",
+    {
+     "text": "user A: write 6,000 · read 0",
+     "tone": "amber",
+     "r": 2
+    },
+    {
+     "text": "timestamp on top: every call",
+     "tone": "red",
+     "r": 5
+    }
+   ]
+  },
+  {
+   "id": "short",
+   "col": 3,
+   "row": 4,
+   "tone": "amber",
+   "name": "Prefix too short",
+   "b": 6,
+   "lines": [
+    "under 512 to 4,096 tokens",
+    {
+     "text": "nothing cached, no error",
+     "tone": "amber"
+    }
+   ]
+  },
+  {
+   "id": "day",
+   "col": 2,
+   "row": 5,
+   "cols": 2,
+   "name": "Example day: 10,000 calls, $3 per 1M input",
+   "b": 6,
+   "lines": [
+    "no cache $180",
+    {
+     "text": "cached about $18",
+     "tone": "green"
+    },
+    {
+     "text": "timestamp on top about $225",
+     "tone": "red",
+     "r": 5
+    }
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "Your service · answer cache · Tunatutor",
+   "boxes": [
+    "learner",
+    "key",
+    "cache",
+    "ahit",
+    "semantic",
+    "validate",
+    "model",
+    "report"
+   ],
+   "b": 1
+  },
+  {
+   "label": "The provider's prompt cache · Anthropic prices, example sizes",
+   "tone": "blue",
+   "boxes": [
+    "fixed",
+    "stamp",
+    "usage",
+    "provider",
+    "phit",
+    "pmiss",
+    "short",
+    "day"
+   ],
+   "b": 5
+  }
+ ],
+ "arrows": [
+  {
+   "from": "learner",
+   "to": "key",
+   "b": 1
+  },
+  {
+   "from": "key",
+   "to": "cache",
+   "b": 2
+  },
+  {
+   "from": "cache",
+   "to": "ahit",
+   "tone": "green",
+   "label": "hit",
+   "b": 2
+  },
+  {
+   "from": "cache",
+   "to": "model",
+   "tone": "blue",
+   "label": "miss or old version",
+   "b": 3
+  },
+  {
+   "from": "model",
+   "to": "validate",
+   "tone": "blue",
+   "b": 3
+  },
+  {
+   "from": "validate",
+   "to": "cache",
+   "tone": "green",
+   "label": "stores",
+   "path": "hvh",
+   "b": 3,
+   "offset": 26
+  },
+  {
+   "from": "learner",
+   "to": "semantic",
+   "tone": "red",
+   "dash": true,
+   "label": "not used in Lomem",
+   "b": 4
+  },
+  {
+   "from": "ahit",
+   "to": "report",
+   "label": "Something wrong?",
+   "b": 4
+  },
+  {
+   "from": "report",
+   "to": "cache",
+   "tone": "amber",
+   "dash": true,
+   "label": "deletes the row",
+   "b": 4
+  },
+  {
+   "from": "model",
+   "to": "provider",
+   "tone": "blue",
+   "label": "every call resends the whole prompt",
+   "b": 5
+  },
+  {
+   "from": "fixed",
+   "to": "provider",
+   "tone": "green",
+   "b": 5
+  },
+  {
+   "from": "stamp",
+   "to": "provider",
+   "tone": "red",
+   "dash": true,
+   "b": 6
+  },
+  {
+   "from": "provider",
+   "to": "phit",
+   "tone": "green",
+   "b": 5
+  },
+  {
+   "from": "provider",
+   "to": "pmiss",
+   "tone": "amber",
+   "b": 5
+  },
+  {
+   "from": "provider",
+   "to": "short",
+   "tone": "amber",
+   "dash": true,
+   "b": 6
+  },
+  {
+   "from": "provider",
+   "to": "usage",
+   "b": 6
+  },
+  {
+   "layer": "route",
+   "from": "fixed",
+   "to": "provider",
+   "tone": "blue",
+   "n": 2,
+   "r": 2,
+   "offset": -12,
+   "label": "user A · 6,000 + 900"
+  },
+  {
+   "layer": "route",
+   "from": "provider",
+   "to": "pmiss",
+   "tone": "amber",
+   "r": 2,
+   "label": "store 6,000"
+  },
+  {
+   "layer": "route",
+   "from": "fixed",
+   "to": "provider",
+   "tone": "blue",
+   "n": 3,
+   "r": 3,
+   "offset": 14,
+   "label": "user B · same 6,000"
+  },
+  {
+   "layer": "route",
+   "from": "provider",
+   "to": "phit",
+   "tone": "green",
+   "r": 3,
+   "label": "hit"
+  },
+  {
+   "layer": "route",
+   "from": "provider",
+   "to": "usage",
+   "n": 4,
+   "r": 4,
+   "label": "read 6,000 · write 0"
+  },
+  {
+   "layer": "route",
+   "from": "stamp",
+   "to": "provider",
+   "tone": "red",
+   "dash": true,
+   "n": 5,
+   "r": 5,
+   "label": "\"Now 14:02\" on top"
+  },
+  {
+   "layer": "route",
+   "from": "provider",
+   "to": "pmiss",
+   "tone": "red",
+   "dash": true,
+   "r": 5,
+   "offset": 14
+  }
+ ],
+ "legend": [
+  {
+   "label": "calls"
+  },
+  {
+   "tone": "blue",
+   "label": "model call"
+  },
+  {
+   "tone": "green",
+   "label": "hit or check passed"
+  },
+  {
+   "tone": "amber",
+   "dash": true,
+   "label": "extra cost or removal"
+  },
+  {
+   "tone": "red",
+   "dash": true,
+   "label": "risky"
+  }
+ ],
+ "captions": {
+  "build": [
+   {
+    "title": "A learner's text becomes a key",
+    "text": "A learner asks about a word or a sentence. Tunatutor trims and lower-cases the text, and hashes a sentence with SHA-256. No user id goes into the key, so every learner shares the row."
+   },
+   {
+    "title": "A stored answer skips the model",
+    "text": "The key finds a row in `panel_content_cache` in Postgres. A hit at version 6 or later makes no model call. The learner's own words are added after the lookup and never stored."
+   },
+   {
+    "title": "A miss calls the model, then stores",
+    "text": "A miss or an old version calls the model, with the fixed system prompt first. The answer is validated: a missing field stores nothing. A good answer is upserted at version 6."
+   },
+   {
+    "title": "Keeping stored answers right",
+    "text": "A version bump makes every older row a miss. Two wrong-language reports from saved learners delete a row, and the next read writes it again. A semantic cache matches by meaning and can be wrong with no error, so Lomem does not use one."
+   },
+   {
+    "title": "The provider reuses the prompt opening",
+    "text": "Every model call resends the whole prompt. With the fixed text first and a marker at its end, the provider keeps its work over that prefix. A hit reads it at 0.1× the input price, a miss writes it at 1.25×."
+   },
+   {
+    "title": "What breaks it, and how to see it",
+    "text": "A timestamp on top makes every call a write. A prefix under the model's minimum caches nothing, with no error. The three usage counts show it. In the example day, that is $180, about $18 cached, or about $225."
+   }
+  ],
+  "route": [
+   {
+    "title": "Put the fixed text first and mark its end",
+    "text": "Tools, then the 6,000-token system prompt with a `cache_control` marker at its end. The user's goal and videos, 900 tokens, go last with no marker. `ephemeral` means 5 minutes, `\"ttl\": \"1h\"` one hour."
+   },
+   {
+    "title": "User A misses, so the provider stores the prefix",
+    "text": "Nothing is cached yet, so the provider processes all 6,900 tokens and keeps its work over the 6,000-token prefix. The usage says write 6,000, read 0, input 900. Storing costs 1.25× the input price."
+   },
+   {
+    "title": "User B hits and pays a tenth for the prefix",
+    "text": "Within 5 minutes, user B's request starts with the same 6,000 tokens. The provider reads them at 0.1× the input price on most models and replies sooner. Every hit restarts the 5-minute clock."
+   },
+   {
+    "title": "Log three counts to prove it works",
+    "text": "The usage splits input into read 6,000, write 0 and input 900. The read share is 6,000 / 6,900 ≈ 87%. It cannot reach 100% while an uncached tail exists, so 87% is healthy."
+   },
+   {
+    "title": "A timestamp at the top breaks every hit",
+    "text": "The match must be exact from the first token. \"Now 14:02\" (made up) on top makes every prefix new, so every call pays the 1.25× write and nothing is read. Tools in a different order on each call break it the same way."
+   }
+  ]
+ }
+}
