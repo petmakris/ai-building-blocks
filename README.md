@@ -1028,3 +1028,9 @@ Raw material the block files were built from. Where a source file and a block fi
 | `sources/sections-long/NN-<id>.html` | First HTML version of each section: the long, fact-checked draft (cited as "long draft") |
 | `sources/sections-tested/NN-<id>.html` | Second HTML version of each section: the short version tested on newcomer readers |
 | `sources/testing-notes/NN-<id>-testing.md` | Testing notes per section: key points, reader rounds with scores, undefined terms and misreadings, fact-check fixes, unanswered reader questions (cited as `testing`) |
+
+## 9. License
+
+This work is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0). You may share and adapt it, including commercially, as long as you credit Petros Makris and link to the license. Full text in [`LICENSE`](LICENSE); summary at https://creativecommons.org/licenses/by/4.0/
+
+Quotes from outside sources stay under their own terms; the S items name each source.
