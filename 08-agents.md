@@ -574,9 +574,9 @@ Most features built on a language model need more than one model call. A workflo
 - F2.10 · person: clicks Approve | ref: S16
 - F2.11 · browser → server: second POST with the same messages plus `confirm: { token, decision: "approve" }` | ref: X12, X30
 - F2.12 · server: open and claim the token (F4), run exactly the sealed `mark_paid` arguments, add its result | ref: X7, X8
-- F2.13 · server → model (step 3, count continues from the token) | ref: X3, X9
+- F2.13 · server → model: step 3 (count continues from the token) | ref: X3, X9
 - F2.14 · model → server: tool call `list_due`; runs at once | ref: S16
-- F2.15 · server → model (step 4) | ref: S16
+- F2.15 · server → model: step 4 | ref: S16
 - F2.16 · model → server: plain text, no tool call: "Done. Still due: water, 48.20, on the 28th." (made up) | ref: S16
 - F2.17 · server → browser: emit `done` with `awaiting: false` and usage; loop ends | ref: X9
 
@@ -624,7 +624,7 @@ Most features built on a language model need more than one model call. A workflo
 - F5.4 · server: merge consecutive turns of one role | ref: X18
 - F5.5 · server: earlier turns' tool results are not replayed; the model reads data again | ref: X18
 - F5.6 · server: hash the visible messages (`historyHash`) to bind any card to this conversation | ref: X18
-- F5.7 · "Try again" after a failed turn sends the conversation as it now stands, including writes that turn already made, with a note asking the model to finish; a card's answer is never retried | ref: X30
+- F5.7 · browser → server: "Try again" after a failed turn sends the conversation as it now stands, including writes that turn already made, with a note asking the model to finish; a card's answer is never retried | ref: X30
 
 ### F6 · Tutor checkpoint grading (a workflow)
 - Purpose: grade one level-test translation reliably with at most two model calls.
@@ -707,16 +707,16 @@ Most features built on a language model need more than one model call. A workflo
 - F13.11 · `execute(t, c)`: unknown tool (`t == null`) → result `"UNKNOWN_TOOL: there is no tool named <name>"` | ref: S16
 - F13.12 · `execute(t, c)`: validate the arguments with the tool's schema, then run the tool | ref: S16
 - F13.12b · if validation or the tool throws → result `{ error: <exception message> }`; the loop does not crash | ref: S16
-- F13.13 · `DECLINED` and `NOT_RUN` hold the sentences of C32 and C31 | ref: S16
+- F13.13 · code: `DECLINED` and `NOT_RUN` hold the sentences of C32 and C31 | ref: S16
 
 ### F14 · Tutor tool loop
 - Purpose: let the tutor's model call tools during one learner turn.
 - Trigger: a tutor turn with tools declared.
 - F14.1 · engine: step++ ; call the model with tools | ref: X27
 - F14.2 · engine: no tool calls → break, text is the reply | ref: X27
-- F14.2b · tools not connected → warn and break | ref: X27
+- F14.2b · if tools not connected → warn and break | ref: X27
 - F14.3 · engine: dispatch calls with `allowedTools` (the allow-list) | ref: X27
-- F14.3b · dispatch throws → warn and break | ref: X27
+- F14.3b · if dispatch throws → warn and break | ref: X27
 - F14.4 · engine: `stopReason !== "tool_use"` → break | ref: X27
 - F14.5 · engine: no `backend_with_loop` results and text not blank → break | ref: X27
 - F14.6 · engine: step ≥ 4 → warn "tool loop step cap reached" and break | ref: X27
@@ -727,20 +727,20 @@ Most features built on a language model need more than one model call. A workflo
 - Trigger: POST `/api/mealy/assistant/runs`; answered 202 with the stored run.
 - F15.1 · server: if steps ≥ 16 → finish `done` with `LOOP_LIMIT` | ref: X31
 - F15.2 · server → model: `callWithTools` with 90 s timeout and 4096 output tokens | ref: X31
-- F15.2b · model call fails → finish `failed` with `AI_FAILED` | ref: X31
+- F15.2b · if model call fails → finish `failed` with `AI_FAILED` | ref: X31
 - F15.3 · server: reads answer the model; writes run at once and become actions with Undo; held tools do not run and wait for a tap | ref: X30 (§8)
 - F15.4 · server: a step with no tool calls ends the run; actions are stored after every step; at most 80 writes per run | ref: X30, X31
-- F15.5 · restart while running → at boot marked failed `INTERRUPTED`, never resumed | ref: X31
+- F15.5 · server: restart while running → at boot marked failed `INTERRUPTED`, never resumed | ref: X31
 
 ### F16 · Where the loop sits in the full request path
 - Purpose: place the agent loop among the other blocks for one request.
 - Trigger: a user request.
-- F16.1 · edge/controller → input guardrails → cache check → router → context assembly → gateway → model | ref: S10, S15
+- F16.1 · request path: edge/controller → input guardrails → cache check → router → context assembly → gateway → model | ref: S10, S15
 - F16.2 · agent or workflow loop: validate arguments; run the tool with the user's scoped credentials; code goes to the sandbox; writes go through human-in-the-loop approval | ref: S15
-- F16.3 · results go back into the context, compacted if needed, and the model is called again | ref: S15
-- F16.4 · the loop stops at a step, cost or time budget | ref: S15
-- F16.5 · long runs are checkpointed in durable execution | ref: S15
-- F16.6 · output handling → response and memory write-back; tracing per model, tool and agent step across all of it | ref: S15
+- F16.3 · agent loop: results go back into the context, compacted if needed, and the model is called again | ref: S15
+- F16.4 · agent loop: the loop stops at a step, cost or time budget | ref: S15
+- F16.5 · agent loop: long runs are checkpointed in durable execution | ref: S15
+- F16.6 · request path: output handling → response and memory write-back; tracing per model, tool and agent step across all of it | ref: S15
 
 ## States
 
@@ -875,7 +875,10 @@ Most features built on a language model need more than one model call. A workflo
   - done: ended with the model's closing words, or `LOOP_LIMIT`.
   - failed: `AI_FAILED` or `INTERRUPTED`.
   - held action: a held tool's checked arguments waiting for a tap.
-  - confirmed / declined / undone: what became of an action.
+  - confirmed: what became of an action: confirmed, its stored args run once.
+  - declined: what became of an action: cancelled while held.
+  - done write: a write that ran at once and became an action with Undo.
+  - undone: what became of an action: its recorded reverse ran once.
 - Transitions:
 
 | from | trigger | guard | to | effect | ref |

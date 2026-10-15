@@ -564,7 +564,7 @@ Purpose: produce a daily quality number on real traffic that falls when the mode
 - F2.2 · consumer → text store: read the call's redacted text within minutes | condition: always | data: prompt, reply | ref: S20
 - F2.3 · consumer: run the deterministic check | condition: a deterministic check exists for this feature | data: e.g. "is the score between 0 and 100" → pass or fail | ref: S20; C27
 - F2.3b · if no deterministic check fits: consumer → checker model through the same wrapper under its own feature name → continues at F2.4 | ref: S20
-- F2.3c · alternatively a person scores the call → continues at F2.6 | ref: S20
+- F2.3c · person: alternatively scores the call → continues at F2.6 | ref: S20
 - F2.4 · consumer → checker model: send sentence, expected answer, learner answer, the feature's verdict and the rubric | condition: F2.3b | data: redacted text, rubric | ref: S20; E5
 - F2.5 · checker model → consumer: reply AGREE or DISAGREE | condition: F2.4 | data: one word | ref: S20
 - F2.5b · if the reply is anything else: reject as a failed check, store no score → flow ends | ref: S20
@@ -604,8 +604,8 @@ Purpose: keep personal data out of stored prompts and replies. Trigger: F1.14.
 - F5.2 · redactor: replace pattern matches | condition: always | data: emails, phone numbers, IBANs → placeholders such as `<EMAIL>` | ref: S20; E6
 - F5.3 · redactor: replace detected names | condition: a detector such as Presidio is used | data: names → `<PERSON>` | ref: S20; E6
 - F5.4 · redactor → text store: write redacted text | condition: always | data: redacted prompt and reply | ref: S20
-- F5.5 · checker model reads only the redacted text | condition: F2 | data: redacted text | ref: S20
-- F5.6b · the unredacted prompt still goes to the provider in F1.6; whether that is allowed is a contract question with the provider | ref: S20
+- F5.5 · checker model: reads only the redacted text | condition: F2 | data: redacted text | ref: S20
+- F5.6b · wrapper → provider: the unredacted prompt still goes to the provider in F1.6; whether that is allowed is a contract question with the provider | ref: S20
 
 ### F6 · Lomem gateway: one provider attempt with observe and settle
 Purpose: try providers in order, tap each attempt and settle spend exactly once per attempt. Trigger: any `call`, `callJson`, `callWithTools`, `callImage` (non-streaming) in an app.
@@ -655,12 +655,12 @@ Purpose: stop a model being used before its prices exist. Trigger: an admin make
 - F9.1 · admin settings → registry: `assertModelPriced(id)` | condition: activation or fallback enable | ref: X13
 - F9.2 · registry: find missing `:text-input`, `:text-input-cached`, `:text-output` price keys | condition: always | ref: X13
 - F9.2b · if any key is missing: throw `ValidationError` "…has no active price for … Add the rows on Billing → Provider Costs first" → activation refused | ref: X13
-- F9.3 · activation proceeds | condition: no key missing | ref: X13
+- F9.3 · admin settings: activation proceeds | condition: no key missing | ref: X13
 
 ### F10 · Lomem structured call: settle before validate
 Purpose: record spend even when the answer is unusable, and name a cut answer. Trigger: `callJson`.
 
-- F10.1 · `callJson` → `run` (F6) | condition: always | data: JSON options, temperature 0.2 default, response schema | ref: X15
+- F10.1 · `callJson` → `run`: call `run` → runs F6 | condition: always | data: JSON options, temperature 0.2 default, response schema | ref: X15
 - F10.2 · gateway: classify the finish reason | condition: run returned | data: finishReason, blockReason → stop reason | ref: X15; X14
 - F10.2b · if blocked: throw `LlmOutputError` "LLM answer was blocked: …" carrying finish and block reasons (spend already settled) → flow ends | ref: X15
 - F10.3 · gateway: parse with the zod schema and return data | condition: parses | ref: X15
@@ -675,12 +675,12 @@ Purpose: grade a level-test answer, recheck a self-contradiction once, and log u
 - F11.2c · if the recheck is consistent: it replaces the first result → continues at F11.3 | ref: X22
 - F11.3 · `logBorderline`: write `td_checkpoint_borderline` with attemptId, userAnswer, score, correct | condition: 50 ≤ score ≤ 85 | ref: X22
 - F11.3b · if the score is outside 50-85: no log line | ref: X22
-- F11.4 · return the result | ref: X22
+- F11.4 · grader: return the result | ref: X22
 
 ### F12 · Lomem live error stream
 Purpose: show provider failures on the admin page as they happen. Trigger: F6.6c.
 
-- F12.1 · gateway `onError` → `emitLlmError` | condition: a provider attempt failed | data: model id, model name, message | ref: X7; X18
+- F12.1 · gateway → emitter: `onError` calls `emitLlmError` | condition: a provider attempt failed | data: model id, model name, message | ref: X7; X18
 - F12.2 · emitter: emit `llm_error` with ISO timestamp | ref: X18
 - F12.3 · SSE route: write `data: <json>` to each connected admin page | condition: an admin page holds the stream open | ref: X19
 
@@ -688,7 +688,7 @@ Purpose: show provider failures on the admin page as they happen. Trigger: F6.6c
 Purpose: keep stored prompt text short-lived. Trigger: nightly schedule.
 
 - F13.1 · retention job → text store: delete rows with `created_at` older than 14 days | condition: nightly | ref: S20
-- F13.2 · metadata in the call log and scores in `llm_eval` stay (logs' retention; months) | ref: S20
+- F13.2 · retention job: leaves metadata in the call log and scores in `llm_eval`; they stay (logs' retention; months) | ref: S20
 
 ## States
 

@@ -482,7 +482,7 @@ Purpose: make each process hold a correct Layer 1 text before any session opens.
 - F1.2a · if no row exists → prompt_templates: create row from registration.defaultContent (no archive row) → continues at F1.3 | ref: X11
 - F1.2b · if no row and no registration → throw "No DB row and no registration found" → startup fails | ref: X11
 - F1.3 · loadTemplateCache → cache: cache.set(key, row.content) | data: row text | ref: X11
-- F1.4 · init → healStaleTemplate(key) | ref: X18, X17
+- F1.4 · init → heal: healStaleTemplate(key) | ref: X18, X17
 - F1.4a · if key not registered → return (no-op) | ref: X17
 - F1.5 · heal → cache: read cached content | ref: X17
 - F1.5a · if content === defaultContent → return (nothing to heal) | ref: X17
@@ -492,8 +492,8 @@ Purpose: make each process hold a correct Layer 1 text before any session opens.
 - F1.7a · if count > 0 → return (an admin edited it: keep theirs) | ref: X17
 - F1.8 · heal → resetPromptTemplate(key, {archive: false}): update row content to defaultContent, set cache | data: code default | ref: X13
 - F1.9 · heal → loadTemplateCache(key): refresh cache from row | ref: X17
-- F1.10 · init repeats F1.1-F1.9 for "public-demo-tutor" | ref: X18
-- F1.11 · init → loadTutorToolConfigCache (pre-warm the tool list rendered into the TOOLS layer) | ref: X18, X19
+- F1.10 · init: repeats F1.1-F1.9 for "public-demo-tutor" | ref: X18
+- F1.11 · init → loadTutorToolConfigCache: pre-warm the tool list rendered into the TOOLS layer | ref: X18, X19
 
 ### F2 · Render the system prompt for one tutor turn
 Purpose: produce the exact text the model reads. Trigger: a learner message in an AI tutor session (S6, X6).
@@ -510,12 +510,12 @@ Purpose: produce the exact text the model reads. Trigger: a learner message in a
 - F2.4 · buildLayer1FromTemplate: replace each {{name}} with its value | ref: X5
 - F2.4a · if {{name}} is not a known variable (typo) → token left in place as literal text → continues at F2.5 (no error) | ref: X5
 - F2.4b · if the token has spaces inside the braces → regex does not match → token left as literal text → continues at F2.5 | ref: X5, X10
-- F2.5 · if learner chose the topic → adaptTemplateForLearnerTopic rewrites two exact sentences and appends LEARNER_TOPIC_PRECEDENCE_LINE | ref: X6, X9
+- F2.5 · buildPrompt: if learner chose the topic → adaptTemplateForLearnerTopic rewrites two exact sentences and appends LEARNER_TOPIC_PRECEDENCE_LINE | ref: X6, X9
 - F2.5a · if an admin edited those two sentences → the exact-string rewrite does nothing, the precedence line is still appended | ref: X9 (code reading)
 - F2.6 · buildPrompt: push identity, tutor model, student state, output format, TOOLS, settings, objectives (unless story), reference or scene, micro-scenario, adaptive, memory, learner address, continuity, error, learner intelligence, lexicon, session focus layers when present | ref: X7, S14
 - F2.7 · buildPrompt: join layers with "\n\n---\n\n" | ref: X7
 - F2.8 · engine → gateway → model: system prompt + earlier messages + new message | ref: S6, gateway block
-- F2.9 · (proposed) log prompt key, prompt version or text hash, and model id with the call | condition: not done in tunatutor today | ref: S6
+- F2.9 · logging (proposed): log prompt key, prompt version or text hash, and model id with the call | condition: not done in tunatutor today | ref: S6
 
 ### F3 · Admin saves a template
 Purpose: let an expert change the prompt without a deployment. Trigger: Save on the admin page → PUT /:key (X30, X31).
@@ -532,15 +532,15 @@ Purpose: let an expert change the prompt without a deployment. Trigger: Save on 
 - F3.4 · upsert → prompt_templates: upsert content | ref: X12
 - F3.5 · upsert → cache: cache.set(key, content) in this process only | ref: X12
 - F3.6 · page: set pill CUSTOM, reload version list | ref: X31
-- F3.7 · new sessions on this process take the new text at F2.0; sessions already configured keep their text; other processes keep the old cache until restart | ref: X19, X11 (code reading)
+- F3.7 · sessions and processes: new sessions on this process take the new text at F2.0; sessions already configured keep their text; other processes keep the old cache until restart | ref: X19, X11 (code reading)
 
 ### F4 · Admin resets a template to the code default
 Purpose: take the current code default. Trigger: Reset on the admin page → DELETE /:key (X30, X31).
 - F4.1 · page → API: DELETE /:key | ref: X31, X30
 - F4.1a · if key not registered → 404 | ref: X30
-- F4.2 · route → resetPromptTemplate(key) with archive default true | ref: X13
-- F4.3 · if row differs from default → archive old content (versionCount +1) | ref: X13
-- F4.4 · update row to defaultContent; cache.set | ref: X13
+- F4.2 · route → reset: resetPromptTemplate(key) with archive default true | ref: X13
+- F4.3 · reset: if row differs from default → archive old content (versionCount +1) | ref: X13
+- F4.4 · reset → prompt_templates: update row to defaultContent; cache.set | ref: X13
 - F4.5 · page: set pill DEFAULT | ref: X31
 - F4.6 · next deploy with a changed constant: row equals the old default, versionCount ≥ 1 → heal F1.7a returns → row stays on the old default | ref: X17, X13 (code reading, not run)
 
@@ -567,7 +567,7 @@ Purpose: the ordered steps for a safe prompt change (S6). Trigger: a needed chan
 - F6.5b · admin-screen path: save; the archive keeps the old text; results carry the text's hash | ref: S6
 - F6.5c · prompt-service path: save a new version and move the label | ref: S6, S3
 - F6.6 · runtime: store or log the version id and model id with every output | ref: S6
-- F6.7 · if replies get worse → revert and redeploy, activate the archived text, or move the label back | ref: S6
+- F6.7 · rollback: if replies get worse → revert and redeploy, activate the archived text, or move the label back | ref: S6
 
 ### F7 · Golden test run and intended re-render
 Purpose: detect any change to rendered text. Trigger: test run (X27, X28).
@@ -576,7 +576,7 @@ Purpose: detect any change to rendered text. Trigger: test run (X27, X28).
 - F7.3 · test: assert equal to golden["name@turn"] | ref: X27
 - F7.3a · if bytes differ and the change was not intended → fix the code | ref: S6
 - F7.3b · if bytes differ and the change was intended → re-render the JSON by calling the builder on the fixture inputs, record why in the header comment | ref: S6, X27, X28
-- F7.4 · test also pins the scene-handoff prompt and the judge prompt (scenario file) and the greeting hint (topic file) | ref: X27, X28
+- F7.4 · test: also pins the scene-handoff prompt and the judge prompt (scenario file) and the greeting hint (topic file) | ref: X27, X28
 
 ### F8 · Lesson note written with a version stamp
 Purpose: store which prompt and model wrote each note. Trigger: lesson-note job after a session (X32).
@@ -590,9 +590,9 @@ Purpose: store which prompt and model wrote each note. Trigger: lesson-note job 
 ### F9 · Mature registry fetch and label rollback
 Purpose: serve the live prompt version without a deployment. Trigger: a model call that needs prompt X (S2, S3, S4).
 - F9.1 · app → client library: get prompt X with label production | ref: S3, S6
-- F9.2a · cache hit within TTL (default 60 s) → return cached version | ref: S4
-- F9.2b · cache stale → return cached version and refresh in the background (stale-while-revalidate) | ref: S4, testing
-- F9.2c · cache miss → fetch from the registry | ref: S4
+- F9.2a · if cache hit within TTL (default 60 s) → return cached version | ref: S4
+- F9.2b · if cache stale → return cached version and refresh in the background (stale-while-revalidate) | ref: S4, testing
+- F9.2c · if cache miss → fetch from the registry | ref: S4
 - F9.3 · app → model: call with the rendered prompt | ref: S6
 - F9.4 · app → tracing: link the trace to the prompt version (optional) | ref: S3, testing
 - F9.5 · rollback: operator moves production to an earlier version number → servers pick it up within about a minute (unverified) | ref: S3, S6
@@ -609,8 +609,8 @@ Purpose: the failure path the fix closed. Trigger: database seeded from 04-app-s
 - F11.1 · seed SQL → prompt_templates: insert an old copy of ai-tutor-layer1 | ref: S6, X22
 - F11.2 · startup → loadTemplateCache: row exists → cache the row's text (code default ignored) | ref: X11, X22
 - F11.3 · sessions → buildPrompt: render the stale Layer 1 lacking rules 14 and 15 | ref: S6
-- F11.4 · golden tests and builds pass, because they feed the code constant | ref: S6, X27
-- F11.5 · linguist reviewing replies notices rules 14 and 15 never show up | ref: S6, X22
+- F11.4 · golden tests and builds: pass, because they feed the code constant | ref: S6, X27
+- F11.5 · linguist: reviewing replies, notices rules 14 and 15 never show up | ref: S6, X22
 
 ### F12 · Scenario eval run
 Purpose: report how often simulated runs reach a scene's goals. Trigger: admin starts an eval run (X36).
@@ -646,7 +646,7 @@ Purpose: report how often simulated runs reach a scene's goals. Trigger: admin s
 | AdminEdited | admin Reset | none | ResetProtected | archive admin text, write constant | X13 |
 | AdminEdited | admin Activate version | variables registered | AdminEdited | archive current, write archived text | X15 |
 | ResetProtected | deploy with a changed constant, then startup | versionCount > 0 | ResetProtected (now stale) | none: heal does not fire | X17, X13 (code reading) |
-| any | admin save | unknown variable | same | ValidationError, nothing written | X10 |
+| any | admin save | unknown variable | any (unchanged) | ValidationError, nothing written | X10 |
 
 ### L2 · In-memory cache entry, per process
 - States:
@@ -723,6 +723,7 @@ Purpose: report how often simulated runs reach a scene's goals. Trigger: admin s
 
 ### L8 · Admin page pill
 - States:
+  - load: page loaded, GET /:key not yet answered.
   - DEFAULT: API returned template null.
   - CUSTOM: API returned a row.
 

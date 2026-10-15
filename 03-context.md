@@ -610,9 +610,9 @@ Purpose: send back only what the person saw, within the server's caps. Trigger: 
 - F3.1 · K1 → K1: find cards whose call ran under its own tool line (`<cardId>:run`) | ref: X31 lines 265-267
 - F3.2 · K1 → K1: for each user item: close the open assistant turn; push `{role: "user", text}` cut to 2,000 characters | ref: X31 lines 280-283
 - F3.3 · K1 → K1: for each other item: add assistant text (joined with a blank line) and an action from `actionOf` | ref: X31 lines 285-288, X30
-- F3.3a · a tool item that is a write and not running → action with outcome `undone` if the person undid it, else `done` or `failed` | ref: X30 lines 236-242
-- F3.3b · a card whose call ran, or a card still `sending` → no action (reported once, or left out) | ref: X30 line 246
-- F3.3c · a card `declined` or `changed` → `declined`; `failed` → `failed`; `approved` → `done`; `interrupted` → `interrupted`; anything else (`missed`, `expired`, `pending`) → `not_confirmed` | ref: X30 lines 247-252
+- F3.3a · if a tool item is a write and not running → action with outcome `undone` if the person undid it, else `done` or `failed` | ref: X30 lines 236-242
+- F3.3b · if a card whose call ran, or a card still `sending` → no action (reported once, or left out) | ref: X30 line 246
+- F3.3c · if a card is `declined` or `changed` → `declined`; `failed` → `failed`; `approved` → `done`; `interrupted` → `interrupted`; anything else (`missed`, `expired`, `pending`) → `not_confirmed` | ref: X30 lines 247-252
 - F3.4 · K1 → K1: close a turn only if it has text or actions; cut text to 6,000 characters and keep the last 12 actions | ref: X31 lines 269-277
 - F3.5 · K1 → K1: keep the newest 40 messages; move the start forward to a user message | ref: X31 lines 291-293
 - F3.6b · Try again after a failed turn: `retryHistory` builds the same history; if it ends on an assistant message, append the retry note as a user message and re-apply the 40 cap and user start | ref: X32 lines 302-309
@@ -705,17 +705,17 @@ Purpose: drop old bulk from the window while keeping what matters. Trigger: tool
 Purpose: place context assembly among the other blocks. Trigger: a user request reaches the backend.
 
 - F12.1 · edge and controller: auth; tenant and entitlements resolved and carried downstream | ref: S11
-- F12.2 · input guardrails (may short-circuit to a canned reply) | ref: S11
-- F12.3 · cache check; a hit returns immediately | ref: S11
-- F12.4 · router picks the workflow and model tier | ref: S11
+- F12.2 · input guardrails: check the input; may short-circuit to a canned reply | ref: S11
+- F12.3 · cache: check; a hit returns immediately | ref: S11
+- F12.4 · router: picks the workflow and model tier | ref: S11
 - F12.5 · context assembly: fetch the system prompt from the prompt registry and record its version | ref: S11
 - F12.6 · context assembly: load memory (session history and user facts) | ref: S11
 - F12.7 · context assembly: run retrieval (query rewrite, hybrid search with the ACL filter, rerank) | ref: S11
 - F12.8 · context assembly: attach tool definitions (local or MCP) | ref: S11
 - F12.9 · context assembly: order stable-first so prompt caching hits; keep inside the token budget | ref: S11
-- F12.10 · gateway then model | ref: S11
+- F12.10 · gateway → model: the call goes through the gateway, then to the model | ref: S11
 - F12.11 · agent or workflow loop: tool results go back into the context, are compacted if needed, and the model is called again; the loop stops at a step, cost or time budget | ref: S11
-- F12.12 · output handling, then response and memory write-back; tracing, online evals and feedback across every step | ref: S11
+- F12.12 · output handling: handle the output, then response and memory write-back; tracing, online evals and feedback across every step | ref: S11
 
 ### F13 · tunatutor assembles its system prompt from layers
 Purpose: one system prompt per turn from ordered layers. Trigger: each tutor turn.
@@ -788,7 +788,16 @@ Purpose: one system prompt per turn from ordered layers. Trigger: each tutor tur
 | SEALED | nobody answers | - | EXPIRED | no row is ever written | X18 |
 
 ### L3 · Confirmation card in the browser
-- States (`ConfirmationState`): pending, sending, approved, declined, changed, missed, expired, failed, interrupted. (X29)
+- States: `ConfirmationState` (X29)
+  - pending: the card is shown and waits for Approve, Decline or Change.
+  - sending: Approve or Decline was pressed; the request with `confirm` is in flight.
+  - approved: the answer came back approved and its call ran.
+  - declined: the answer came back rejected.
+  - changed: the person pressed Change and said what to change.
+  - missed: the person sent another message without answering the card.
+  - expired: the card's expiry passed unanswered.
+  - failed: the change failed, or the request failed before it ran (token spent).
+  - interrupted: the connection dropped before the answer.
 - Transitions:
 
 | from | trigger | guard | to | effect | ref |
@@ -805,7 +814,12 @@ Purpose: one system prompt per turn from ordered layers. Trigger: each tutor tur
 | sending | (while sending) | - | sending | left out of the history | X30 line 246 |
 
 ### L4 · A past message during the server's trim
-- States: SENT (in the request), KEPT, DROPPED, SKIPPED, MERGED.
+- States:
+  - SENT: in the request.
+  - KEPT: inside the trimmed slice.
+  - DROPPED: left out of the slice, dropped whole.
+  - SKIPPED: kept but has empty content, so the merge pass skips it.
+  - MERGED: same role as the previous kept message, joined to it with a blank line.
 - Transitions:
 
 | from | trigger | guard | to | effect | ref |
@@ -818,7 +832,11 @@ Purpose: one system prompt per turn from ordered layers. Trigger: each tutor tur
 | KEPT | merge pass | same role as previous kept message | MERGED | joined with a blank line | X8 |
 
 ### L5 · A long-running agent's window (Anthropic techniques, not in Lomem)
-- States: FILLING, NEAR_LIMIT, COMPACTING, COMPACTED.
+- States:
+  - FILLING: the window grows with each step.
+  - NEAR_LIMIT: response usage shows the window is near its limit.
+  - COMPACTING: the model is asked for a summary of decisions and open problems.
+  - COMPACTED: the summary replaces the history in every later request.
 - Transitions:
 
 | from | trigger | guard | to | effect | ref |
@@ -830,7 +848,9 @@ Purpose: one system prompt per turn from ordered layers. Trigger: each tutor tur
 | FILLING | old tool result | called many steps ago | FILLING | result replaced by a placeholder | S1 |
 
 ### L6 · A tool result carried in a ticket
-- States: FULL, OMITTED.
+- States:
+  - FULL: the tool result is carried whole.
+  - OMITTED: the result is replaced by "This result is no longer available. Call X again if you need it."
 - Transitions:
 
 | from | trigger | guard | to | effect | ref |
@@ -840,7 +860,13 @@ Purpose: one system prompt per turn from ordered layers. Trigger: each tutor tur
 | OMITTED | model needs it again | - | (new FULL result) | the model calls the tool again (just-in-time) | X11 |
 
 ### L7 · A write action's outcome in the history
-- States: done, failed, undone, declined, not_confirmed, interrupted. (X3)
+- States: (X3)
+  - done: the write ran with status done; note "done".
+  - failed: the write ran with status failed, or the card was approved but the turn failed before its call ran; note "failed".
+  - undone: the write was done and the person pressed Undo; note "undone by the person".
+  - declined: the card was declined or changed; the note tells the model not to propose it again unless asked.
+  - not_confirmed: the card was missed, expired or still pending; note "not confirmed (the person moved on without answering the card)".
+  - interrupted: the card was interrupted; the note tells the model to read the record again.
 - Transitions:
 
 | from | trigger | guard | to | effect | ref |

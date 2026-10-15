@@ -685,7 +685,7 @@ A language model follows instructions written anywhere in the text it is given, 
 - F1.6 · model → AI extractor: returns `amount: "4900.00"` (the injection worked) | condition: model fooled | data: raw JSON | ref: E1 (made up)
 - F1.7 · AI extractor → sanitizer (K20): `sanitizeExtraction(raw)` keeps only fields that pass; `cleanText` strips control and bidi characters and bounds lengths | condition: always | data: raw extraction | ref: X3
 - F1.7b · if a field fails (not a real date, not parseable cents, invalid IBAN checksum, currency not three letters, unknown direction) → field dropped, never guessed → continues at F1.8 with that field empty | ref: X3
-- F1.7c · "4900.00" parses to cents, so it is kept (well formed, not true) | ref: C47
+- F1.7c · if "4900.00" parses to cents → it is kept (well formed, not true) | ref: C47
 - F1.8 · capture service → reading builder (K21): `buildReading(qr, ai, household)` | condition: always | data: QR result, cleaned AI result | ref: X4
 - F1.9 · reading builder: amount = QR amount, source `qr` | condition: QR has an amount | data: `amountCents` from QR | ref: X4
 - F1.9b · if no QR amount and AI amount present → amount = AI amount, `fromAi` marks source `ai` with confidence → continues at F1.10 | ref: X4
@@ -755,7 +755,7 @@ A language model follows instructions written anywhere in the text it is given, 
 - F3.9b · if decision = reject → result `{declined: true, message: "The person declined this change on the confirmation card. It was not made. Do not propose it again unless they ask."}` → continues at F3.10 | ref: X13
 - F3.9c · if the request was aborted before the call ran → return, nothing written → end | ref: X13
 - F3.9d · if the handler fails (for example a stale version) → error result to the model → continues at F3.10 | ref: X24, X38
-- F3.9e · every other held call → `NOT_RUN` | ref: X13, X9
+- F3.9e · assistant loop: every other held call → `NOT_RUN` | ref: X13, X9
 - F3.10 · assistant loop: append the tool results and continue the loop at F2.5; a card proposed on the last allowed step still gets this one step | condition: always | ref: X13, X14
 - F3.11 · panel: records the outcome of each write for the next request's history (done, failed, undone, declined, not_confirmed, interrupted) | condition: always | ref: X19, X33
 - F3.11b · if the answering request failed: an expired, used or invalid code shows the card as expired; a refusal before the token was read (rate limit, assistant off, unavailable, validation, unauthorized) leaves it pending; otherwise a reject reads as declined and an approve as interrupted | ref: X33
@@ -818,13 +818,13 @@ A language model follows instructions written anywhere in the text it is given, 
 - F8.1 · edge → controller: normal auth; the tenant and entitlements are resolved and carried downstream, because retrieval and tools must enforce them | ref: S24
 - F8.2 · controller → input guardrails: PII redaction, injection or moderation classifier, topical scope | ref: S24
 - F8.2b · if an input guardrail fires → short-circuit to a canned reply → end | ref: S24
-- F8.3 · cache check (exact or semantic, per tenant) | ref: S24 (caching block)
-- F8.4 · router picks the workflow and model tier | ref: S24
+- F8.3 · cache: check (exact or semantic, per tenant) | ref: S24 (caching block)
+- F8.4 · router: picks the workflow and model tier | ref: S24
 - F8.5 · context assembly: prompt from registry, memory, retrieval with ACL filter, tool definitions | ref: S24
 - F8.6 · gateway → model: virtual key, budget and rate limit, then fallback and retry, then the provider; structured output or strict tool schemas | ref: S24
 - F8.7 · agent loop: validate arguments; run each tool with the user's scoped credentials; code goes to the sandbox; writes go through human approval; results back into the context, compacted if needed; stop at a step, cost or time budget; long runs checkpointed in durable execution (outbox and saga mindset) | ref: S24
 - F8.8 · output handling: schema validation, then output guardrails (PII, policy, groundedness or citation); escape before rendering, never execute, never auto-load URLs | ref: S24
-- F8.9 · response, then asynchronous memory write-back | ref: S24
+- F8.9 · controller: response, then asynchronous memory write-back | ref: S24
 - F8.10 · across every step: tracing, which is also the audit log | ref: S24
 
 ### F9 · `capture_invoice` over MCP fetches a model-chosen link
@@ -869,7 +869,7 @@ A language model follows instructions written anywhere in the text it is given, 
 - F12.1c · if evidence is empty → skip | ref: X41
 - F12.1d · if confidence missing or below 0.7 → skip ("fail closed") | ref: X41
 - F12.1e · if evidence does not match a learner utterance → record an evidence mismatch and skip | ref: X41, X49
-- F12.2 · otherwise → credit stands | ref: X41
+- F12.2 · judge: otherwise → credit stands | ref: X41
 
 ## States
 
@@ -883,6 +883,8 @@ A language model follows instructions written anywhere in the text it is given, 
   - DECLINED: person rejected; model told.
   - EXPIRED: 10 minutes passed.
   - ABORTED: approved, but the request was gone before the call ran; nothing written.
+  - same: stays in the state it was in (an answer to an already-claimed ticket changes nothing).
+  - any claimed: any ticket whose `jti` row is in the ledger (CLAIMED and every state after it).
 - Transitions:
 
 | from | trigger | guard | to | effect | ref |
@@ -962,7 +964,16 @@ A language model follows instructions written anywhere in the text it is given, 
 Note: for the due date the order is AI first, then a date derived from the recurring payment. (X4)
 
 ### L5 · Client-side card state (panel)
-- States: `pending`, `sending`, `approved`, `declined`, `changed` (person pressed Change and is saying what to change), `missed` (moved on without answering), `expired`, `failed` (approved, but the change failed or the request failed before it ran; token spent), `interrupted` (approved, connection dropped; may or may not have run). (X33)
+- States:
+  - pending: card shown, waiting for an answer.
+  - sending: answer request sent with the ticket, waiting for it to finish.
+  - approved: person approved.
+  - declined: person rejected.
+  - changed: person pressed Change and is saying what to change.
+  - missed: moved on without answering.
+  - expired: the confirmation expired, was already used or was invalid.
+  - failed: approved, but the change failed or the request failed before it ran; token spent.
+  - interrupted: approved, connection dropped; may or may not have run. (X33)
 - Transitions:
 
 | from | trigger | guard | to | effect | ref |

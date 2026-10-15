@@ -577,7 +577,7 @@ Purpose: score the new `arc` grading prompt against the frozen `card` prompt on 
 - F1.24 · Script → file: write every reply as JSON | condition: `GATE_JSON_OUT` is set | data: all judged rows with old and new verdicts | ref: X7 (`:331-333`)
 - F1.25 · Script: disconnect and exit normally, whatever the checks say | condition: no crash | ref: X7 (`:334`)
 - F1.25a · Script: print the error and exit 1 | condition: uncaught error | ref: X8
-- F1.26 · Each check prints "NOT CHECKED" instead of PASS/FAIL | condition: its denominator is empty | ref: X7 (`:263-264`), X11
+- F1.26 · Script: each check prints "NOT CHECKED" instead of PASS/FAIL | condition: its denominator is empty | ref: X7 (`:263-264`), X11
 
 ### F2 · Release decision for the marks flag
 Purpose: decide whether `TD_JUDGE_MARKS` may be turned on. Trigger: a person has the output of F1. (The process is the team's; no code enforces it. Unverified per testing.)
@@ -734,9 +734,9 @@ Purpose: where evals sit around a user request. Trigger: any request.
 
 - F14.1 · Request: passes through guardrails, cache, router, context assembly, gateway, agent loop and output handling | ref: S9
 - F14.2 · Across every step: tracing records tokens, cost, prompt version and model version | ref: S9
-- F14.3 · Online evals score sampled traces asynchronously | ref: S9
-- F14.4 · User feedback attaches to the trace ID | ref: S9
-- F14.5 · Failures flow into offline eval datasets, which gate the next prompt or model change in CI | ref: S9
+- F14.3 · Online evals: score sampled traces asynchronously | ref: S9
+- F14.4 · User feedback: attaches to the trace ID | ref: S9
+- F14.5 · Failures: flow into offline eval datasets, which gate the next prompt or model change in CI | ref: S9
 
 ## States
 

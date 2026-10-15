@@ -668,7 +668,7 @@ In Lomem, Billpod reads six payment fields out of a PDF invoice through one sche
 - F3.2 · Model: rank every possible next token | ref: [S15]
 - F3.3 · Provider: remove every candidate token whose characters would break the grammar | data: example: after `{"amount":` only tokens that start a string or write null remain (made up) | ref: [S15]
 - F3.4 · Model: pick one of the remaining tokens, with some randomness | ref: [S15]
-- F3.5 · Loop F3.2–F3.4 until the reply ends normally | data: a reply that parses, with only declared fields and types, and every required field | ref: [S1, S15]
+- F3.5 · Provider: loop F3.2–F3.4 until the reply ends normally | data: a reply that parses, with only declared fields and types, and every required field | ref: [S1, S15]
 - F3.5a · if the reply hits the max tokens limit → the reply is cut off and "may be incomplete"; finish reason `MAX_TOKENS` / `max_tokens` | ref: [S1]
 - F3.5b · if a safety filter stops the reply → finish reason `SAFETY` and similar / `refusal`; "the output may not match your schema"; the call is still billed | ref: [S1, S15]
 - F3.5c · if the prompt itself is blocked (Gemini) → no candidates; `promptFeedback.blockReason` at the top level | ref: [S3, S15]
@@ -730,7 +730,7 @@ In Lomem, Billpod reads six payment fields out of a PDF invoice through one sche
 - F7.3 · Gemini API → Provider: OK response → returned with its deadline still armed | ref: gemini.ts:397
 - F7.4a · if the status is 429, 500, 502, 503 or 504 and attempts remain → wait `Retry-After`, Gemini's `retryDelay`, or `3000 ms × n`, capped at 30 000 ms → continues at F7.1 | ref: gemini.ts:400-405, 417 [X23]
 - F7.4b · if the wait would outlast the call budget → no retry; the error is thrown | ref: gemini.ts:418
-- F7.4c · any other status, or the third attempt failed → `GeminiApiError` with the status → caller | ref: gemini.ts:400-401
+- F7.4c · if any other status, or the third attempt failed → `GeminiApiError` with the status → caller | ref: gemini.ts:400-401
 
 ### F8 · One Zod schema becomes Gemini's response schema
 - Purpose: write the schema once and send it in Gemini's dialect.
@@ -817,6 +817,7 @@ In Lomem, Billpod reads six payment fields out of a PDF invoice through one sche
   - `malformed_tool_call`: the model produced an invalid tool call.
   - `stop_sequence`: any other finish reason, or none.
   - `tool_use`: a tool-use turn asked for tools (tool path only).
+  - `answer received`: the model's answer has arrived and is not yet classified.
 - Transitions:
 
 | from | trigger | guard | to | effect | ref |
@@ -935,13 +936,14 @@ In Lomem, Billpod reads six payment fields out of a PDF invoice through one sche
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|
-| `none` or `fail` | parser refusal | banned tense or stacked verbs | `fail` (banned) | reason added | X36 |
-| `none` or `fail` | topic check fails | not already `pass` | `fail` (class) | reason added | X36 |
+| `none` or `fail` | parser refusal | banned tense or stacked verbs | `fail (banned)` | reason added | X36 |
+| `none` or `fail` | topic check fails | not already `pass` | `fail (class)` | reason added | X36 |
 | any | topic check passes | none | `pass` | repeat checks follow | X36 |
 | `pass` | attempts used | none | (served) | kept passing item served | X36 |
-| `fail` (shape) | attempts used | none | (served) | trimmed to its first sentence, or served as is | X36 |
-| `fail` (topic or cue) | attempts used | no stock sentence, not a checkpoint | (served) | served without Path credit (topic) or with a list gloss (cue) | X36 |
-| `none` or `fail` (banned) | attempts used | no stock sentence | (error) | "no content available" thrown | X36 |
+| `fail (shape)` | attempts used | none | (served) | trimmed to its first sentence, or served as is | X36 |
+| `fail (topic)` | attempts used | no stock sentence, not a checkpoint | (served) | served without Path credit | X36 |
+| `fail (cue)` | attempts used | no stock sentence, not a checkpoint | (served) | served with a list gloss | X36 |
+| `none` or `fail (banned)` | attempts used | no stock sentence | (error) | "no content available" thrown | X36 |
 
 ## Worked examples
 

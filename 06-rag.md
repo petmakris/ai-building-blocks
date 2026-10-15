@@ -807,14 +807,14 @@ Components K1–K21 belong to the made-up payments assistant of the running exam
    - F7.3b · if parsing throws: `PdfUnreadableError` → ends | ref: X11 (extract-pdf.ts:28-30)
 4. F7.4 · K27: collapse whitespace and trim | ref: X11 (extract-pdf.ts:32)
    - F7.4b · if the text is empty or under 10 characters: `PdfNoTextError` → ends | ref: X11 (extract-pdf.ts:34-36)
-5. F7.5 · K27 → K28 `summarizeIfNeeded(text, 6000, usage)` | ref: X11 (extract-pdf.ts:43)
+5. F7.5 · K27 → K28: `summarizeIfNeeded(text, 6000, usage)` | ref: X11 (extract-pdf.ts:43)
    - F7.5b · if text length ≤ 6,000: return the text unchanged, `wasSummarized: false` → continues at F7.7 | ref: X12 (summarize-if-needed.ts:20-22)
 6. F7.6 · K28 → LLM: summarise in the same language, input cut to the first 50,000 characters, `MAX_CONTENT_TOKENS` 4000, temperature 0.3; cut the result to 6,000 characters | ref: X12 (summarize-if-needed.ts:29-50)
 7. F7.7 · K27 → K30: return `{ text, source: filename, wasSummarized, originalLength }` | ref: X11 (extract-pdf.ts:45-50)
    - F7.7b · if the response is not ok: show `pdfUploadErrorMessage` → ends | ref: X15 (DiscussPdfView.tsx:129-133)
 8. F7.8 · K30: store the text in the session-context store (`setReferenceText(result.text)`) | ref: X15 (DiscussPdfView.tsx:143-146)
 9. F7.9 · K30 → tutor WebSocket: send `ai_tutor_set_reference_text` with `referenceText` (via the store sync, `submitText`, or the pending-text flush on session ready) | ref: X16 (AiTutorConversationScreen.tsx:542-553, 565-576)
-10. F7.10 · `audio-stream.ts:380` → K31 `handleSetReferenceText` | ref: X17
+10. F7.10 · `audio-stream.ts:380` → K31: `handleSetReferenceText` | ref: X17
 11. F7.11 · K31: trim and cut to `MAX_REFERENCE_TEXT_LENGTH` = 6000; empty means clearing | ref: X18 (custom-message-handlers.ts:448-455)
 12. F7.12 · K31: `engine.updateReferenceText(...)` and copy the text into `session.context` so the privacy gate K35 sees it | ref: X18 (custom-message-handlers.ts:458-473)
 13. F7.13 · K31 → client: `ai_tutor_reference_text_ack` with `hasReferenceText` | ref: X18 (custom-message-handlers.ts:475-478)

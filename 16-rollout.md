@@ -536,7 +536,7 @@ Purpose: get a second-opinion level from a judge model on every real placement c
 - F1.5 · Chat code → DB: `claimLevelChatJudge` sets `judge_started_at` only where it is null | condition: always | data: chat id, now | ref: X2 (`:407`), X24
 - F1.5a · Chat code: do not start the judge | condition: claim returned false (another request claimed it) | → continues at F1.8 | ref: X2 (`:408`), X24
 - F1.6 · Chat code → background runner: `run(runLevelChatJudge(...))` without awaiting | condition: claim succeeded | data: chat id, state, all turns plus this turn; deps `json`, `saveLevelChatJudge` | ref: X2 (`:409-415`)
-- F1.7 · (background) continues at F2.1 | ref: X1
+- F1.7 · Background runner: (background) → continues at F2.1 | ref: X1
 - F1.8 · Chat code → learner: return the tutor's reply without waiting for the judge | condition: always | data: reply | ref: X2 (`:418`), S9
 
 ### F2 · One shadow judge run (`runLevelChatJudge`)
@@ -552,11 +552,11 @@ Purpose: call the judge, compare its level with D through the comparison rule, s
 - F2.6 · Judge → rules: `decided = decideLevel(state).level` (D) | condition: always | data: D | ref: X1 (`:90`)
 - F2.7 · Judge → acceptJudge: compare (continues at F3.1, returns at F3.end) | condition: always | data: D, {level, citedTurns}, rows, {inputMode, language} | ref: X1 (`:91-94`)
 - F2.7b · Judge → DB: `saveJudge(levelChatId, {judgeLevel, judgeWouldChange})` and return the result | condition: compare returned | data: two columns | ref: X1 (`:95-97`)
-- F2.7c · Save throws | condition: DB error | → continues at F2.8 | ref: X1
+- F2.7c · Judge: save throws | condition: DB error | → continues at F2.8 | ref: X1
 - F2.8 · Judge: `rethrowIfUndegradable(err)` | condition: any caught error | ref: X1 (`:99`), X6
 - F2.8a · Judge: rethrow | condition: code `FST_MISSING_USAGE_CONTEXT` or `FST_DAILY_SPEND_CAP` | → background runner logs "level chat: background task failed"; the learner is unaffected | ref: X6, X2 (`:150-152`)
 - F2.9 · Judge: log warn "level chat: the shadow judge failed — D stands, nothing is stored", return null | condition: any other error | ref: X1 (`:100-104`)
-- F2.10 · `judge_started_at` stays set after any failure, so the judge is never retried for that chat | condition: F2.1a, F2.4, F2.8a, F2.9 | ref: X24 (inferred from code)
+- F2.10 · DB: `judge_started_at` stays set after any failure, so the judge is never retried for that chat | condition: F2.1a, F2.4, F2.8a, F2.9 | ref: X24 (inferred from code)
 
 ### F3 · Comparison rule (`acceptJudge`)
 Purpose: decide whether the judge's level would credibly replace D. Trigger: F2.7.
@@ -590,7 +590,7 @@ Purpose: serve a listening exercise that passes the enforced guards, while log-m
 
 - F5.1 · Generator: try n = 0 | ref: X12 (`content-generator.ts:527`)
 - F5.2 · Generator → model: generate one item, with the previous refusal reason in the prompt | condition: n < 3, or checkpoint and n < 5 and every banked try so far is a giveaway | data: input, previous refusal | ref: X12 (`:528-545`)
-- F5.2a · Loop ends | condition: neither regular nor extra try allowed | → continues at F5.9 | ref: X12 (`:533`)
+- F5.2a · Generator: loop ends | condition: neither regular nor extra try allowed | → continues at F5.9 | ref: X12 (`:533`)
 - F5.3 · Guards: compute hits for every guard; each hit is tallied with its mode | data: guard hits | ref: X12 (`:541-543`), X10
 - F5.3a · Guard in log mode: write "overheard: guard rejection" with `mode: "log"`, count in `wouldReject`, do NOT refuse | condition: `GUARD_MODES[g] === "log"` | → item continues as if the guard passed | ref: X10, X12 (`enforcedHits`, `:250-253`)
 - F5.3b · Guard in enforce mode: count in `rejections`, item is refused | condition: `GUARD_MODES[g] === "enforce"` | ref: X10, X12
@@ -598,8 +598,8 @@ Purpose: serve a listening exercise that passes the enforced guards, while log-m
 - F5.5 · Generator: add repeat hits (line, opening, question repeated in this run) | ref: X12 (`:554-573`)
 - F5.6 · Generator: return the clean item, outcome "clean" | condition: no enforced or repeat failures | ref: X12 (`:574-577`)
 - F5.7 · Generator: rank the refused try (quality, repeat, giveaway, unusable) and bank it unless unusable | ref: X12 (`:582-583`), X13
-- F5.8 · → next try at F5.2 | ref: X12 (`:527`, loop)
-- F5.8a · Model call throws | condition: error | → rethrow if undegradable (spend cap, missing usage context); else serve best banked try (F5.9) or throw 503 "Overheard generation failed" | ref: X12 (`:585-591`)
+- F5.8 · Generator: next try → continues at F5.2 | ref: X12 (`:527`, loop)
+- F5.8a · Generator: model call throws | condition: error | → rethrow if undegradable (spend cap, missing usage context); else serve best banked try (F5.9) or throw 503 "Overheard generation failed" | ref: X12 (`:585-591`)
 - F5.9 · Generator: serve the best banked try that may ship: quality before repeat, never giveaway | condition: one exists | ref: X12 (`:594-595`), X13
 - F5.10 · Generator: throw `ServiceUnavailableError` (503) "only give-away items after retries" or "no usable item after retries"; the client retries | condition: nothing may ship | ref: X12 (`:596-599`)
 - F5.11 · Generator: log the per-call summary with `rejections`, `wouldReject`, total and outcome | condition: always (finally) | ref: X12 (`:600-603`), X10
@@ -650,8 +650,8 @@ Purpose: flip `TD_JUDGE_MARKS` only when the eval clears its four bars. Trigger:
 - F8.9 · Person: count the really wrong marked words; bar ≥ 90%; the script says "need >= 20 hand-checked to turn marks on" | ref: X17 (`:329`)
 - F8.10 · Person: write the count into the pull request beside the output | ref: S9 (unverified)
 - F8.11 · Developer: flip `TD_JUDGE_MARKS` to true and change the flag test in the same PR | condition: all four bars pass | ref: X15, X16, S9
-- F8.11a · Flag stays false | condition: any bar fails | ref: S9
-- F8.12 · Old behaviour code stays until the new one has passed several later reruns | ref: S9
+- F8.11a · Developer: flag stays false | condition: any bar fails | ref: S9
+- F8.12 · Codebase: old behaviour code stays until the new one has passed several later reruns | ref: S9
 
 ### F9 · Canary rollout of a new prompt version (made up, Spring)
 Purpose: widen prompt v8 from 5% to 100% only while quality is no worse. Trigger: v8 cleared its eval.
@@ -665,7 +665,7 @@ Purpose: widen prompt v8 from 5% to 100% only while quality is no worse. Trigger
 - F9.6 · Team: compare discard rates of v8 and v7 groups | condition: 1,500 v8 drafts reached | ref: S9
 - F9.7 · Team: widen to 25, then 100 | condition: v8 not worse | ref: S9
 - F9.7a · Team: `rolloutPercent` back to 0, read the bad drafts to find out why | condition: v8 worse | ref: S9
-- F9.8 · Team does not use error rates or latency as the decision signal | ref: S9
+- F9.8 · Team: does not use error rates or latency as the decision signal | ref: S9
 
 ### F10 · Feedback capture in Lomem
 Purpose: store a rating or flag tied to its session and turn. Trigger: a user submits feedback.
@@ -689,7 +689,7 @@ Purpose: turn a confirmed production failure into a permanent eval case. Trigger
 - F11.3a · Admin: set status won't-fix | condition: model not wrong | ref: S9, X19
 - F11.4 · Admin: decide which answers the eval accepts when two could be right | ref: S9
 - F11.5 · Admin: set status resolved, add an eval case with the real input and the correct answer(s) | condition: confirmed failure | ref: S9
-- F11.6 · Every later eval run checks the case; the next prompt or model change must pass it | ref: S9
+- F11.6 · Eval: every later eval run checks the case; the next prompt or model change must pass it | ref: S9
 
 ### F12 · Scheduled rerun and drift response (proposed; not in Lomem)
 Purpose: catch silent model changes. Trigger: a schedule (smallest version: weekly CI job).
@@ -697,8 +697,8 @@ Purpose: catch silent model changes. Trigger: a schedule (smallest version: week
 - F12.1 · CI → eval: run all cases with real calls | data: cost = cases × price per call | ref: S9
 - F12.2 · CI → owner: alert | condition: a bar is missed | ref: S9
 - F12.3 · Owner: turn the flag back off; users get the old behaviour | condition: bar missed | ref: S9
-- F12.4 · Failing cases stay in the eval | ref: S9
-- F12.5 · No action | condition: all bars pass | ref: S9
+- F12.4 · Eval: failing cases stay in the eval | ref: S9
+- F12.5 · Owner: no action | condition: all bars pass | ref: S9
 
 ### F13 · Smallest version in one Spring service (made up)
 Purpose: shadow, flag and feedback in one service. Trigger: a placement request.
@@ -727,9 +727,10 @@ Purpose: compare candidate code with current code in production. Trigger: a call
 ### L1 · Shadow judge run, per chat (Lomem level_chats row)
 - States:
   - not started: `judge_started_at` null.
-  - claimed/running: `judge_started_at` set, judge columns null.
+  - claimed: running; `judge_started_at` set, judge columns null.
   - stored: `judge_level` and `judge_would_change` set.
   - ended without result: `judge_started_at` set, judge columns stay null (failure, invalid level, no answered turns).
+  - columns gone: migration `20261013160000_level_chat_drop_judge` removed the judge; no state is kept.
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|
@@ -744,6 +745,7 @@ Purpose: compare candidate code with current code in production. Trigger: a call
   - shadow: runs on real traffic, result stored, not shown.
   - live: flag on, users see the accepted new result.
   - dropped: code and columns removed.
+  - off: rerun missed the bar, flag off; users get the old behaviour.
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|
@@ -756,7 +758,8 @@ Purpose: compare candidate code with current code in production. Trigger: a call
 - States:
   - log: writes the refusal it would have made, lets the item through.
   - enforce: refuses the item.
-  - loosened or dropped: rule changed or removed.
+  - loosened: rule changed.
+  - dropped: rule removed.
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|
@@ -769,6 +772,7 @@ Purpose: compare candidate code with current code in production. Trigger: a call
 - States:
   - false: marks null, weak empty, verdict, focus and why live.
   - true: marks placed and shown.
+  - build fails: an accidental edit to true while the test still asserts false.
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|
@@ -777,7 +781,12 @@ Purpose: compare candidate code with current code in production. Trigger: a call
 | true | scheduled rerun misses a bar | old behaviour kept | false | users get the old behaviour | F12.3, S9 |
 
 ### L5 · Canary stage (made up)
-- States: 0%, 5%, 25%, 100%.
+- States:
+  - 0%: no customer sees v8; the start, and the rollback when v8 is worse.
+  - 5%: hashed 5% of customers see v8.
+  - 25%: widened to 25% of customers.
+  - 100%: every customer sees v8.
+- Transitions:
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|
@@ -787,17 +796,29 @@ Purpose: compare candidate code with current code in production. Trigger: a call
 | any | readout | worse | 0% | read the bad drafts | F9.7a |
 
 ### L6 · Feedback row status (Lomem)
-- States: open, acknowledged, investigating, resolved, wont_fix.
+- States:
+  - open: row created on submit.
+  - acknowledged: triage status set by an admin.
+  - investigating: triage status set by an admin; triage moves it on.
+  - resolved: confirmed failure, eval case added.
+  - wont_fix: model not wrong.
+- Transitions:
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|
 | (none) | submit | none | open | row created | F10.5, X20 |
-| any | admin update | none: the code checks no transition, any of the five statuses may follow any other | the given status | `updateFeedback` sets status and, if given, `adminNote` | `services/feedback.ts:254-265` (main) |
+| any | admin update | none: the code checks no transition, any of the five statuses may follow any other | any (the given status) | `updateFeedback` sets status and, if given, `adminNote` | `services/feedback.ts:254-265` (main) |
 | open or investigating | triage | model not wrong | wont_fix | none | F11.3a |
 | open or investigating | triage | confirmed failure | resolved | eval case added | F11.5 |
 
 ### L7 · Overheard item request
-- States: trying (n of 3, or of 5 at a checkpoint), served clean, served fallback (quality or repeat), unavailable (503).
+- States:
+  - trying: n of 3, or of 5 at a checkpoint.
+  - served clean: a try passed all enforced guards.
+  - served fallback: quality or repeat try served.
+  - unavailable: 503.
+  - error rethrown: model call threw an undegradable error.
+- Transitions:
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|
@@ -808,7 +829,12 @@ Purpose: compare candidate code with current code in production. Trigger: a call
 | trying | model call throws | undegradable | error rethrown | none | F5.8a |
 
 ### L8 · Eval case from production
-- States: flagged, triaged, case added, checked on every run.
+- States:
+  - flagged: a flagged or failed answer.
+  - triaged: an admin has read it.
+  - case added: new fixture row.
+  - checked: checked on every run.
+- Transitions:
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|

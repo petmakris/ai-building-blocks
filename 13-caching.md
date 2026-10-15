@@ -756,7 +756,7 @@ Caching in an LLM application avoids paying twice for the same model work. There
 - F10.3 · Learner → repository: read a row stamped N | condition: next read of that key | data: key | ref: X13
 - F10.4 · Repository → service: `null` (stale counts as miss) | condition: `schemaVersion < N+1` | data: none | ref: X13
 - F10.5 · Service → model → repository: regenerate, validate, upsert at N+1 | condition: miss | data: new row | ref: F5.9-F5.14
-- F10.6 · Rows not read again stay at N, unused, with no expiry | condition: no traffic for that key | data: none | ref: S10
+- F10.6 · Unread rows: rows not read again stay at N, unused, with no expiry | condition: no traffic for that key | data: none | ref: S10
 
 ### F11 · Rolling-deploy overwrite
 - Purpose: show how an unguarded upsert lets old code overwrite new rows during a deploy.
@@ -768,7 +768,7 @@ Caching in an LLM application avoids paying twice for the same model work. There
 - F11.3 · Learner Y → OLD: read key K; OLD sees version 6 ≥ 5 → hit; OLD serves the newer row | condition: row v6 | data: none | ref: X13 (derived)
 - F11.4 · Learner Z → OLD: a miss on K (for example after an eviction); OLD calls the model and upserts K at version 5, overwriting any version-6 row written meanwhile | condition: OLD misses | data: row v5 | ref: S10, X14
 - F11.5 · Next read on NEW: the row is at version 5 → miss → regenerate → version 6 | condition: NEW reads | data: row v6 | ref: S10
-- F11.6 · Rows flip until the last OLD instance stops; the cost is extra model calls | condition: until deploy completes | data: none | ref: S10
+- F11.6 · Rows: flip until the last OLD instance stops; the cost is extra model calls | condition: until deploy completes | data: none | ref: S10
 - F11.4b · if the write updates only when the stored version is not higher than the writer's own, OLD's write at F11.4 is skipped → no flip | ref: S10 (Lomem has no such guard, X14)
 
 ### F12 · Concurrent misses
@@ -855,7 +855,7 @@ Caching in an LLM application avoids paying twice for the same model work. There
 - F18.3 · Cache check → router: choose workflow and model tier | condition: miss | ref: S12
 - F18.4 · Router → context assembly: order everything stable-first so prompt caching hits, within the token budget | ref: S12
 - F18.5 · Context assembly → gateway → model: send the call | ref: S12
-- F18.6 · Chip Huyen's build order puts the cache after enhance context, guardrails, and router/gateway, and before complex logic and write actions | ref: S6, S12
+- F18.6 · Chip Huyen's build order: puts the cache after enhance context, guardrails, and router/gateway, and before complex logic and write actions | ref: S6, S12
 
 ## States
 
@@ -924,6 +924,7 @@ Caching in an LLM application avoids paying twice for the same model work. There
   - CLEAN: no counting `wrong_language` reports since the row was last written.
   - ONE_REPORT: one distinct saved learner reported `wrong_language` after the last write.
   - EVICTED: the row was deleted; the next read regenerates it, which resets to CLEAN.
+  - unchanged: the bundle stays in the state it was in (CLEAN or ONE_REPORT); the report does not count.
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|

@@ -631,7 +631,7 @@ Purpose: run one model call through the gateway with attribution, fallback and m
 8. F1.8 · K3 → Gateway: success | condition: 2xx with a parsed body (any finish reason, SAFETY included) | data: text, usage, finishReason, blockReason | ref: X16
    - F1.8b · if the attempt throws and the caller's signal has fired → `abandoned()`: settle `aborted: true, isError: false` → rethrow, no fallback → ends | ref: X16, X17
    - F1.8c · if the attempt throws otherwise (HTTP error after retries, timeout, network) → `fail()`: settle `isError: true`, no usage; `onError` logs, emits `llm_error`, mirrors → continues at F1.5 with i+1 | ref: X16, X17, X53
-9. F1.9 · Gateway → K14 (`observe.onResponse`) and settle success → runs F4 | condition: success | data: usage, latency, `isError: false` | ref: X16, X17
+9. F1.9 · Gateway → K14: call `observe.onResponse` and settle success → runs F4 | condition: success | data: usage, latency, `isError: false` | ref: X16, X17
 10. F1.10 · Gateway → K6 (`switched`): if i > 0, `onSwitch(provider)` → tunatutor makes it the in-memory active model | condition: success on a fallback | data: provider | ref: X15, X13
 11. F1.11 · Gateway → Feature: return result | condition: success | data: result with finishReason | ref: X16
 12. F1.12 · Gateway → Feature: throw "All LLM providers failed" | condition: every candidate failed | data: error | ref: X16
@@ -775,11 +775,11 @@ Purpose: show which blocks run before and after the gateway. Trigger: a user req
 3. F11.3 · Cache check (block caching): exact or semantic, scoped per tenant | ref: S4
    - F11.3a · if the cache hits → return at once → ends | ref: S4
 4. F11.4 · Router: a cheap classifier picks the workflow and model tier (C50) | ref: S4
-5. F11.5 · Context assembly (blocks prompts, context, memory, rag, tools) | ref: S4
+5. F11.5 · Context assembly: assemble the context (blocks prompts, context, memory, rag, tools) | ref: S4
 6. F11.6 · Gateway, then model: virtual key, budget and rate limit, then fallback and retry, then the provider (this block); the call uses structured output or strict tool schemas | ref: S4
-7. F11.7 · Agent or workflow loop (blocks agents, tools, sandbox, hitl) | ref: S4
-8. F11.8 · Output handling (blocks structured, guardrails) | ref: S4
-9. F11.9 · Response and memory write-back; memory is written asynchronously through a queue | ref: S4
+7. F11.7 · Agent or workflow loop: run the loop (blocks agents, tools, sandbox, hitl) | ref: S4
+8. F11.8 · Output handling: handle the output (blocks structured, guardrails) | ref: S4
+9. F11.9 · Response and write-back: respond and write memory back; memory is written asynchronously through a queue | ref: S4
 10. F11.10 · Across every step: tracing with OTel GenAI spans per model, tool and agent step, carrying tokens, cost, prompt version and model version (the trace is also the audit log); online evals on sampled traces; user feedback on the trace ID; failures flow into offline eval datasets that gate the next prompt or model change in CI | ref: S4
 
 ## States
@@ -829,19 +829,20 @@ Purpose: show which blocks run before and after the gateway. Trigger: a user req
 ### L3 · tunatutor active model
 - States:
   - none: no provider (no key, or all disabled).
-  - active(M) persisted: M is in memory and in `llm.activeProvider`.
-  - active(M) in memory only: a sticky switch moved the in-memory value away from the stored one.
+  - boot: the server starts with a stored active model.
+  - active-persisted(M): M is in memory and in `llm.activeProvider`.
+  - active-in-memory(M): a sticky switch moved the in-memory value away from the stored one.
 - Transitions:
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|
-| none | boot with key, fresh DB | Flash built | active(Flash) persisted | seed `llm.activeProvider` | X11 |
-| boot | stored active missing or disabled | enabled models exist | active(first enabled) persisted | upsert setting | X11 |
-| active(M) persisted | fallback F wins any call | fallback on | active(F) in memory only | log "LLM sticky switch" | X13, X14, X15 |
-| active(F) in memory only | server restart | none | active(stored) persisted | stored value reloaded | X11, S1 |
-| any | owner sets active model | model priced | active(M) persisted | database write | X37, X13 file |
-| active(M) | owner disables M | other enabled exists | active(first enabled) persisted | `setActiveProvider` | X38 |
-| active(M) | owner disables M | none enabled | none | warn log | X38 |
+| none | boot with key, fresh DB | Flash built | active-persisted(Flash) | seed `llm.activeProvider` | X11 |
+| boot | stored active missing or disabled | enabled models exist | active-persisted(first enabled) | upsert setting | X11 |
+| active-persisted(M) | fallback F wins any call | fallback on | active-in-memory(F) | log "LLM sticky switch" | X13, X14, X15 |
+| active-in-memory(F) | server restart | none | active-persisted(stored) | stored value reloaded | X11, S1 |
+| any | owner sets active model | model priced | active-persisted(M) | database write | X37, X13 file |
+| active-persisted(M) or active-in-memory(M) | owner disables M | other enabled exists | active-persisted(first enabled) | `setActiveProvider` | X38 |
+| active-persisted(M) or active-in-memory(M) | owner disables M | none enabled | none | warn log | X38 |
 
 ### L4 · Level chat rater mode
 - States:

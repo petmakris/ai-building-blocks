@@ -825,8 +825,8 @@ Governance is the set of records and controls that let a bank or insurer answer 
 - F3.1 · building team → risk/compliance: propose an inventory row | condition: always | data: owner, data sent, snapshot and retirement date, region and retention option, who acts on the output, allowed credentials | ref: S10
 - F3.2 · risk/compliance → risk/compliance: apply the firm rule to the proportionality factors | condition: always | data: client impact, financial impact, whether a person checks the output | ref: S10, C25
 - F3.3 · risk/compliance → inventory: class Low | condition: no client data sent and output only helps employees | data: Low controls | ref: S10
-- F3.3b · class Medium | condition: client data sent, but an employee reads and corrects every output | data: Medium controls (adds region, eval, weekly monitoring) | ref: S10
-- F3.3c · class High | condition: output reaches a client or decides about a client (credit, suitability, pricing) without a person rewriting it | data: High controls (adds zero retention, named approver, monthly report) | ref: S10
+- F3.3b · risk/compliance → inventory: class Medium | condition: client data sent, but an employee reads and corrects every output | data: Medium controls (adds region, eval, weekly monitoring) | ref: S10
+- F3.3c · risk/compliance → inventory: class High | condition: output reaches a client or decides about a client (credit, suitability, pricing) without a person rewriting it | data: High controls (adds zero retention, named approver, monthly report) | ref: S10
 - F3.4 · risk/compliance → inventory: approve and add the row | condition: approved | data: row | ref: S10
 - F3.4b · if a credit-scoring use case, the row also carries its EU AI Act tier | ref: S10, C65
 - F3.4c · if rejected, no row exists and the gateway refuses every call for that use case | ref: inferred from S10 (rejection path not described)
@@ -857,7 +857,7 @@ Governance is the set of records and controls that let a bank or insurer answer 
 - F5.1 · people → label set: label 50 cases by hand (does the draft state a risk appetite the client did not say?) | condition: always | data: 50 drafts | ref: S10
 - F5.2 · eval runner → grader: ask the same yes/no question on the 50 cases | condition: always | data: drafts | ref: S10
 - F5.3 · eval runner → eval runner: count matches with the human labels | condition: always | data: 50 pairs | ref: S10
-- F5.4 · grader is accepted | condition: at least 47 of 50 match | data: none | ref: S10, E4
+- F5.4 · grader: is accepted | condition: at least 47 of 50 match | data: none | ref: S10, E4
 - F5.4b · if fewer than 47 match, the grader's instructions are rewritten and retested → continues at F5.2 | ref: S10
 
 ### F6 · Weekly monitoring
@@ -911,7 +911,7 @@ Governance is the set of records and controls that let a bank or insurer answer 
 
 - F9.1 · records process → content store: delete `in/<call_id>` and `out/<call_id>` | condition: client file retention ended | data: content | ref: S10
 - F9.2 · records process → event table: INSERT a deletion event row for the `call_id` | condition: always | data: event | ref: S10
-- F9.3 · later readers see a call row whose pointer no longer resolves, explained by the deletion event | condition: always | data: none | ref: S10
+- F9.3 · later readers: see a call row whose pointer no longer resolves, explained by the deletion event | condition: always | data: none | ref: S10
 
 ### F10 · Lomem lesson-note write (real code)
 - Purpose: write a private lesson note at the end of a tutor session, stamped with a model name and prompt version.
@@ -920,7 +920,7 @@ Governance is the set of records and controls that let a bank or insurer answer 
 
 - F10.1 · ai-tutor finalization → job queue: `enqueueJob({ type: JobType.TutorLessonNoteWrite, idempotencyKey: "lesson-note:<sessionId>", payload })` | condition: session finalized | data: session uuid, user id, language | ref: X15
 - F10.1b · if enqueue throws, finalization logs "lesson note enqueue skipped" and continues; no note | ref: X15
-- F10.1c · the abandoned-session reaper enqueues the same job type with the same key for abandoned or paused sessions → continues at F10.2 | ref: X16
+- F10.1c · abandoned-session reaper → job queue: enqueues the same job type with the same key for abandoned or paused sessions → continues at F10.2 | ref: X16
 - F10.1d · if a job with the same `(type, idempotencyKey)` already exists, the enqueue is idempotent and no second job runs | ref: X16 (comment)
 - F10.2 · job queue → note writer: `processTutorLessonNoteJob(payload)` | condition: job runs | data: payload | ref: `apps/tunatutor/backend/src/index.ts:555`, X1
 - F10.3 · note writer → registry: `defaultNoteWriterDeps()` reads `getActiveProvider().modelId` into `model` | condition: always | data: configured model id | ref: X3
@@ -953,7 +953,7 @@ Governance is the set of records and controls that let a bank or insurer answer 
 - F11.2 · admin route → registry: `assertModelPriced(id)` | condition: the id names a known provider, on `PUT /llm/active-provider` or when a model is enabled | data: model id | ref: X14, `apps/tunatutor/backend/src/routes/admin/index.ts:279`, `:302`
 - F11.2b · if any of the model's `:text-input`, `:text-input-cached`, `:text-output` keys has no active price row, throw `ValidationError` → ends | ref: X14
 - F11.3 · registry → database: `setActiveProvider(id)` sets the in-memory active id and upserts app setting `llm.activeProvider` | condition: priced, switching the active model | data: model id | ref: `apps/tunatutor/backend/src/services/llm/registry.ts:185-197`, `routes/admin/index.ts:282`
-- F11.3b · enabling or reprioritising a model goes through `updateModelConfig(id, { enabled, priority })` instead | condition: enable or priority edit | data: enabled, priority | ref: `registry.ts:141`, `routes/admin/index.ts:305`
+- F11.3b · admin route → registry: enabling or reprioritising a model goes through `updateModelConfig(id, { enabled, priority })` instead | condition: enable or priority edit | data: enabled, priority | ref: `registry.ts:141`, `routes/admin/index.ts:305`
 - F11.3c · if the id names no known provider, `setActiveProvider` or `updateModelConfig` throws "Unknown provider" and the route answers `ValidationError` → ends | ref: `registry.ts:186-188`, `:145-147`, `routes/admin/index.ts:281-285`
 - F11.4 · next call: the gateway re-reads providers from the registry on every call, so the change takes effect at once | condition: always | data: none | ref: X7
 - F11.5 · note: no eval, no review and no inventory row gate this switch; the model behind every feature can change with no release | condition: always | ref: inferred from X7, X13, X14 (contrast with F4)
@@ -1010,6 +1010,7 @@ Governance is the set of records and controls that let a bank or insurer answer 
 - States:
   - PENDING: saved, not sent to the client.
   - RELEASED: a named approver released it; sent to the client.
+  - not described: the approver rejected it; what follows is not described in the inputs (open question).
 
 | from | trigger | guard | to | effect | ref |
 |---|---|---|---|---|---|

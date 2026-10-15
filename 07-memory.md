@@ -683,7 +683,7 @@ A language model keeps nothing between two calls, so every request starts from a
 - F3.17 · Hook → TutorSpeechPipeline: done | ref: X16
 - F3.17b · if the hook threw → the pipeline logs "postProcessHook threw — falling through to text delivery" → continues at F3.18 | ref: X17
 - F3.18 · TutorSpeechPipeline → Learner: reply text, then speech | ref: X17
-- F3.19 · `applyMemory` runs after `persistMessages` and does nothing (mirrored guards only) | ref: X15
+- F3.19 · Hook → Hook: `applyMemory` runs after `persistMessages` and does nothing (mirrored guards only) | ref: X15
 
 ### F4 · Worker stores the queued facts
 - Purpose: apply a turn's memory updates off the reply path, with retries.
@@ -699,8 +699,8 @@ A language model keeps nothing between two calls, so every request starts from a
 - F4.5b · if memory is off → return early; updates dropped → continues at F4.8 | ref: X22
 - F4.6 · Store → Postgres: open one transaction | ref: X22
 - F4.7 · Store → Postgres: per `set` with a non-empty value, clean key (lowercase, trim, 100) and value (trim, 500), upsert on `(userId, key)` with `source: "llm"` and `sentence`/`sentenceLang` only when `said` is non-blank | ref: X22
-- F4.7b · per `delete` → `deleteMany` on `(userId, cleanKey)`; a missing key is not an error | ref: X22
-- F4.7c · per `set` with an empty value → skipped | ref: X22
+- F4.7b · Store → Postgres: per `delete` → `deleteMany` on `(userId, cleanKey)`; a missing key is not an error | ref: X22
+- F4.7c · Store: per `set` with an empty value → skipped | ref: X22
 - F4.8 · Worker → Postgres: job `done`, `lockedAt = null`, `lastError = null` | ref: X18
 - F4.8b · if the handler threw → `attempts + 1`; if `attempts >= maxAttempts` (5) → `failed`; else `pending` with `runAt = now + 2000 ms × attempts`; `lastError` stored | ref: X18
 - F4.9 · Worker → Worker: next job, up to 5 per tick | ref: X18
@@ -832,8 +832,12 @@ A language model keeps nothing between two calls, so every request starts from a
 | OUT_OF_PROMPT | `set` on its exact key | – | IN_PROMPT | `updatedAt` bumped | X22, X24 |
 | IN_PROMPT | memory switched off | – | UNUSED | not loaded, shown greyed | S1, X26 |
 | UNUSED | memory switched on | – | IN_PROMPT | loaded at next session | X26 |
-| any stored | model `delete`, `DELETE /:key` or `DELETE /all` | – | DELETED | row removed | X22, X31 |
-| any stored | user account deleted | – | DELETED | `onDelete: Cascade` | X23 |
+| IN_PROMPT | model `delete`, `DELETE /:key` or `DELETE /all` | – | DELETED | row removed | X22, X31 |
+| OUT_OF_PROMPT | model `delete`, `DELETE /:key` or `DELETE /all` | – | DELETED | row removed | X22, X31 |
+| UNUSED | model `delete`, `DELETE /:key` or `DELETE /all` | – | DELETED | row removed | X22, X31 |
+| IN_PROMPT | user account deleted | – | DELETED | `onDelete: Cascade` | X23 |
+| OUT_OF_PROMPT | user account deleted | – | DELETED | `onDelete: Cascade` | X23 |
+| UNUSED | user account deleted | – | DELETED | `onDelete: Cascade` | X23 |
 
 - Note: IN_PROMPT takes effect at the next session start or resume, because facts load once per session (X26, X35).
 
