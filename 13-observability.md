@@ -1,6 +1,6 @@
 ---
 id: observability
-number: 12
+number: 13
 title: Observability for LLM calls
 summary: Observability for LLM calls keeps one record per model call (exact text in and out, model and prompt version, tokens, cost, latency) and scores a sample of live traffic, because a wrong model answer returns HTTP 200 with no exception and quality can change when nobody deployed anything.
 lomem_status: partly
@@ -2439,11 +2439,11 @@ Terms newcomer readers did not know (all rounds): prompt template versus prompt,
 | S8 | Patterns for Building LLM-based Systems & Products | Eugene Yan | about August 2023 | https://eugeneyan.com/writing/llm-patterns/ | collect user feedback; defensive UX |
 | S9 | AI Evals: Everything You Need to Know | Hamel Husain, Shreya Shankar | updated September 2026 | https://hamel.dev/blog/posts/evals-faq/ | read 30 to 100 traces; golden sets from production traces; online evals on sampled traffic |
 | S10 | Emerging Patterns in Building GenAI Products | Bharani Subramaniam, Martin Fowler | 28 January to 25 February 2025 | https://martinfowler.com/articles/gen-ai-patterns/ | the catalogue has nothing on tracing |
-| S20 | Long fact-checked draft, block 12 | this learning project | 2026 | `sources/sections-long/12-observability.html` | running example, record, wrapper, online eval, redaction, mature setup, mistakes |
-| S21 | Short version tested on newcomer readers, block 12 | this learning project | 2026 | `sources/sections-tested/12-observability.html` | shorter wrapper; same facts in fewer words |
+| S20 | Long fact-checked draft, block 12 | this learning project | 2026 | `sources/sections-long/13-observability.html` | running example, record, wrapper, online eval, redaction, mature setup, mistakes |
+| S21 | Short version tested on newcomer readers, block 12 | this learning project | 2026 | `sources/sections-tested/13-observability.html` | shorter wrapper; same facts in fewer words |
 | S22 | Web research catalogue | this learning project | 2026 | `sources/research-web.md` | block 12 entry, request path, tools list, related blocks 2, 11, 13, 15, 16 |
 | S23 | Lomem code map | this learning project | 2026 | `sources/research-lomem.md` | §9 observability, §1 gateway, §6-7 judge and evals, §12b settle point, §14 ADRs |
-| testing | Testing notes, block 12 | this learning project | 2026 | `sources/testing-notes/12-observability-testing.md` | key points, misreads, unknown terms, fact-check fixes, open questions |
+| testing | Testing notes, block 12 | this learning project | 2026 | `sources/testing-notes/13-observability-testing.md` | key points, misreads, unknown terms, fact-check fixes, open questions |
 
 - The S1-S4 links resolved when the fact-check ran. (testing fact-check)
 - The S5-S10 links were checked with a live HTTP request by the web research. (S22 intro)

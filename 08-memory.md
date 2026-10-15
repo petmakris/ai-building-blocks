@@ -1,6 +1,6 @@
 ---
 id: memory
-number: 7
+number: 8
 title: Memory
 summary: Memory is the code around a stateless model that stores what was said and what was learned about a user, and puts the useful part back into the next request, because users expect the assistant to remember them and the model cannot.
 lomem_status: partly

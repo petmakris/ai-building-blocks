@@ -1,6 +1,6 @@
 ---
 id: tools
-number: 5
+number: 6
 title: Tool calling and MCP
 summary: Tool calling lets a model reply with a structured request to run one of your functions, which your code validates, authorises and may run, and MCP is the standard protocol that lets outside assistants list and call the same functions.
 lomem_status: yes
@@ -3246,8 +3246,8 @@ export function createBillpodTools(
 | S19 | OWASP LLM Prompt Injection Prevention Cheat Sheet | OWASP | not stated | https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html | Indirect prompt injection through tool output |
 | S20 | RFCs named in Billpod's OAuth server: OAuth 2.1 draft-13, RFC 7636, 8414, 9728, 8707, 7591, 7009, 9207 | IETF | various | https://www.rfc-editor.org/ (not fetched) | PKCE, metadata, protected-resource metadata, resource indicators, dynamic registration, revocation, `iss` |
 | S21 | Claude structured outputs | Anthropic | current | https://platform.claude.com/docs/en/build-with-claude/structured-outputs | `strict: true` constrains tool inputs |
-| S30 | Long fact-checked draft, section 05 | this learning store | 2026-10-15 | `sources/sections-long/05-tools.html` | Running example, loop, runner, errors, cards, MCP, OAuth, analogy, mistakes |
-| S31 | Short version tested on newcomer readers, section 05 | this learning store | 2026-10-15 | `sources/sections-tested/05-tools.html` | Same claims in shorter form |
-| S32 | Testing notes, section 05 ("testing") | this learning store | 2026-10-15 | `sources/testing-notes/05-tools-testing.md` | Key points, misreadings, unknown terms, fact-check fixes, reader questions |
+| S30 | Long fact-checked draft, section 05 | this learning store | 2026-10-15 | `sources/sections-long/06-tools.html` | Running example, loop, runner, errors, cards, MCP, OAuth, analogy, mistakes |
+| S31 | Short version tested on newcomer readers, section 05 | this learning store | 2026-10-15 | `sources/sections-tested/06-tools.html` | Same claims in shorter form |
+| S32 | Testing notes, section 05 ("testing") | this learning store | 2026-10-15 | `sources/testing-notes/06-tools-testing.md` | Key points, misreadings, unknown terms, fact-check fixes, reader questions |
 | S33 | Web research catalogue | this learning store | 2026-10-15 | `sources/research-web.md` | Backend analogues, new problems, minimal and mature versions, MCP spec summary, tools list |
 | S34 | Lomem code map | this learning store | 2026-10-15 | `sources/research-lomem.md` | Code locations for tools, MCP, OAuth, loops, guardrails, ADR quotes |

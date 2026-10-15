@@ -1,6 +1,6 @@
 ---
 id: evals
-number: 11
+number: 12
 title: Evals
 summary: An eval runs an LLM feature over a fixed set of real inputs, scores each output pass or fail and compares the pass rate with a bar set before the run, because assertEquals cannot test output that varies and is open-ended.
 lomem_status: by hand
@@ -2892,6 +2892,6 @@ export function whyGivesAnswer(why: string, expected: string, variants: readonly
 | S8 | Building A Generative AI Platform | Chip Huyen | 25 Jul 2024 | https://huyenchip.com/2024/07/25/genai-platform.html | the request ordering the catalogue uses for where evals sit |
 | S9 | Web research catalogue, block 11 and "How they fit together in one request" | this store's research | 2026 | `sources/research-web.md` | minimal and mature versions, tools, analogues, online evals, feedback loop |
 | S10 | Lomem code map, sections 6, 7, 11e, 13 | this store's research | 2026 | `sources/research-lomem.md` | which Lomem files implement evals and judges |
-| S11 | Evals, long fact-checked draft | this store | 2026 | `sources/sections-long/11-evals.html` | running example, gate walk-through, statistics, Java sketch, mistakes |
-| S12 | Evals, short version tested on newcomer readers | this store | 2026 | `sources/sections-tested/11-evals.html` | the condensed wording that readers saw |
-| S13 | Evals testing notes ("testing") | this store | 2026 | `sources/testing-notes/11-evals-testing.md` | what readers misread, unknown terms, fact-check fixes, unverified claims |
+| S11 | Evals, long fact-checked draft | this store | 2026 | `sources/sections-long/12-evals.html` | running example, gate walk-through, statistics, Java sketch, mistakes |
+| S12 | Evals, short version tested on newcomer readers | this store | 2026 | `sources/sections-tested/12-evals.html` | the condensed wording that readers saw |
+| S13 | Evals testing notes ("testing") | this store | 2026 | `sources/testing-notes/12-evals-testing.md` | what readers misread, unknown terms, fact-check fixes, unverified claims |

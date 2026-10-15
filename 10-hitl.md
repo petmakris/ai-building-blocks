@@ -1,6 +1,6 @@
 ---
 id: hitl
-number: 9
+number: 10
 title: Human in the loop
 summary: Human in the loop stops a risky action the model asked for, shows a person exactly what it will do, and runs it only after that person approves, because a model can be confidently wrong and can be steered by text it reads.
 lomem_status: yes
@@ -135,7 +135,7 @@ Lomem's Billpod implements it with confirmation cards, a sealed AES-256-GCM toke
   - In the full request path (Chip Huyen's ordering, mapped by the research catalogue), HITL sits in step 7, the agent or workflow loop: "Writes go through human-in-the-loop approval." (S9; S13)
   - Chip Huyen's build order puts "complex logic and write actions" last, after context, guardrails, router and gateway, and cache. (S13)
   - The research catalogue lists "Excessive agency" (OWASP LLM06) as a new problem of tool calling. (S9; S11)
-- Relations: C1 is triggered by C5 (tool call) inside C8 (agent loop). C1 limits P1 and P2. C1 is realised by C13 (proposal), C14 (confirmation card) and C17 (decision request). C1 is weakened by C38 (approval fatigue). C1 feeds evals.C26 (regression set) through C41 (reviewer decision as labelled example). C1 is required by block governance ("human sign-off for high-risk uses", S9; 15-governance.md has no concept ids yet).
+- Relations: C1 is triggered by C5 (tool call) inside C8 (agent loop). C1 limits P1 and P2. C1 is realised by C13 (proposal), C14 (confirmation card) and C17 (decision request). C1 is weakened by C38 (approval fatigue). C1 feeds evals.C26 (regression set) through C41 (reviewer decision as labelled example). C1 is required by block governance ("human sign-off for high-risk uses", S9; 16-governance.md has no concept ids yet).
 
 ### C2 · Language model (LLM)
 - Definition: a remote service that takes text in and returns text out.
@@ -3116,5 +3116,5 @@ async function bump(tx: Tx, householdId: string, id: string, version: number, da
 | S11 | OWASP Top 10 for LLM Applications 2025 | OWASP | 2025 | https://genai.owasp.org/llm-top-10/ | LLM01 Prompt Injection; LLM06 Excessive Agency |
 | S12 | Patterns for Building LLM-based Systems & Products (Defensive UX, Collect user feedback) | Eugene Yan | about Aug 2023 | https://eugeneyan.com/writing/llm-patterns/ | implicit signals (accepted, edited, retried) and failures into eval sets |
 | S13 | Building A Generative AI Platform | Chip Huyen | 25 Jul 2024 | https://huyenchip.com/2024/07/25/genai-platform.html | build order ending with complex logic and write actions; request path where writes go through HITL |
-| S14 | Long fact-checked draft and short tested version of section 09 | this project (sources/sections-long/09-hitl.html, sources/sections-tested/09-hitl.html) | 2026 | (local files) | cited in this file as "long draft" and "sections-tested" |
-| S15 | Testing notes for section 09 | this project (sources/testing-notes/09-hitl-testing.md) | 2026 | (local file) | cited in this file as "testing": key points, misreadings, unknown terms, fact-check fixes, open questions |
+| S14 | Long fact-checked draft and short tested version of section 09 | this project (sources/sections-long/10-hitl.html, sources/sections-tested/10-hitl.html) | 2026 | (local files) | cited in this file as "long draft" and "sections-tested" |
+| S15 | Testing notes for section 09 | this project (sources/testing-notes/10-hitl-testing.md) | 2026 | (local file) | cited in this file as "testing": key points, misreadings, unknown terms, fact-check fixes, open questions |

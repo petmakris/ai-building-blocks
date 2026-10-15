@@ -1,6 +1,6 @@
 ---
 id: governance
-number: 15
+number: 16
 title: Governance and model risk
 summary: Governance is the set of records and controls that let a regulated firm prove what its AI did, on whose authority and on what evidence, and it exists because the model is a third-party component nobody in the firm can inspect or reproduce, that can change without a release and that receives client data on every call.
 lomem_status: partly
@@ -2163,10 +2163,10 @@ Deleting a user removes every row that **is** their data or **identifies** them:
 | S7 | EU AI Act (site) | artificialintelligenceact.eu | not given | https://artificialintelligenceact.eu/ | Named in the research catalogue as a source |
 | S8 | SR 26-2 | US Federal Reserve | 17 Apr 2026 | https://www.federalreserve.gov/supervisionreg/srletters/SR2602.htm | Replaces SR 11-7 and SR 21-8 |
 | S9 | ISO/IEC 42001 | ISO | not given | https://www.iso.org/standard/42001 | Named only; returned 403, not read |
-| S10 | Governance lets a regulated firm prove what its AI did (long fact-checked draft) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/sections-long/15-governance.html` | Running example, definitions, inventory, gateway, audit rows, residency, evals, monitoring, model card, analogy, mistakes |
-| S11 | Governance (short version tested on newcomer readers) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/sections-tested/15-governance.html` | Tested wording; short forms of the same claims |
+| S10 | Governance lets a regulated firm prove what its AI did (long fact-checked draft) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/sections-long/16-governance.html` | Running example, definitions, inventory, gateway, audit rows, residency, evals, monitoring, model card, analogy, mistakes |
+| S11 | Governance (short version tested on newcomer readers) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/sections-tested/16-governance.html` | Tested wording; short forms of the same claims |
 | S12 | Web research catalogue, block 15 and the request path | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/research-web.md` | Backend analogues, new problems, minimal and mature lists, regulators, tools, trace as audit log, unverified items |
 | S13 | Lomem code map, sections 1, 2, 9 and 14 | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/research-lomem.md` | Gateway refusal of unattributed calls, usage context, cost ledger, prompt templates, ADR-057 |
 | S14 | ADR-037: Account erasure & admin-initiated deletion | Lomem | 2026-06-19 | `~/projects/lomem/docs/adr/037-account-erasure-and-admin-deletion.md` | Deletion is complete erasure; cascade deletes |
 | S15 | ADR-057: AI tools, MCP and OAuth provider (§5, the gateway) | Lomem | not given | `~/projects/lomem/docs/adr/057-ai-tools-mcp-and-oauth-provider.md` | One gateway for tunatutor, Mealy and Billpod; a usage context is required (quoted via S13) |
-| testing | Testing notes for this section (key points, rounds 1-3, fact-check, final read) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/testing-notes/15-governance-testing.md` | What readers misread, unknown terms, fact-check fixes, questions left |
+| testing | Testing notes for this section (key points, rounds 1-3, fact-check, final read) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/testing-notes/16-governance-testing.md` | What readers misread, unknown terms, fact-check fixes, questions left |

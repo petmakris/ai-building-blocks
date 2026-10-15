@@ -1,6 +1,6 @@
 ---
 id: structured
-number: 4
+number: 5
 title: Structured output
 summary: Structured output makes a model answer in a typed JSON shape you define and then checks that answer like an untrusted request body, because services need typed records and a model only writes text.
 lomem_status: yes
@@ -4147,9 +4147,9 @@ const BILLPOD_MODEL = envSchema.shape.GEMINI_MODEL.parse(undefined) ?? DEFAULT_L
 | S12 | Gemini file input methods | Google | read 2026-09-28 (by Lomem) | ai.google.dev/gemini-api/docs/file-input-methods | inline limits 100 MB and 50 MB for PDFs (cited in a Lomem comment) |
 | S13 | Gemini API pricing | Google | read 2026-09-27 (by Lomem) | ai.google.dev/gemini-api/docs/pricing | Billpod's model prices (cited in Billpod's `CLAUDE.md`) |
 | S14 | Swiss Implementation Guidelines for the QR-bill, version 2.3 | Swiss Payment Standards | not given | no URL in the inputs | QR-bill checksums (cited in `checksums.ts`) |
-| S15 | Structured output (long fact-checked draft) | this project | 2026-10-15 | `sources/sections-long/04-structured.html` | every claim marked S15 |
-| S16 | Structured output (short version tested on newcomer readers) | this project | 2026-10-15 | `sources/sections-tested/04-structured.html` | E10, E16 |
+| S15 | Structured output (long fact-checked draft) | this project | 2026-10-15 | `sources/sections-long/05-structured.html` | every claim marked S15 |
+| S16 | Structured output (short version tested on newcomer readers) | this project | 2026-10-15 | `sources/sections-tested/05-structured.html` | E10, E16 |
 | S17 | Web research catalogue, block 4 and the request path | this project | 2026-10-15 | `sources/research-web.md` | minimal and mature versions; tools; backend analogue (the researcher's own) |
 | S18 | Lomem code map, section 3 and related | this project | 2026-10-15 | `sources/research-lomem.md` | which Lomem files implement this block |
-| testing | Testing notes from the first workflow | this project | 2026-10-15 | `sources/testing-notes/04-structured-testing.md` | key points, reader misreadings, unknown terms, fact-check fixes |
+| testing | Testing notes from the first workflow | this project | 2026-10-15 | `sources/testing-notes/05-structured-testing.md` | key points, reader misreadings, unknown terms, fact-check fixes |
 

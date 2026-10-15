@@ -1,6 +1,6 @@
 ---
 id: sandbox
-number: 14
+number: 15
 title: Sandboxes for agents that run code
 summary: A sandbox is the isolated place where code that a model wrote at request time runs, seeing only a scratch folder, reaching only listed hosts, holding no secrets and killed at its limits, because anyone who can put text in front of the model can steer what code it writes.
 lomem_status: "no"
@@ -1258,12 +1258,12 @@ export const CANVAS_CSP =
 | S11 | gVisor | gVisor project | not given | https://gvisor.dev/ | User-space kernel sandbox (named only) |
 | S12 | OWASP Top 10 for Agentic Applications for 2026 (ASI05 Unexpected Code Execution) | OWASP; entry names via Modulos (https://docs.modulos.ai/frameworks/owasp-top-10-agentic) | 9 Dec 2025 | https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/ | Risk name (unverified: the official page only links a download) |
 | S13 | Introducing advanced tool use | Anthropic | 24 Nov 2025 | https://www.anthropic.com/engineering/advanced-tool-use | Programmatic tool calling in a sandbox |
-| S14 | A sandbox lets model-written code run without reaching your files, your network or your credentials (long fact-checked draft) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/sections-long/14-sandbox.html` | Explanations, running example, Docker command, runner steps, proxy, analyst session, pitfalls, analogy |
-| S15 | Same section, short version tested on newcomer readers | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/sections-tested/14-sandbox.html` | Tested wording |
+| S14 | A sandbox lets model-written code run without reaching your files, your network or your credentials (long fact-checked draft) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/sections-long/15-sandbox.html` | Explanations, running example, Docker command, runner steps, proxy, analyst session, pitfalls, analogy |
+| S15 | Same section, short version tested on newcomer readers | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/sections-tested/15-sandbox.html` | Tested wording |
 | S16 | Web research catalogue, block 14, block 5 and the request path | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/research-web.md` | Backend analogue, new problem, minimal and mature versions, tools, request path |
 | S17 | Lomem code map | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/research-lomem.md` | Lomem has no sandbox section; the eval harness excerpts mention the Bash sandbox |
 | S21 | Lomem main branch, `git grep -i sandbox` | Lomem | commit `8e3f5d5db`, 2026-10-14 | `~/projects/lomem` | Every "sandbox" mention in Lomem (C55, C56, X1-X6) |
 | S18 | ADR-032: Tutor scenarios | Lomem | not given | `~/projects/lomem/docs/adr/032-tutor-scenarios.md` | Text eval runs with the sandbox disabled (X4) |
 | S19 | Building A Generative AI Platform | Chip Huyen | 25 Jul 2024 | https://huyenchip.com/2024/07/25/genai-platform.html | Ordering of the request path in F10 |
 | S20 | ADR-034: Claude precheck feedback | Lomem | not given | `~/projects/lomem/docs/adr/034-claude-precheck-feedback.md` | "browser sandbox" homonym |
-| testing | Testing notes for this section (rounds 1-3, fact-check, final read) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/testing-notes/14-sandbox-testing.md` | What readers misread, unknown terms, fact-check fixes, questions left |
+| testing | Testing notes for this section (rounds 1-3, fact-check, final read) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/testing-notes/15-sandbox-testing.md` | What readers misread, unknown terms, fact-check fixes, questions left |

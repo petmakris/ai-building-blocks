@@ -2,7 +2,7 @@
 
 ## Key points
 
-- The section is in sources/sections-tested/10-guardrails.html with id 'guardrails'. It has about 3,900 words including code and a table, and its tags are balanced. Round 3 is backed up at scratchpad/10-guardrails.r3.bak.html and round 2 at scratchpad/10-guardrails.r2.bak.html.
+- The section is in sources/sections-tested/11-guardrails.html with id 'guardrails'. It has about 3,900 words including code and a table, and its tags are balanced. Round 3 is backed up at scratchpad/11-guardrails.r3.bak.html and round 2 at scratchpad/11-guardrails.r2.bak.html.
 - A model obeys instructions written anywhere in the text it reads. Indirect injection plants them in a document, an email or a tool result. Direct injection is the user typing them, and it matters when the system prompt holds secrets.
 - Injection cannot be escaped like SQL. A PreparedStatement keeps the query and its values in separate channels, but a model gets one token stream. Delimiters, an 'ignore instructions' line (keep it, it costs nothing) and classifiers only lower the odds. Willison: 95% is a failing grade, because attackers retry until one variant works. The response schema fixes only the answer's shape, never its values.
 - A tool is a function you declare to the model. One reply can ask for several calls, and your code decides whether each one runs. A call that does not run gets an error result. The model keeps no memory, so every request resends the conversation and the results. A turn is all the model calls up to the final answer. All defences are backend code at three points: which tools are declared, what happens when a call comes back, and what the UI shows.

@@ -1,6 +1,6 @@
 ---
 id: caching
-number: 13
+number: 14
 title: Caching
 summary: Caching avoids paying twice for the same model work, by letting the provider reuse its computation on an identical prompt opening and by storing whole answers to repeated questions, with new risks because a model answer is neither free nor deterministic.
 lomem_status: partly
@@ -3137,9 +3137,9 @@ export async function callLLM(
 | S7 | Patterns for Building LLM-based Systems & Products | Eugene Yan | about Aug 2023 | https://eugeneyan.com/writing/llm-patterns/ | Caching as one of the core patterns |
 | S8 | Emerging Patterns in Building GenAI Products | Bharani Subramaniam and Martin Fowler | 28 Jan to 25 Feb 2025 | https://martinfowler.com/articles/gen-ai-patterns/ | Has nothing on caching |
 | S9 | Prompt management overview | Langfuse | not given | https://langfuse.com/docs/prompt-management/overview | Prompt clients cache prompts so fetching adds no latency |
-| S10 | Caching cuts the cost of repeated text and repeated questions (long fact-checked draft) | this learning project | Lomem quoted as of 2026-10-14 | `personal/Learning/AI-Building-Blocks/sources/sections-long/13-caching.html` | The guide's explanations, running example, worked arithmetic, made-up examples, pitfalls, analogy |
-| S11 | Caching (short version tested on newcomer readers) | this learning project | 2026-10-14 | `personal/Learning/AI-Building-Blocks/sources/sections-tested/13-caching.html` | Tested wording; repository excerpt without comment lines |
+| S10 | Caching cuts the cost of repeated text and repeated questions (long fact-checked draft) | this learning project | Lomem quoted as of 2026-10-14 | `personal/Learning/AI-Building-Blocks/sources/sections-long/14-caching.html` | The guide's explanations, running example, worked arithmetic, made-up examples, pitfalls, analogy |
+| S11 | Caching (short version tested on newcomer readers) | this learning project | 2026-10-14 | `personal/Learning/AI-Building-Blocks/sources/sections-tested/14-caching.html` | Tested wording; repository excerpt without comment lines |
 | S12 | Web research catalogue, block 13 and the request path | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/research-web.md` | Backend analogues, new problem, minimal and mature versions, tools, request path |
 | S13 | Lomem code map, sections 9, 11 and 14 | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/research-lomem.md` | Where caching lives in Lomem; latency tricks filed next to it |
 | S14 | ADR-052: Ask — the Help Panel | Lomem | 2026-07-27 | `~/projects/lomem/docs/adr/052-help-panel.md` | Two-layer content cache, "never personalised", lazy sweep, report rule |
-| testing | Testing notes for this section (rounds 1-3, fact-check, final read) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/testing-notes/13-caching-testing.md` | What readers misread, unknown terms, fact-check fixes, questions left |
+| testing | Testing notes for this section (rounds 1-3, fact-check, final read) | this learning project | 2026-10 | `personal/Learning/AI-Building-Blocks/sources/testing-notes/14-caching-testing.md` | What readers misread, unknown terms, fact-check fixes, questions left |

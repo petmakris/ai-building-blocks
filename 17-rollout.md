@@ -1,6 +1,6 @@
 ---
 id: rollout
-number: 16
+number: 17
 title: Shadow mode, flags and the feedback loop
 summary: New AI behaviour reaches users in stages (shadow mode, log mode, an eval-gated flag, a canary) and confirmed production failures become new eval cases, because a wrong model answer looks exactly like a right one to ordinary monitoring.
 lomem_status: partly
@@ -2386,4 +2386,4 @@ export async function saveLevelChatJudge(
 | S6 | Langfuse prompt management | Langfuse | not given | https://langfuse.com/docs/prompt-management/overview | prompt versions and labels; promotion gated on eval; rollback by moving a label (via S4) |
 | S7 | AI Evals: Everything You Need to Know | Hamel Husain and Shreya Shankar | updated Sep 2026 | https://hamel.dev/blog/posts/evals-faq/ | online evals on sampled traffic, error analysis cadence (via S4) |
 | S8 | Building A Generative AI Platform | Chip Huyen | 25 Jul 2024 | https://huyenchip.com/2024/07/25/genai-platform.html | request-path ordering in which feedback attaches to traces (via S4) |
-| S9 | Section 16 long fact-checked draft and short tested version | this project (sources/sections-long, sources/sections-tested) | 2026-10 | `sources/sections-long/16-rollout.html`, `sources/sections-tested/16-rollout.html` | the block's framing, all made-up examples (readout, canary, Java sketch, rerun cost, cognate example, fixture story) |
+| S9 | Section 16 long fact-checked draft and short tested version | this project (sources/sections-long, sources/sections-tested) | 2026-10 | `sources/sections-long/17-rollout.html`, `sources/sections-tested/17-rollout.html` | the block's framing, all made-up examples (readout, canary, Java sketch, rerun cost, cognate example, fixture story) |

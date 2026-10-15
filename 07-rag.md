@@ -1,6 +1,6 @@
 ---
 id: rag
-number: 6
+number: 7
 title: Retrieval (RAG)
 summary: Retrieval-augmented generation is a search step your code runs before the model call, so the model answers from the few passages of your own data that it needs instead of guessing.
 lomem_status: no
@@ -2524,9 +2524,9 @@ export const CAPTURE_FROM_DOCUMENT_NOTE =
 
 | id | title | author or publisher | date | URL | what it supports |
 |---|---|---|---|---|---|
-| S1 | Retrieval (RAG), long fact-checked draft | this study (workflow output) | 2026-10-15 | `sources/sections-long/06-rag.html` | the running example, pipeline, SQL, Java, rules, analogy, mistakes |
-| S2 | Retrieval (RAG), short version tested on newcomer readers | this study | 2026-10-15 | `sources/sections-tested/06-rag.html` | the condensed rules and the tested wording |
-| S3 | RAG testing notes (rounds 1–3, fact-check, final read) | this study | 2026-10-15 | `sources/testing-notes/06-rag-testing.md` | reader misreadings, unknown terms, fact-check fixes, open questions |
+| S1 | Retrieval (RAG), long fact-checked draft | this study (workflow output) | 2026-10-15 | `sources/sections-long/07-rag.html` | the running example, pipeline, SQL, Java, rules, analogy, mistakes |
+| S2 | Retrieval (RAG), short version tested on newcomer readers | this study | 2026-10-15 | `sources/sections-tested/07-rag.html` | the condensed rules and the tested wording |
+| S3 | RAG testing notes (rounds 1–3, fact-check, final read) | this study | 2026-10-15 | `sources/testing-notes/07-rag-testing.md` | reader misreadings, unknown terms, fact-check fixes, open questions |
 | S4 | Web research catalogue, block 6 and request path | this study | 2026-10-15 | `sources/research-web.md` | new problems, pipeline, minimal and mature versions, tools, request path |
 | S5 | Lomem code map, section 10 | this study | 2026-10-15 | `sources/research-lomem.md` | Lomem has no vector RAG; nearest examples |
 | S6 | Introducing Contextual Retrieval | Anthropic | 19 Sep 2024 | https://www.anthropic.com/news/contextual-retrieval | contextual chunks, TS-999, $1.02 cost, 150→20 rerank, failure-rate table |

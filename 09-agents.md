@@ -1,6 +1,6 @@
 ---
 id: agents
-number: 8
+number: 9
 title: Workflows and agent loops
 summary: A workflow is your own code calling the model in an order you wrote; an agent is a loop in which the model picks the next tool call each time round, and it exists because some tasks have steps that cannot be written down in advance.
 lomem_status: partly
@@ -2804,6 +2804,6 @@ export const DEFAULT_LLM_MODEL = "gemini-3.5-flash";
 | S13 | Context Engineering for Coding Agents | Birgitta Böckeler | 5 Feb 2026 | https://martinfowler.com/articles/exploring-gen-ai/context-engineering-coding-agents.html | where agent material sits on Fowler's site |
 | S14 | LangGraph interrupts | LangChain | not given | https://docs.langchain.com/oss/python/langgraph/interrupts | pause and resume for a human |
 | S15 | Web research catalogue, block 8 and request path | this project (`sources/research-web.md`) | 2026 | – | backend analogues (author's own), new problem, minimal and mature versions, tool list |
-| S16 | Long fact-checked draft, section 08 | this project (`sources/sections-long/08-agents.html`) | 2026 | – | running example, Java sketch, limits advice, analogy, mistakes |
-| S17 | Short tested version, section 08 | this project (`sources/sections-tested/08-agents.html`) | 2026 | – | condensed claims tested on newcomer readers |
+| S16 | Long fact-checked draft, section 08 | this project (`sources/sections-long/09-agents.html`) | 2026 | – | running example, Java sketch, limits advice, analogy, mistakes |
+| S17 | Short tested version, section 08 | this project (`sources/sections-tested/09-agents.html`) | 2026 | – | condensed claims tested on newcomer readers |
 | S18 | Lomem code map, section 5 and related | this project (`sources/research-lomem.md`) | 2026 | – | Billpod loop, tutor loop cap, loopStepCap inconsistency, ADR quotes |

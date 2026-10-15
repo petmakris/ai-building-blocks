@@ -1,6 +1,6 @@
 ---
 id: prompts
-number: 2
+number: 3
 title: Prompts as versioned configuration
 summary: A prompt is the plain-language text that steers a model feature on every call, so it is configuration that changes behaviour and must be kept in one copy, tested as exact text, stamped on every result and rolled back like code.
 lomem_status: partly
@@ -2526,8 +2526,8 @@ export const JUDGE_SYSTEM_PROMPT =
 | S3 | Prompt version control | Langfuse | (undated page) | https://langfuse.com/docs/prompt-management/features/prompt-version-control | numbered versions, labels, rollback by moving production, trace linking |
 | S4 | Caching | Langfuse | (undated page) | https://langfuse.com/docs/prompt-management/features/caching | 60 s default client cache, stale-while-revalidate |
 | S5 | Web research catalogue of building blocks, block 2 and request path | internal research note (sources/research-web.md) | 2026-10-15 | file in this store | backend analogue, new problems, minimal and mature versions, tools list; prompt-related lines of the tools, guardrails, evals, observability, caching, governance and feedback-loop blocks and of the request path |
-| S6 | Long fact-checked draft, section 02 | internal draft (sources/sections-long/02-prompts.html) | 2026-10-15 | file in this store | narrative facts, advice, made-up examples, analogy |
-| S7 | Short tested section 02 | internal draft (sources/sections-tested/02-prompts.html) | 2026-10-15 | file in this store | tested wording of the same facts |
+| S6 | Long fact-checked draft, section 02 | internal draft (sources/sections-long/03-prompts.html) | 2026-10-15 | file in this store | narrative facts, advice, made-up examples, analogy |
+| S7 | Short tested section 02 | internal draft (sources/sections-tested/03-prompts.html) | 2026-10-15 | file in this store | tested wording of the same facts |
 | S8 | LangSmith docs | LangChain | (undated) | https://docs.smith.langchain.com/ | listed prompt-management tool |
 | S9 | Braintrust docs | Braintrust | (undated) | https://www.braintrust.dev/docs | listed prompt-management tool |
 | S10 | promptfoo intro | promptfoo | (undated) | https://www.promptfoo.dev/docs/intro/ | testing prompts in the repository |
@@ -2535,4 +2535,4 @@ export const JUDGE_SYSTEM_PROMPT =
 | S12 | AI Evals: Everything You Need to Know | Hamel Husain and Shreya Shankar | updated Sep 2026 | https://hamel.dev/blog/posts/evals-faq/ | evals on every prompt or model change (via S5) |
 | S13 | Prompt caching | Anthropic | current at research time | https://platform.claude.com/docs/en/build-with-claude/prompt-caching | exact-prefix matching order, stable content first (via S5) |
 | S14 | Lomem code map | internal research note (sources/research-lomem.md) | 2026-10-15 | file in this store | which Lomem files implement this block, judge gate, flags |
-| testing | Testing notes for section 02 (three reader rounds, fact-check, final read) | internal (sources/testing-notes/02-prompts-testing.md) | 2026-10-15 | file in this store | misreadings, unknown terms, fact-check fixes, open reader questions |
+| testing | Testing notes for section 02 (three reader rounds, fact-check, final read) | internal (sources/testing-notes/03-prompts-testing.md) | 2026-10-15 | file in this store | misreadings, unknown terms, fact-check fixes, open reader questions |

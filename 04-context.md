@@ -1,6 +1,6 @@
 ---
 id: context
-number: 3
+number: 4
 title: Context engineering
 summary: Context engineering is the server code that chooses, orders and trims the text sent to a stateless model on every call, because the window is a hard token limit and a fuller window gives worse answers as well as costing more.
 lomem_status: partly
@@ -2821,4 +2821,4 @@ Use this naturally in conversation. Reference things they've told you before.
 | S15 | OWASP Top 10 for Agentic Applications 2026 | OWASP (names via docs.modulos.ai) | 9 Dec 2025 | https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/ | ASI06 Memory & Context Poisoning (unverified name) |
 | S16 | Claude memory tool | Anthropic | not given | https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool | notes outside the window (memory block) |
 | S17 | Lomem code and ADRs (ADR-057, ADR-029, ADR-032, ADR-016) | Lomem (private codebase) | main at 8e3f5d5db, read 2026-10-15 | `~/projects/lomem` | every X# excerpt |
-| S18 | Testing notes, long draft and tested short draft for block 03 | this store's research workflow | 2026-10-15 | `sources/testing-notes/03-context-testing.md`, `sources/sections-long/03-context.html`, `sources/sections-tested/03-context.html` | provenance "testing" and "long draft" |
+| S18 | Testing notes, long draft and tested short draft for block 03 | this store's research workflow | 2026-10-15 | `sources/testing-notes/04-context-testing.md`, `sources/sections-long/04-context.html`, `sources/sections-tested/04-context.html` | provenance "testing" and "long draft" |

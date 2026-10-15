@@ -1,6 +1,6 @@
 ---
 id: gateway
-number: 1
+number: 2
 title: The model gateway
 summary: The model gateway is the one module or proxy every model call must pass through, so the key, retries, time budget, fallback and per-call spend record live in one place.
 lomem_status: yes
@@ -3934,9 +3934,9 @@ The analogues are the researchers' own, not taken from a fetched source [S4].
 
 | id | title | author or publisher | date | URL | what it supports |
 |---|---|---|---|---|---|
-| S1 | Long fact-checked draft, section 1 | this research (first workflow) | 2026-10-15 | `personal/Learning/AI-Building-Blocks/sources/sections-long/01-gateway.html` | Definitions, running example, five steps, costs, analogy, minimal and mature versions, mistakes |
-| S2 | Short version tested on newcomer readers | this research (first workflow) | 2026-10-15 | `personal/Learning/AI-Building-Blocks/sources/sections-tested/01-gateway.html` | Same content, shortened; Java sketch variant |
-| S3 | Testing notes for section 1 (key points, fact-check, final read) | this research (first workflow) | 2026-10-15 | `personal/Learning/AI-Building-Blocks/sources/testing-notes/01-gateway-testing.md` | Fact-check fixes, unverified items, reader questions left |
+| S1 | Long fact-checked draft, section 1 | this research (first workflow) | 2026-10-15 | `personal/Learning/AI-Building-Blocks/sources/sections-long/02-gateway.html` | Definitions, running example, five steps, costs, analogy, minimal and mature versions, mistakes |
+| S2 | Short version tested on newcomer readers | this research (first workflow) | 2026-10-15 | `personal/Learning/AI-Building-Blocks/sources/sections-tested/02-gateway.html` | Same content, shortened; Java sketch variant |
+| S3 | Testing notes for section 1 (key points, fact-check, final read) | this research (first workflow) | 2026-10-15 | `personal/Learning/AI-Building-Blocks/sources/testing-notes/02-gateway-testing.md` | Fact-check fixes, unverified items, reader questions left |
 | S4 | Web research catalogue, block 1 and the request path | this research | 2026-10-15 | `personal/Learning/AI-Building-Blocks/sources/research-web.md` | New problems, minimal and mature versions, tools, request ordering, analogues |
 | S5 | Lomem code map, section 1 and related sections | this research | 2026-10-15 | `personal/Learning/AI-Building-Blocks/sources/research-lomem.md` | File and line pointers, Billpod and observability facts |
 | S6 | Building A Generative AI Platform | Chip Huyen | 2024-07-25 | https://huyenchip.com/2024/07/25/genai-platform.html | Step 3 "model router and gateway"; build order |

@@ -1,6 +1,6 @@
 ---
 id: guardrails
-number: 10
+number: 11
 title: Guardrails and prompt injection
 summary: Guardrails are the checks around a language model, and above all the design choices in your own code, that keep a model fooled by an attacker's text from leaking data or changing records on its own.
 lomem_status: yes
@@ -3242,9 +3242,9 @@ Completion is decided by an async LLM judge, **never in the turn loop**:
 | S23 | Writing effective tools for agents | Anthropic | 2025-09-11 | https://www.anthropic.com/engineering/writing-tools-for-agents | tool descriptions are prompts (via S24) |
 | S24 | Web research catalogue | this project | 2026 | `sources/research-web.md` | block 10 catalogue, blocks 5, 9, 14, request path |
 | S25 | Lomem code map | this project | 2026 | `sources/research-lomem.md` | sections 4, 5, 8, 13, 14 |
-| S26 | Long fact-checked draft, section 10 | this project | 2026 | `sources/sections-long/10-guardrails.html` | the lesson's claims and made-up examples |
-| S27 | Short tested draft, section 10 | this project | 2026 | `sources/sections-tested/10-guardrails.html` | the version tested on newcomer readers |
-| S28 | Testing notes, section 10 | this project | 2026 | `sources/testing-notes/10-guardrails-testing.md` | key points, misreadings, unknown terms, fact-check fixes ("testing") |
+| S26 | Long fact-checked draft, section 10 | this project | 2026 | `sources/sections-long/11-guardrails.html` | the lesson's claims and made-up examples |
+| S27 | Short tested draft, section 10 | this project | 2026 | `sources/sections-tested/11-guardrails.html` | the version tested on newcomer readers |
+| S28 | Testing notes, section 10 | this project | 2026 | `sources/testing-notes/11-guardrails-testing.md` | key points, misreadings, unknown terms, fact-check fixes ("testing") |
 | S29 | Building effective agents | Anthropic | Dec 2024 | https://www.anthropic.com/engineering/building-effective-agents | agents pause for human feedback at checkpoints (via S24) |
 
 
