@@ -1,0 +1,101 @@
+<section class="principle" id="rollout">
+<h2>New AI behaviour reaches users in stages, and production failures become new test cases</h2>
+<p class="lede">An LLM feature can pass every test and still fail on real users, and a wrong answer comes back as an ordinary HTTP 200 with valid JSON. So AI behaviour is measured on real traffic before anyone relies on it: it first runs unseen (shadow mode), then a flag turns it on once measured numbers clear a bar fixed in advance, often for a small share of users first (a canary). Production failures then become new test cases.</p>
+
+<ul>
+<li>A <dfn>model</dfn> (LLM) is a hosted service you call over HTTP: text in, text out, each call paid. The provider can change what stands behind its name without telling you.</li>
+<li>An <dfn>eval</dfn> is a test suite that runs the real model over fixed <dfn>eval cases</dfn> (input plus expected answer) and reports pass rates.</li>
+<li>A <dfn>bar</dfn> is the threshold a measured rate must clear, written down before the measurement so nobody can move it after seeing the numbers.</li>
+<li>A <dfn>turn</dfn> is one user message plus its reply. A <dfn>trace ID</dfn> is the logged key to the stored record of one model call.</li>
+</ul>
+
+<h3>A second-opinion model ran on every chat without its answer being shown</h3>
+<p>The examples come from a language-learning app. In its placement chat, rules in code turn the learner's answers into a level from A1 (beginner) to B2, called <code>D</code>, and the learner sees <code>D</code>.</p>
+<p>The team wanted a second opinion from a <dfn>judge</dfn>, a model used to grade something. It never sees <code>D</code>, and replies with a level plus the turns it relied on (its <em>cited turns</em>). Nobody knew whether it beat the rules, so it ran in <dfn>shadow mode</dfn>: called on every real chat, its answer and the comparison with <code>D</code> stored, and the learner still shown <code>D</code>. Three details made this safe:</p>
+<ul>
+<li><strong>It runs in the background.</strong> The chat returns the tutor's reply without waiting, so the learner sees no extra delay.</li>
+<li><strong>It cannot break the chat or change anything.</strong> Any failure is caught and logged, and <code>D</code> stands. It writes only its own two columns.</li>
+<li><strong>It stores the comparison, not only the answer.</strong> The columns <code>judge_level</code> and <code>judge_would_change</code> record what the judge said and whether it would have replaced <code>D</code>.</li>
+</ul>
+<p>The judge was removed the same day, before any numbers came in. Since it only ran in shadow mode, no learner saw a change.</p>
+
+<h3>A shadow mismatch counts only through a comparison rule and a person's reading</h3>
+<p>Two model answers can both be right, so "the judge said something different" is not "the judge is right". A rule in code, <code>acceptJudge</code>, decides whether a difference is credible. Same level: no change. Two or more levels apart: rejected. One level apart: accepted only when the judge's cited turns back it with the rules' own facts. Real test cases, where the rules said B1:</p>
+<div class="example">
+<ul>
+<li>Judge says <strong>B2</strong>, cites turns 5 and 7, both meeting a B2 pass rule. Accepted: <code>judge_would_change = true</code>.</li>
+<li>Judge says B2, cites only turn 5. Rejected: moving up needs two cited turns that meet a B2 rule.</li>
+</ul>
+<p><strong>Made-up readout:</strong> <code>412 chats, judge_would_change in 38 (9%)</code>. A person reads the 38 against a bar written beforehand, such as "the judge is right in at least 30". If it clears, a flag shows learners the judge's level. Otherwise the judge goes.</p>
+</div>
+
+<h3>A new check runs in log mode before it may refuse anything</h3>
+<p>The app has a model write listening exercises, and code checks called <dfn>guards</dfn> refuse bad ones. Each refusal costs another paid generation, so a new guard starts in <code>log</code> mode: it records the refusal it would have made and lets the exercise through. A guard is switched to <code>enforce</code> only when its measured refusal rate is under a bar written down in advance, about 15 percent in this app. Above it, a person reads a sample of what it refused. If those exercises are fine, the guard is too strict. If they are bad, the fix belongs in the prompt that writes them.</p>
+
+<h3>A flag turns the behaviour on only after an eval clears its bars</h3>
+<p>The app's translation drill grades a learner's sentence with a model. A new prompt can also mark the learner's wrong words, held back by a boolean flag that only the pull request carrying the eval results may flip. The eval runs on real learner answers plus hand-written cases, against bars fixed before the run:</p>
+<ol>
+<li>the right/wrong verdict agrees with the expected one on at least 95% of cases;</li>
+<li>at least 90% of the marked words are really wrong, counted by a person.</li>
+</ol>
+<p>A test asserts that the flag is <code>false</code>, so flipping it by accident fails the build. The old behaviour stays, so the flag can be turned off again.</p>
+
+<h3>A canary is judged on quality signals, because a bad answer is still a fast 200</h3>
+<p>A <dfn>canary</dfn> shows the new behaviour to a small share of users and widens it only if their <dfn>quality signals</dfn>, what users did with the answer, are no worse than everyone else's.</p>
+<div class="example">
+<p><strong>Made-up example:</strong> a service drafts replies to customer emails and moves 5% of customers to prompt version 8. Agents send, edit, discard or thumbs-down each draft, logged by trace ID. The bar, set first: v8 is worse if its discard rate is more than 3 points above v7's. Two groups of 1,500 drafts can differ by about 3 points by chance, so they wait for 1,500 v8 drafts. If v8 is worse, the share goes back to 0.</p>
+</div>
+
+<h3>Feedback is useful only when it is stored with the exact turn it is about</h3>
+<p><dfn>Explicit feedback</dfn> (thumbs, flags) is rare. <dfn>Implicit feedback</dfn> (accepted, edited, retried) arrives for almost every response. Either needs a key to its exchange: a trace ID, or session plus turn, as the app's <code>feedback</code> table stores in <code>session_id</code> and <code>turn_index</code>. Without it a thumbs-down cannot be reproduced or become a test case.</p>
+
+<h3>Confirmed production failures are added to the eval as new cases</h3>
+<p>In the <dfn>data flywheel</dfn>, a person triages each flagged answer, and a confirmed failure becomes a new eval case. <strong>Made-up story:</strong> the grader marks "J'ai vraiment faim" wrong for "J'ai très faim", the learner flags the turn, the developer finds it through <code>turn_index</code>, agrees "vraiment" is a fine synonym, and adds the case with <code>expected: "right"</code>. Every later eval run checks it.</p>
+<p>The provider can change the model without notice, so quality can <em>drift</em> with no deploy of yours. A scheduled rerun catches that, and a missed bar turns the flag back off.</p>
+
+<h3>The smallest version fits in one service</h3>
+<p><strong>Made-up sketch</strong> in Java:</p>
+<pre><code>public Level placement(Chat chat) {
+  Level current = rules.level(chat);
+  if (NEW_GRADER_ON) return candidateOrCurrent(chat, current);   // after the eval
+  shadow.shadowGrade(chat, current);                              // before: fire and forget
+  return current;
+}
+
+@Async   // a separate thread pool, never the request thread
+public void shadowGrade(Chat chat, Level current) {
+  try {
+    Level candidate = grader.grade(chat);                          // read-only model call
+    boolean candidateWins = comparisonRule.candidateWins(current, candidate);
+    chatRepository.saveShadow(chat.id(), candidate, candidateWins);
+  } catch (Exception e) {
+    log.warn("shadow grader failed, current level stands", e);
+  }
+}</code></pre>
+<p>Add a thumbs-down endpoint that stores the trace ID, an eval file that confirmed failures are appended to, and a scheduled rerun. A mature version adds a flag service that switches per share of users at runtime, and compares canary groups automatically.</p>
+
+<div class="analogy">
+<p><strong>The Java analogy:</strong> shadow mode is a dark launch, or GitHub's Scientist library, which runs candidate code next to current code, returns the current result and logs mismatches. Log-mode guards are a validation rule deployed in report-only mode. Flags and canaries work as for any service. The flywheel is a dead-letter queue whose parked messages become test fixtures.</p>
+<p><strong>Where it breaks:</strong> Scientist counts any mismatch as a bug, but two model answers can both be right, so a mismatch needs a comparison rule and a person reading the cases. And quality can drift without any deploy, so the checks never finish.</p>
+</div>
+
+<h3>Common mistakes</h3>
+<ul>
+<li><strong>A shadow call with side effects or on the request path.</strong> If it sends an email or writes business data, it is not shadow mode. If the request waits for it, every user pays its delay and its failures.</li>
+<li><strong>Storing the shadow output but not the comparison.</strong> Then disagreements cannot be counted without a rerun.</li>
+<li><strong>Deleting the old behaviour when the flag flips.</strong> Then a failed rerun leaves nothing to switch back to.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>Run new AI behaviour in shadow mode first: in the background, without side effects, storing its answer and the comparison while users see the old result.</li>
+<li>Judge shadow mismatches with a comparison rule and a person reading them against a bar written in advance.</li>
+<li>Put new checks in log mode and enforce them only when their measured refusal rate is under a bar set in advance.</li>
+<li>Flip a flag only when an eval clears bars fixed before the run, keep the old behaviour, and widen it through a canary judged on quality signals (discarded, edited, thumbs-down).</li>
+<li>Store every piece of feedback with the turn, input and output it refers to, and turn each confirmed failure into an eval case.</li>
+<li>Rerun the eval on a schedule, and turn the flag off when a bar is missed.</li>
+</ul>
+</div>
+
+<p class="note">Sources: Eugene Yan, <a href="https://eugeneyan.com/writing/llm-patterns/">Patterns for Building LLM-based Systems &amp; Products</a> (the "Collect user feedback" pattern, explicit and implicit feedback); GitHub, <a href="https://github.com/github/scientist">Scientist</a> (candidate code run next to current code); Pete Hodgson, <a href="https://martinfowler.com/articles/feature-toggles.html">Feature Toggles</a> (martinfowler.com). The placement judge is from commit 8fa41788f, removed in bdd9ab7b8 (#624).</p>
+</section>

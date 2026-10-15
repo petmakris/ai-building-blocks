@@ -1,0 +1,173 @@
+<section class="principle" id="governance">
+<h2>Governance lets a regulated firm prove what its AI did, on whose authority and on what evidence</h2>
+<p class="lede">Governance is the set of records and controls that let a bank or insurer answer its supervisor's questions about each AI feature: where it is used, how risky it is, what it produced on a given day, who approved it and how it was tested. It exists because the model is a third-party component that nobody in the firm can inspect, that can change without a code release, that may not give the same answer twice and that receives client data on every call.</p>
+
+<h3>Some words first</h3>
+<ul>
+<li>A <dfn>model</dfn> (an LLM, large language model) is a program that takes text in and writes text back. ChatGPT is a chat screen in front of one. <dfn>Generative AI</dfn> means models like this that write new text, rather than only sort inputs into fixed categories.</li>
+<li>A model writes its answer one word at a time and picks each word with some randomness, so the same input can give a different text on the next call. It can also state things that are not in its input at all, which is a normal failure called <dfn>hallucination</dfn>.</li>
+<li>A <dfn>model provider</dfn> is the company that runs the model on its servers and sells access over an HTTP API, such as OpenAI, Anthropic or Google. Your request, with any client data in it, travels to their servers.</li>
+<li>A <dfn>model version</dfn> is the exact build that answered. Providers publish fixed <dfn>snapshots</dfn> such as <code>gpt-4o-2024-08-06</code> next to <dfn>aliases</dfn> such as <code>gpt-4o</code> that move to newer builds over time, much like an image digest next to the Docker tag <code>latest</code>. <dfn>Pinning</dfn> a snapshot means your code always calls the snapshot name, never the alias.</li>
+<li>A <dfn>prompt</dfn> is the text your code sends: fixed instructions written by your team, plus the case data for this request.</li>
+<li>A <dfn>use case</dfn> is one business purpose for which the firm calls a model, such as "draft the meeting note after a client call". It is the unit that governance counts, classifies and controls.</li>
+<li>An <dfn>eval</dfn> is a test run over a few hundred sample cases that produces a score, such as "99% of drafts state no risk preference the client did not express". It replaces exact-match unit tests, because the output varies.</li>
+<li>A <dfn>model card</dfn> is a one-page summary of one use case: purpose, model, prompt version, eval result, known limits and fallback.</li>
+<li>A <dfn>supervisor</dfn> is the state regulator of financial firms. In Switzerland it is <dfn>FINMA</dfn>, the Swiss Financial Market Supervisory Authority. <dfn>Internal audit</dfn> is the firm's own team that checks controls on the supervisor's behalf.</li>
+<li><dfn>Model risk</dfn> is the bank term for losses caused by a model that is wrong or misused. Banks already manage it for credit-scoring models through <dfn>model validation</dfn>: a team that did not build the model inspects it, re-runs it on test data and signs a report before it is used.</li>
+</ul>
+
+<h3>An auditor's questions show what a normal backend cannot answer</h3>
+<div class="example">
+<p><strong>Made-up example, used through this section.</strong> A Swiss private bank records client calls, and a speech-to-text service turns each recording into a written transcript. After a call, the relationship manager (the adviser who looks after the client) presses a button. The <code>advisory-notes</code> service sends the transcript to a model, which drafts the meeting note, including the client's stated risk appetite (how much loss the client says they can accept). The relationship manager edits and saves it. Fourteen months later a client complains that a risky product was sold against their wishes. Internal audit asks five questions:</p>
+<ol>
+<li>Which model wrote the draft of the note from 12 March, and with which instructions?</li>
+<li>What did the draft say before the relationship manager edited it?</li>
+<li>Where did the transcript go, and does the provider still hold a copy?</li>
+<li>How was the feature tested before it went live, and who signed it off?</li>
+<li>How do you know it still worked as tested in March?</li>
+</ol>
+<p>For a classic Spring service the answers come from git, the change ticket and the database. Here git holds the code but not the model, the provider may have moved the alias to a newer model since then, re-running the request would give a different draft, the draft was never stored, and nobody checked the provider's retention terms. Each part below closes one gap, and the table at the end maps each question to its answer.</p>
+</div>
+
+<h3>FINMA applies its existing rules and checks seven areas</h3>
+<p>Switzerland has no AI-specific law. FINMA Guidance 08/2024 (18 December 2024) says the existing, technology-neutral rules on governance and risk management cover AI, and lists the seven areas it checked at supervised firms. Each maps to an engineering artefact built below.</p>
+<table>
+<thead><tr><th>FINMA area</th><th>What FINMA looked for</th><th>Engineering artefact</th></tr></thead>
+<tbody>
+<tr><td>Governance</td><td>Clear owners; extra checks when a third party supplies the AI</td><td>A named owner per use case; the provider contract on file</td></tr>
+<tr><td>Inventory and risk classification</td><td>A complete list with a broad definition of AI, and a risk class per application</td><td>One inventory row per use case, enforced by the gateway</td></tr>
+<tr><td>Data quality</td><td>Input data that is complete, correct and available</td><td>The row's "data sent" column, plus a check in the feature that refuses an empty or cut-off transcript</td></tr>
+<tr><td>Tests and ongoing monitoring</td><td>Quality measures and thresholds set in advance, detection of data drift (input data changing after go-live so the model no longer fits), analysis of outputs users changed</td><td>An eval report per release, weekly scores on live calls, the edit rate</td></tr>
+<tr><td>Documentation</td><td>Purpose, data, model choice, limits, tests and fallback</td><td>A model card per use case</td></tr>
+<tr><td>Explainability</td><td>Whether a result can be justified to the client, the auditor or FINMA</td><td>The stored input and draft, so a reviewer can check each statement against the transcript, plus who edited or approved it</td></tr>
+<tr><td>Independent review</td><td>Separation between those who build and those who review</td><td>Sign-off by someone outside the team</td></tr>
+</tbody>
+</table>
+
+<h3>The inventory gives each use case a risk class, and the class decides the controls</h3>
+<p>The inventory is a table with one row per use case: the business owner, the pinned snapshot and its retirement date, the data sent, the provider region and retention option, who acts on the output, the service credentials allowed to use it, and a risk class. Risk or compliance owns the class definitions and approves each new row; the building team proposes it. FINMA's guidance is proportional, meaning stronger controls only where more is at stake, and it names the factors: which and how many clients are affected, the financial impact, and how far the output is used without a person checking it. A firm turns these into a short rule. Made-up example of such a rule:</p>
+<ul>
+<li><strong>High</strong> if the output reaches a client or decides something about a client (credit, suitability, pricing) without a person rewriting it.</li>
+<li><strong>Medium</strong> if client data is sent, but an employee reads and corrects every output before it is used.</li>
+<li><strong>Low</strong> if no client data is sent and the output only helps employees.</li>
+</ul>
+<div class="example">
+<p><strong>Made-up example: three rows from the bank's inventory.</strong> Each class carries every control of the class below it.</p>
+<table>
+<thead><tr><th>Use case</th><th>Data sent</th><th>Allowed credential</th><th>Class</th><th>Controls</th></tr></thead>
+<tbody>
+<tr><td>Code assistant</td><td>Source code only</td><td><code>dev-tools</code></td><td>Low</td><td>Inventory row, audit record, provider contract; provider's default region and 30-day retention allowed</td></tr>
+<tr><td>Meeting-note draft</td><td>Client call transcript</td><td><code>advisory-notes</code></td><td>Medium</td><td>Plus Swiss or European processing region (at OpenAI this needs an approved abuse-monitoring control, see below), eval before each release, weekly monitoring</td></tr>
+<tr><td>Suitability letter (why a product fits the client), sent to the client</td><td>Portfolio and client profile</td><td><code>advisory-letters</code></td><td>High</td><td>Plus zero data retention at the provider, a named approver per output, monthly monitoring report</td></tr>
+</tbody>
+</table>
+</div>
+<p>Keep the inventory complete by making its row a precondition in code. Route every model call through one <dfn>gateway</dfn>: a small internal service that alone holds the provider API keys and alone may open connections to the provider. A calling service authenticates with its own service credential (an OAuth client or mTLS certificate, as for any internal call) and sends three headers: <code>X-Use-Case</code>, <code>X-Prompt-Version</code> and <code>X-On-Behalf-Of</code> (the logged-in user, trusted the way any downstream service trusts an authenticated caller's user claim). The gateway refuses the call if no row has that use-case id with that credential, so one team cannot borrow another's id. It takes the snapshot and region from the row, not from the caller, forwards the prompt unchanged (what may be sent is the feature's job, described in the row), and returns a <code>call_id</code> with the draft.</p>
+
+<h3>Every call writes an audit record that stores the output, because it cannot be produced again</h3>
+<p>Lomem, a set of personal apps by the author of this guide, shows the first step. Its tutoring app stamps each model-written lesson note with the model name and a prompt version (TypeScript; <code>deps.model</code> is the model name the app was configured with):</p>
+<p class="src">apps/tunatutor/backend/src/services/tutor-continuity/lesson-note-writer.ts:224-225</p>
+<pre><code>        writerModel: deps.model,
+        writerPromptVersion: LESSON_NOTE_PROMPT_VERSION,</code></pre>
+<p>That leaves two gaps for a bank. The name is the one the app asked for, not the build the provider ran. And the note is saved with an upsert keyed on the session, so a later write for the same session overwrites the earlier note; a bank that let people edit drafts the same way would lose the model's original.</p>
+<p>The bank's gateway closes both. It records the version the provider reports in its response: OpenAI returns it in the <code>model</code> field, Google's Gemini API in <code>modelVersion</code>. Some providers only echo the name you sent; with a pinned snapshot that name is already exact, and the weekly monitoring below is then the only way to notice a changed model. If the reported version differs from the row, the gateway alerts the owner, and for a High use case it also refuses the call. The prompt version is the id of the instruction file kept in git, such as <code>meeting-note/v7</code>.</p>
+<p>The bodies (the full prompt exactly as sent and the model's draft) are large and are client data, so they go in a separate <dfn>audit content store</dfn>: an encrypted bucket that only audit, the validation team and the monitoring job's service identity can read. The audit tables hold pointers into it. Both tables take INSERT only, never UPDATE or DELETE, so what happens later is a new row: the gateway writes the call row, and the feature service, which stored the <code>call_id</code> on the note, writes an event row when a person edits or approves.</p>
+<div class="example">
+<p><strong>Made-up example: the audit rows for the 12 March call.</strong> Call row, written by the gateway at call time:</p>
+<table>
+<thead><tr><th>Field</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>call_id, time</td><td><code>c-81f2</code>, 2025-03-12 15:41:07</td></tr>
+<tr><td>use case, credential, user</td><td><code>meeting-note-draft</code> (Medium), <code>advisory-notes</code>, <code>rm.jmuster</code></td></tr>
+<tr><td>model requested / reported</td><td><code>gpt-4o-2024-08-06</code> / <code>gpt-4o-2024-08-06</code></td></tr>
+<tr><td>region, prompt version</td><td><code>eu.api.openai.com</code>; <code>meeting-note/v7</code> (git commit <code>3c9a1e0</code>)</td></tr>
+<tr><td>prompt sent, draft returned</td><td>content store: <code>in/c-81f2</code>, <code>out/c-81f2</code></td></tr>
+</tbody>
+</table>
+<p>Event row, written by <code>advisory-notes</code> when the note was saved:</p>
+<table>
+<thead><tr><th>call_id</th><th>time</th><th>event</th><th>by</th><th>result</th></tr></thead>
+<tbody>
+<tr><td><code>c-81f2</code></td><td>15:52:30</td><td>edited</td><td><code>rm.jmuster</code></td><td>final text <code>note/44120</code></td></tr>
+</tbody>
+</table>
+</div>
+<p>The content store keeps the same retention period as the client file and is deleted with it; the deletion is one more event row, so a pointer that no longer resolves is explained. Keeping the draft next to the final text also gives FINMA's "outputs users changed" signal for free.</p>
+
+<h3>Residency and retention are provider terms that you check and record per risk class</h3>
+<p>Where client data goes is set by the provider's terms and by the endpoint you call. OpenAI's API documentation shows what to check:</p>
+<ul>
+<li>"By default, abuse monitoring logs are generated for all API feature usage and retained for up to 30 days." These are copies of requests the provider keeps to catch use that breaks its usage policy, such as generating malware or spam.</li>
+<li>"Zero Data Retention", which leaves your content out of those logs, is "subject to prior approval by OpenAI": the firm applies for it.</li>
+<li>API data "is not used to train or improve OpenAI models" unless you opt in.</li>
+<li>A project (a group of API keys and settings in the OpenAI account) can be created with the region "Europe (EEA + Switzerland)" and called through <code>eu.api.openai.com</code>, with storage and processing in that region. The EEA is the EU plus Norway, Iceland and Liechtenstein. Regional processing in Europe requires an approved control such as "Modified Abuse Monitoring" or Zero Data Retention, both of which keep customer content out of the abuse logs, and data residency "does not apply to system data".</li>
+</ul>
+<p>So the answer to audit question 3 is: the transcript was processed in OpenAI's Europe region, which may be in Switzerland or in an EEA country (the region does not promise Switzerland), and the Medium rule allows either. Because that region requires an approved control such as Modified Abuse Monitoring, the transcript was kept out of OpenAI's abuse logs, so OpenAI holds no copy of it. Without such a control (the Low row's default terms) a copy would sit in the abuse logs for up to 30 days.</p>
+<p>Under FINMA's rules, handing an important function to a vendor is <dfn>outsourcing</dfn>: the firm vets the vendor, keeps a contract with audit rights, knows which subcontractors (such as cloud hosts) the vendor uses, and keeps an exit plan. The firm's third-party risk team already runs this process; engineering supplies the facts. The exit plan is a second provider or snapshot the feature can switch to, with its own passing eval. Providers retire old snapshots on announced dates, usually months ahead, after which calls to that name return an error; the gateway warns the row's owner 90 days before the date in the row.</p>
+
+<h3>Eval reports are the validation evidence, and monitoring keeps them true</h3>
+<p>An eval has a fixed set of cases, a scoring method and a pass bar (the score a release must reach) agreed before testing. For the meeting note, the cases are 300 past transcripts, which the use-case owner's team picks and extends when a new failure is found. A script replaces names and account numbers with placeholders first; the checks below do not depend on names. Free text is scored in three ways, often combined:</p>
+<ul>
+<li><strong>Code checks</strong> for what a program can verify, such as "every figure in the draft appears in the transcript".</li>
+<li><strong>A grader model</strong>: a second model call with a narrow question, such as "does the draft state a risk appetite the client did not say? Answer yes or no". A yes/no check is an easier task than writing the note, but it can still be wrong, so people first label 50 cases by hand. Made-up bar: the grader's answer must match the human label on at least 47 of the 50, or its instructions are rewritten and retested. The grader has its own inventory row, <code>meeting-note-eval</code> (Medium), used by the validation team's credential, on a pinned snapshot.</li>
+<li><strong>Human reviewers</strong> who score a sample, for what neither of the others can judge.</li>
+</ul>
+<p>Made-up example: the grader finds an invented risk appetite in 1 of the 300 drafts (0.3%), against a bar of 1%. The stored report, tied to the snapshot and prompt version it tested, is the validation file. Rerun it when either changes, including a one-word prompt edit. Calling a pinned snapshot keeps the report valid, because an alias lets the provider replace the model you validated with no change on your side.</p>
+<p>After go-live there is no correct answer to compare with, so a weekly job reads 200 random calls from the content store and scores them with the same grader and code checks against the same 1% bar. It also computes the <dfn>edit rate</dfn> by diffing each stored draft with its final text: made-up definition, the share of notes where the relationship manager changed more than 30% of the characters. Made-up threshold: if the edit rate was 20% in the first month after go-live, anything above 30% raises an alert, because the drafts got worse or the work changed. Either signal opens a review by the owner, who can hide the button (the fallback) until the cause is fixed.</p>
+
+<h3>A named person signs off, and high-risk outputs wait for a human</h3>
+<p>Before release, someone outside the building team reads the model card and eval report and records an approval on the change ticket. Made-up model card:</p>
+<pre><code>Use case:  meeting-note-draft (Medium), owner: Head of Advisory Tools
+Model:     gpt-4o-2024-08-06 via eu.api.openai.com, Modified Abuse Monitoring
+Prompt:    meeting-note/v7
+Eval:      300 transcripts, invented risk appetite 0.3% (bar 1%)
+Limits:    Swiss German dialect calls are transcribed less accurately and
+           score worse; the relationship manager must edit every note
+Fallback:  button hidden, relationship manager writes the note by hand</code></pre>
+<p>At run time, for the High class only, the feature service saves the output with status <code>PENDING</code>, like a payment waiting for a second signature. A named approver reads it and releases it to the client; the service sets the note's status to <code>RELEASED</code> and inserts an <code>approved</code> event row with the approver's id.</p>
+
+<h3>The audit's five questions now have answers</h3>
+<table>
+<thead><tr><th>Question</th><th>Answered by</th></tr></thead>
+<tbody>
+<tr><td>1. Which model and instructions</td><td>Call row: reported model version and prompt version</td></tr>
+<tr><td>2. What the draft said</td><td>Content store via the call row's pointer; the event row links the final text</td></tr>
+<tr><td>3. Where the transcript went</td><td>Region in the call row; the provider's retention option (Modified Abuse Monitoring) in the inventory row, so no copy remains</td></tr>
+<tr><td>4. How it was tested, who signed</td><td>Eval report for that snapshot and prompt version; approval on the change ticket</td></tr>
+<tr><td>5. Whether it still worked</td><td>Weekly monitoring scores and edit rate for March</td></tr>
+</tbody>
+</table>
+
+<h3>NIST and the EU AI Act ask for the same artefacts</h3>
+<p>The US NIST AI Risk Management Framework is voluntary and has four functions: Govern (owners and policy), Map (the inventory), Measure (evals and monitoring) and Manage (acting on findings); its Generative AI Profile, NIST AI 600-1, adds risks specific to text-writing models. The EU AI Act sorts systems into risk tiers and makes credit scoring of individuals and pricing of life and health insurance high-risk, with those duties applying from 2 December 2027, also to a Swiss firm offering such a system in the EU. A credit-scoring use case would carry that tier in its inventory row.</p>
+
+<h3>The smallest version fits in a sprint, and a mature version adds independence</h3>
+<p><strong>Smallest version:</strong> an inventory table; a gateway that holds the keys and refuses unregistered calls; insert-only call and event tables and an encrypted content store; the provider's region, retention and a one-paragraph exit plan on file; one eval report and model card attached to each change ticket.</p>
+<p><strong>Mature version:</strong> one registry where audit browses rows, model cards and eval reports; monitoring that opens reviews automatically; a validation team independent of the builders; periodic provider reviews.</p>
+
+<div class="analogy">
+<p><strong>The classic backend analogy.</strong> This is the change process a bank already runs (every release has a ticket and an approver who did not write it), plus vendor due diligence, plus model validation. The inventory is the list of applications IT already keeps, the audit tables are an audit trail, and the provider file is the outsourcing file kept for any vendor that handles client data.</p>
+<p><strong>Where it breaks.</strong> The change process assumes nothing changes without a deployment, and model validation assumes you can inspect and reproduce the model. Neither holds, so you test from outside with evals and keep every output. And part of the specification is a plain-language prompt, so a one-word edit needs the same review as code.</p>
+</div>
+
+<h3>Common mistakes</h3>
+<ul>
+<li><strong>Counting only projects called "AI".</strong> FINMA saw firms define AI narrowly; an internal tool with one model call belongs in the inventory.</li>
+<li><strong>Logging cost but not content.</strong> A usage row proves a call happened, not what it said.</li>
+<li><strong>Overwriting the draft.</strong> Saving the edited note over the draft destroys the answer to question 2.</li>
+<li><strong>Validating against an alias.</strong> The eval passed on last quarter's model, and production now runs a newer one under the same name.</li>
+<li><strong>Assuming the provider keeps nothing.</strong> Default terms keep requests for abuse monitoring; zero retention is a separate approval.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>The inventory has one row per use case with an owner, a risk class and allowed credentials, and the gateway refuses calls that have no row.</li>
+<li>Each call writes an insert-only row with the reported model version and prompt version, and stores the prompt and draft; later edits and approvals are new event rows.</li>
+<li>Region and retention are provider terms chosen per risk class and managed as outsourcing, with an exit plan.</li>
+<li>Eval reports tied to a pinned snapshot and prompt version are the validation evidence; rerun them on any change and score live calls weekly.</li>
+<li>High-risk outputs wait for a named approver, and every release needs a reviewer from outside the team.</li>
+</ul>
+</div>
+
+<p class="note">Sources: <a href="https://www.finma.ch/en/~/media/finma/dokumente/dokumentencenter/myfinma/4dokumentation/finma-aufsichtsmitteilungen/20241218-finma-aufsichtsmitteilung-08-2024.pdf">FINMA Guidance 08/2024, Governance and risk management when using artificial intelligence</a> (18 Dec 2024); <a href="https://developers.openai.com/api/docs/guides/your-data">OpenAI, Data controls in the OpenAI platform</a>; <a href="https://www.nist.gov/itl/ai-risk-management-framework">NIST AI Risk Management Framework</a>; <a href="https://artificialintelligenceact.eu/high-level-summary/">EU AI Act high-level summary</a>. The bank, its inventory, rule, audit rows, eval figures, thresholds and model card are made up.</p>
+</section>

@@ -1,0 +1,75 @@
+<section class="principle" id="prompts">
+<h2>Prompts are configuration that changes what the product does, so you version them</h2>
+<p class="lede">A product feature built on a language model is steered by a block of plain-language instructions, the prompt, which your code sends to the model service with every request. Editing that text changes the feature's behaviour as surely as editing code, but no compiler, type checker or ordinary unit test notices. Treating prompts as versioned configuration means keeping one copy, testing the exact text, recording which version produced which result, and being able to roll back.</p>
+
+<h3>The model reads a prompt rendered from a template on every call</h3>
+<p>The running example is a language-tutor app in which an AI tutor chats with a learner. Each reply comes from a <dfn>large language model</dfn> (the <em>model</em>): a vendor service that you call over HTTP, sending text and getting text back. The text you send is the <dfn>prompt</dfn>. The service keeps no memory between requests, so every chat call sends three parts again: the <dfn>system prompt</dfn>, which states the rules for the whole conversation; the earlier messages; and the learner's new message. This section is about the system prompt.</p>
+<p>The system prompt is a template. Its opening block is a numbered list of teaching rules:</p>
+<p class="src">apps/tunatutor/backend/src/session-types/ai-tutor/engine/ai-tutor-prompt-builder.ts:43, 45, 48, 52</p>
+<pre><code>export const DEFAULT_LAYER1_TEMPLATE = `You are a skilled, meticulous language tutor ...
+RULES:
+...
+3. {{languageRatio}}
+...
+7. REGISTER CONSISTENCY: {{registerRule}}</code></pre>
+<p>On every request, code computes the <code>{{...}}</code> values from the learner's level and the current <em>practice scene</em> (a scripted role-play, such as buying a train ticket) and substitutes them. Keep three things apart:</p>
+<ul>
+<li>the <em>template</em>, the fixed text with placeholders;</li>
+<li>the <em>variables</em>, the values code computes per request;</li>
+<li>the <em>rendered prompt</em>, the final string the model actually reads.</li>
+</ul>
+<p>A behaviour change can come from any of the three, including the code that computes a variable.</p>
+
+<h3>One changed sentence changed how the tutor spoke at every level</h3>
+<p>French has a formal and an informal "you" (<em>vous</em> and <em>tu</em>); this choice is the <dfn>register</dfn>. For beginners, <code>{{registerRule}}</code> used to tell the tutor to use the informal form for the whole session, so a tutor playing a ticket seller said <em>tu</em> to a customer. A bug fix (ticket LOM-86) changed only the code that computes <code>{{registerRule}}</code>: in role-play it now renders as one new sentence telling the tutor to match the address form to the role it plays, formal for a shopkeeper, waiter or clerk.</p>
+<p>The template, method signatures and types did not change. Yet the commit records a behaviour change "at every level": beginners now meet polite forms with shopkeepers, and from B1 up a tutor playing a peer turns casual, a case nobody had reported. The checks were a unit test that the sentence appears for role-play chats, and a golden diff (below) in which four stored prompts changed in that one sentence only. Nobody measured whether the replies got better. Three properties make such an edit risky:</p>
+<ul>
+<li><strong>No compiler checks the text.</strong> Any string compiles. A misspelled placeholder such as <code>{{registerRul}}</code> is left in place and reaches the model as literal text.</li>
+<li><strong>The output is not repeatable.</strong> The model picks each next word at random from a list of likely words, so the same prompt can give different replies on two calls. You cannot assert on a reply the way you assert on a return value.</li>
+<li><strong>Effects spread.</strong> A sentence added for one case is read on every call where it renders.</li>
+</ul>
+
+<h3>The smallest version is the prompt in git, a version id and a stored stamp</h3>
+<p>Keep the template in the repository as one constant, next to the code that renders it. Git gives you history and review, and rollback is revert and redeploy. Add a version id and save it with every result. The app's lesson-note writer, which summarises a finished lesson, does this:</p>
+<p class="src">apps/tunatutor/backend/src/services/tutor-continuity/lesson-note-writer.ts:19-20, 224-225</p>
+<pre><code>/** Stamped onto every note as `writerPromptVersion` — bump when the prompt shape changes. */
+export const LESSON_NOTE_PROMPT_VERSION = "v1";
+...
+        writerModel: deps.model,
+        writerPromptVersion: LESSON_NOTE_PROMPT_VERSION,</code></pre>
+<p>Change the id on any change to the rendered text, including a one-word edit or a change to variable code as in LOM-86, not only on a change of "shape". Either bump it by hand, or add a test that asserts the id equals a hash of the golden file. The golden file holds rendered prompts, so it moves with both kinds of change, as far as its cases cover each variable branch.</p>
+<p>The notes table has separate <code>writer_prompt_version</code> and <code>writer_model</code> columns. The <dfn>model id</dfn> is the vendor's name for the exact model; switching models can change replies with an unchanged prompt, so it gets its own field. Months later you can see which prompt and model wrote a bad note, and group complaints or scores by version. When the output is not stored, such as a chat reply, put both values in the log line for the call. Finally, add a test that rejects any placeholder in the template that the code does not fill.</p>
+
+<h3>Golden tests pin the text and evals score the replies</h3>
+<p>A <dfn>golden test</dfn> renders the prompt from fixed inputs and compares it byte for byte with a saved file. It says nothing about reply quality; it tells you whether the text the model reads has changed. Choose the inputs so that every branch of every variable renders at least once: a golden file without a role-play case would not have moved for LOM-86. Each intended change re-renders the file and records why. The test feeds in the code copy of the template, so it cannot catch a stale database copy.</p>
+<p>An <dfn>eval</dfn> checks whether the replies are good. It is a fixed list of inputs, each sent through the model, with every reply scored by a rule, a person, or a second model asked to grade it. For LOM-86, a rule could count the replies in role-play scenes that address the learner with <em>vous</em>. Run it on the old and new prompt and compare the scores. Because replies vary, decide before the run how large a drop blocks the release.</p>
+
+<h3>Storing prompts in the database lets experts edit them, at the price of two copies</h3>
+<p>Prompts are often tuned by domain experts, here a linguist, who should not need a deployment. The app also keeps the template as a database row that admins edit from an admin screen. Every save archives the old text, and <code>activatePromptTemplateVersion</code> makes an archived text current again. Saving rejects an unknown placeholder with a validation error.</p>
+<p>The cost is two copies that can disagree. In July 2026 a seed script (the SQL that fills a fresh database) had inserted an old copy of the prompt, and the app read the row in preference to the code constant. A linguist noticed that rules 14 and 15 never showed up in replies: production lacked them, while every build was green. The fix:</p>
+<ul>
+<li>The seed no longer inserts the row; the code constant is the default.</li>
+<li>At every startup, the app overwrites a row that differs from the constant only when the archive shows no admin edit. An admin edit wins.</li>
+<li>Drift tests fail if the seed inserts the row again or if the template holds an unknown placeholder.</li>
+</ul>
+<p>The reverse cost: once an admin has edited the row, later improvements to the code constant never reach it until someone resets it from the admin screen. A code version id also cannot know about an admin edit, so on this path each result is stamped with a hash of the text actually used.</p>
+
+<h3>A mature setup keeps numbered versions in a prompt service with labels</h3>
+<p>Prompt services such as Langfuse store every save as a numbered version. A <code>production</code> label points at one version, and the app asks for "the production version of prompt X". Rolling back means moving the label to an earlier number, with no deployment; servers pick it up within about a minute, because the client caches prompts briefly. Each model call is logged with its prompt version, and teams move <code>production</code> only after the new version passes an eval run.</p>
+
+<div class="analogy">
+<p><strong>Java analogy:</strong> a prompt template is like a message in a Spring <code>MessageSource</code>: text with placeholders, kept outside the logic, filled at runtime. The <code>production</code> label is like a feature flag that selects the live variant, and rollback is flipping it back.</p>
+<p><strong>Where it breaks:</strong> your code defines what a config value means, so you can reason about changing <code>timeout=30</code> to <code>timeout=60</code>. The model decides what a prompt means, so the only way to know the effect of an edit is to run it on many inputs and measure. The same version can give different outputs on two calls, and a new model can change what an unchanged prompt does.</p>
+</div>
+
+<div class="takeaways">
+<ul>
+<li>A change to the rendered prompt, whether in the template or in the code that fills it, is a behaviour change. Version it and review its diff.</li>
+<li>Keep one copy of each prompt. If a database copy exists, decide and test which copy wins, and how code updates reach a row an admin has edited.</li>
+<li>Reject unknown <code>{{placeholders}}</code>, pin rendered text with golden tests whose cases cover every variable branch, and score replies with evals.</li>
+<li>Stamp every result with the prompt version and the model id.</li>
+</ul>
+</div>
+
+<p class="note">Sources: the tutor app's backend source, <code>apps/tunatutor/backend</code> (files and lines cited above). Langfuse, <a href="https://langfuse.com/docs/prompt-management/overview">Prompt management overview</a>, <a href="https://langfuse.com/docs/prompt-management/features/prompt-version-control">Prompt version control</a> (labels, rollback by moving <code>production</code>) and <a href="https://langfuse.com/docs/prompt-management/features/caching">Caching</a> (60-second default).</p>
+</section>

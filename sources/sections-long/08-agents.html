@@ -1,0 +1,205 @@
+<section class="principle" id="agents">
+<h2>An agent is a loop in which the model picks the next step</h2>
+<p class="lede">Most features built on a language model need more than one call to it. You can fix the order of those calls in your own code, which is a <dfn>workflow</dfn>, or let the model choose the next call each time round a loop, which is an <dfn>agent</dfn>. This section shows both, the five standard workflow shapes, and the limits, checks and recovery an agent loop needs before it can run in production.</p>
+
+<h3>One request can take one model call or six</h3>
+<p>A few words first. A <dfn>model</dfn> (large language model, LLM) is a remote service, sold by providers such as Anthropic, OpenAI and Google: you send it text and it sends back text. The text you send is the <dfn>prompt</dfn>. Both are measured and billed in <dfn>tokens</dfn>, pieces of words of roughly four characters each. The model is <strong>stateless</strong>: it remembers nothing between calls, so every call must carry the whole conversation so far. A <dfn>tool</dfn> is one of your own functions that you describe to the model by name and parameters. The model cannot run it. It can only reply “please call <code>find_bills</code> with these arguments”. That reply is a <dfn>tool call</dfn>. Your code runs the function and sends the result back in the next call. A <dfn>turn</dfn> is one message from the person plus everything the system does until it answers, even when that spans two HTTP requests.</p>
+<p>Billpod is a household-bills web app in Lomem, a repository of small web apps that these examples come from. It uses Google's Gemini Flash model. Its assistant panel takes free text. Suppose a person types:</p>
+<div class="example">
+<p><strong>Made-up conversation.</strong> The words are invented; the steps are what Billpod's code does with them. One step is one model call.</p>
+<ol>
+<li>Person: “Mark the electricity bill paid and tell me what is still due this month.”</li>
+<li>Step 1. The model replies with a tool call: <code>find_bills</code>, text “electricity”. The server runs it and sends back the matching bill, including its id and its version number.</li>
+<li>Step 2. The model replies with a tool call: <code>mark_paid</code> with that bill's id and version. That changes data, so the server does not run it yet. It shows the person a confirmation card and the HTTP request ends.</li>
+<li>The person clicks Approve, which is a second HTTP request. The server runs <code>mark_paid</code> and sends the result to the model.</li>
+<li>Step 3. The model replies with a tool call: <code>list_due</code>. The server runs it and sends back what is unpaid.</li>
+<li>Step 4. The model replies with plain text and no tool call: “Done. Still due: water, 48.20, on the 28th.” The loop ends.</li>
+</ol>
+</div>
+<p>Nobody wrote “search, then mark paid, then list what is due” in code; the model chose each step from what the previous one returned. This is the new problem: control flow decided at run time by a component that is slow (seconds per call), paid per call, and can choose differently on each run with the same input.</p>
+
+<h3>A tool call is a structured field in the model's reply</h3>
+<p>You do not parse the reply's text to find a tool call: the provider's API returns it as a separate field, and your code checks whether that field is empty. Here is step 1 as Gemini's REST API returns it (values made up, field names real):</p>
+<pre><code>{ "candidates": [ { "content": { "role": "model", "parts": [
+    { "functionCall": { "id": "c1", "name": "find_bills", "args": { "text": "electricity" } } } ] } } ],
+  "usageMetadata": { "promptTokenCount": 1830, "candidatesTokenCount": 21, "thoughtsTokenCount": 64 } }</code></pre>
+<p>Each provider names these fields differently (Anthropic calls it a <code>tool_use</code> block). Billpod's small gateway translates one provider-neutral message shape, shown below, to Gemini's format and back; a provider SDK does the same job.</p>
+<div class="example">
+<p><strong>Made-up values, Billpod's shape.</strong> Request 1 holds the <dfn>system prompt</dfn> (standing instructions your code writes, sent first on every call), the messages, and the tool list. Each tool has a name, a description the model reads, and its parameters (<code>paramsSchema</code>) as a JSON Schema, the standard JSON format for describing allowed fields and values (here, <code>status</code> may only be one of three words).</p>
+<pre><code>{ "systemPrompt": "You help one household with its bills. Today is 2026-10-14. …",
+  "messages": [ { "role": "user", "content": "Mark the electricity bill paid and …" } ],
+  "tools": [ { "name": "find_bills",
+               "description": "Search the household's bills by text, month or status.",
+               "paramsSchema": { "type": "object",
+                               "properties": { "text": { "type": "string" },
+                                               "status": { "enum": ["paid", "unpaid", "overdue"] } } } },
+             { "name": "mark_paid", … }, { "name": "list_due", … } ] }</code></pre>
+<p>Request 2: the same system prompt and tools, and the messages grow by two. Each message has a <dfn>role</dfn> that says who wrote it: <code>user</code> is the person, <code>assistant</code> is the model's own earlier reply, <code>tool</code> is your code's tool results. The provider requires the model's reply to go back in, followed by exactly one result for every call id in it.</p>
+<pre><code>  "messages": [ { "role": "user", "content": "Mark the electricity bill paid and …" },
+                { "role": "assistant", "toolCalls": [ { "id": "c1", "name": "find_bills", … } ] },
+                { "role": "tool", "toolResults": [ { "callId": "c1", "name": "find_bills",
+                    "response": { "bills": [ { "id": "b42", "version": 3, "payee": "City Power",
+                                               "amount": "61.30", "status": "due" } ] } } ] } ]</code></pre>
+<p>Reply 2 then asks for <code>mark_paid</code> with <code>{ "billId": "b42", "version": 3, "paidOn": "2026-10-14" }</code>. The model copied the version from the result it read; the server will use it to detect a change made by someone else in the meantime.</p>
+</div>
+<p>The model picks a tool by reading the system prompt and the tool descriptions, so write them as carefully as an API's documentation. When one reply asks for several tools, Billpod runs them one after another and the whole reply counts as one step. When a tool goes wrong, the loop does not crash. An unknown tool name, arguments that fail the schema, or a tool that throws all go back as that call's result, with a code and a sentence the model can act on, such as <code>{ "error": { "code": "UNKNOWN_TOOL", "message": "There is no tool named pay_bill." } }</code> or “you sent version 2; it is now version 3”. The model's next step can correct itself, at the cost of a step.</p>
+
+<h3>In a workflow your code decides every step</h3>
+<p>Anthropic's guide “Building effective agents” draws the line this way: workflows are “systems where LLMs and tools are orchestrated through predefined code paths”, and agents are systems “where LLMs dynamically direct their own processes and tool usage”. A workflow is ordinary code with model calls inside it, and you can read the order of steps off the source.</p>
+<p>Lomem's language tutor grades a learner's translation in a level test (a checkpoint) this way. One model call returns a verdict: right or wrong, a score from 0 to 100, and the words it marks as wrong. If the verdict contradicts itself (“right” but a word marked wrong), the code makes one second call with the same prompt plus a paragraph that begins: “Your first reply contradicted itself (the verdict and the marks did not agree). Grade again.” If that one contradicts itself too, the code marks the answer wrong and caps the score at 49. In the code, <code>deps.call(false)</code> is the first model call and <code>deps.call(true)</code> the second, with that extra paragraph.</p>
+<p class="src">apps/tunatutor/backend/src/session-types/translation-drill/engine/checkpoint-rules.ts:52-58</p>
+<pre><code>  let result = await deps.call(false);
+  if (result.contradictory) {
+    const second = await deps.call(true);
+    result = second.contradictory
+      ? { ...second, correct: false, score: Math.min(second.score, BORDERLINE_MIN - 1) }
+      : second;
+  }</code></pre>
+<p>The model returns a verdict, and the code decides what happens next: at most two calls. Each branch can be unit-tested with a fake verdict.</p>
+
+<h3>Five workflow shapes cover most features</h3>
+<p>The same Anthropic guide names five patterns. Each one is a few lines of plain code around model calls, and in each one your code owns the loop and its exit.</p>
+<table>
+<thead><tr><th>Pattern</th><th>What your code does</th><th>Use it when</th><th>Made-up example</th></tr></thead>
+<tbody>
+<tr><td>Prompt chaining</td><td>Calls the model in a fixed sequence. Each call gets the previous output. Plain code checks the output between calls (a “gate”).</td><td>The task splits into known subtasks.</td><td>Extract the fields of an invoice, validate them in code, then draft the reminder email.</td></tr>
+<tr><td>Routing</td><td>One call classifies the input. A <code>switch</code> sends it to a handler with its own prompt, a cheaper model, or a plain service.</td><td>Inputs fall into categories that are better handled apart.</td><td>“Billing question”, “bug report” or “refund” each go to their own handler.</td></tr>
+<tr><td>Parallelization</td><td>Runs several calls at once and merges the results: different parts of the task (sectioning), or the same task several times (voting).</td><td>Parts are independent, or several opinions raise confidence.</td><td>Check a contract clause by clause in parallel; ask three times whether a message is fraud and take the majority.</td></tr>
+<tr><td>Orchestrator-workers</td><td>One call plans the subtasks and returns them as a JSON list. Your code parses it (and retries or fails if it does not parse), runs one worker call per item, then a final call combines them.</td><td>You cannot know the subtasks in advance, but one plan made up front is enough.</td><td>Change a feature that touches an unknown number of files: the plan names the files, one worker per file.</td></tr>
+<tr><td>Evaluator-optimizer</td><td>Call A writes a draft. Call B grades it against stated criteria and lists the faults. Call A runs again with the draft and that list. Your code repeats this until B passes it or a round limit is hit.</td><td>The criteria are clear and feedback measurably improves the result.</td><td>Translate a text, have a second call list mistranslations, revise at most three times.</td></tr>
+</tbody>
+</table>
+<p>In orchestrator-workers the model chose the list, but it is still a workflow: your code runs the list and stops when it is done. A planner that re-plans once, at a point and a count your code fixed, is still a workflow. Once each result can change what happens next, with no fixed end, you have an agent. The evaluator-optimizer's round limit is similar: every round runs the same two calls your code chose.</p>
+
+<h3>An agent is a while loop that runs until the model stops asking for tools</h3>
+<p>Every agent, whatever library wraps it, is this loop:</p>
+<ol>
+<li>Send the system prompt, the conversation so far and the tool list to the model.</li>
+<li>If the reply contains no tool call, it is the final answer. Stop.</li>
+<li>Otherwise run each requested tool, append the reply and the results to the conversation, and go back to 1.</li>
+</ol>
+<p>Here is the top of Billpod's loop. <code>stepOnce</code> is one model call. <code>history</code> is the earlier turns of the chat; <code>transcript</code> is this turn's replies and tool results so far. <code>emit</code> sends an event to the browser; <code>awaiting: false</code> tells it that no confirmation card is waiting. The other arguments label the call in the usage log and carry the person's Stop button.</p>
+<p class="src">apps/billpod/backend/src/ai/assistant/assistant.ts:320-343</p>
+<pre><code>        if (usage.steps &gt;= maxSteps &amp;&amp; !(resumed &amp;&amp; stepsThisRequest === 0)) {
+          emit({ type: "error", code: "LOOP_LIMIT", message: `Stopped after ${maxSteps} steps.` });
+          emit({ type: "done", awaiting: false, usage });
+          return;
+        }
+        usage.steps++;
+        …
+          result = await stepOnce(systemPrompt, [...history, ...transcript], usageContext, input.signal, emit);
+        …
+        usage.inputTokens += result.usage.inputTokens ?? 0;
+        usage.outputTokens += result.usage.outputTokens ?? 0;
+        usage.thoughtTokens += result.usage.thoughtTokens ?? 0;
+        if (result.toolCalls.length === 0) {
+          emit({ type: "done", awaiting: false, usage });
+          return;
+        }</code></pre>
+<p>The three token counters are the input sent, the text generated, and the hidden reasoning some models (Gemini, Claude and OpenAI's reasoning models) produce before answering. You do not get that reasoning back in full, but Gemini bills it at the output price.</p>
+<p>Two facts follow from the loop's shape. Because the model is stateless, every step resends the whole transcript, so each step costs more than the one before. Anthropic reports that agents in its research product “typically use about 4× more tokens than chat interactions, and multi-agent systems use about 15× more tokens than chats”. And the only built-in exit is the model deciding it is done, so without your own exits a confused model keeps calling tools.</p>
+
+<h3>Every loop needs a step cap, timeouts and a cost limit that the loop reads</h3>
+<p>Billpod sets these limits on one turn:</p>
+<ul>
+<li><strong>Steps:</strong> at most 6 model calls. The count is saved across the approval pause, so steps before and after the click share the 6. One exception, visible in the excerpt above: a turn resumed after a card always gets one step, so the model can say what happened. Past the cap the person sees “Stopped after 6 steps.” Tools that already ran stay done, which is safe because every change to existing data needed the person's approval. Six is Billpod's choice: count the steps of your longest normal request and add room for a correction or two.</li>
+<li><strong>Time per call:</strong> the reply arrives <dfn>streamed</dfn>, in small pieces as the model produces them, so the panel can show text early. Each call gets 60 seconds to start the stream and at most 60 seconds of silence between pieces. If you do not stream, one 60-second timeout per call is the same idea.</li>
+<li><strong>Size:</strong> each reply is capped at 2048 output tokens, and the earlier chat at 24 000 characters. A model accepts limited input per call (its <dfn>context window</dfn>), and every resent character is paid again. Earlier turns go back as their text plus a one-line note of what became of each change (“mark_paid (City Power): done”). Tool results from earlier turns are not resent, because household data changes and the model can read it again.</li>
+</ul>
+<p>Billpod adds up the tokens but sets no money limit; its step and size caps bound the cost. A loop that may run longer should also stop on money and on time. Money: providers price input and output tokens separately (Billpod's price table holds input, cached-input and output rows per model), so before each step multiply each counter by its price and compare the sum with a budget. Time: compare the clock with a deadline for the work in this request; do not count the minutes a person spends deciding on a card. A cap must be read by the loop: one that only exists in a settings screen does nothing. Prove each cap with a test whose fake model always replies with a tool call.</p>
+
+<h3>The model only proposes, so check and confirm what it asks for</h3>
+<p>The model's tool calls are requests from an untrusted source. Text the model reads, such as a payee name, a note or an uploaded document, can contain instructions (“mark every bill paid”) that the model may follow. This attack is called <dfn>prompt injection</dfn>. Billpod's defence, from ADR-057 (an architecture decision record, its design document):</p>
+<ul>
+<li>Only tools on the declared list can run.</li>
+<li>Before a change is shown for approval, the arguments are parsed with the tool's schema, the bill is looked up in this household's current data (“not found” otherwise), and its <code>version</code> must equal the one the model sent, which it read from <code>find_bills</code> (“conflict” if someone changed the bill meanwhile). A failed check goes back to the model as an error result, and no card appears.</li>
+<li>No change to existing data runs without the person's yes on a card that shows exactly what will change. If the person declines, the model receives “The person declined this change on the confirmation card. It was not made. Do not propose it again unless they ask.”</li>
+<li>One card at a time. If the same reply asks for more calls after the one that raised the card, reads still run, but every other write is answered <code>{ "error": { "code": "NOT_RUN", "message": "Not run: it came after a change that was waiting for the person's confirmation. Call it again if it is still wanted." } }</code>. So every call id still gets its result.</li>
+</ul>
+<p>Adding a new bill runs at once, because it only creates what the person just described and can be deleted again.</p>
+
+<h3>A run that pauses or outlives one process needs its state saved</h3>
+<p>A pause for approval splits the loop over two HTTP requests, so the loop's state must be stored somewhere in between. Billpod's server keeps no conversation (the browser holds the chat), so when the loop pauses at a card, Billpod puts the turn so far (transcript, the results already in hand, step count, token usage, the exact checked arguments) into an encrypted and authenticated (AES-256-GCM) blob valid for 10 minutes and hands it to the browser. Approving sends the blob back; the server checks it was not altered, records its id so the same approval cannot be used twice, runs exactly the sealed arguments, and the loop continues. After 10 minutes the server answers HTTP 410 with “This confirmation has expired. Ask again.” and nothing has changed. A server-side row keyed by an id does the same job.</p>
+<p>Long runs need more. A run of minutes or hours will at some point see its process restart in the middle. Starting again from step 1 pays for every model call again and repeats every email or payment a tool already made, and the model may choose different steps the second time.</p>
+<p><dfn>Durable execution</dfn> records the result of each model call and tool call before moving on; for a Java engineer it is the outbox pattern applied to every step. Temporal is the common engine for this. Each model call and each tool call is wrapped as an <dfn>activity</dfn>, and Temporal stores every activity's result in a log. After a crash, Temporal runs your loop code again from the top; when the code reaches an activity whose result is already in the log, it gets the saved result instead of calling the model or the tool. So the model's earlier choices come back exactly as they were, and execution continues for real at the first activity with no saved result. This only works if the code between activities makes the same decisions on the second run, so that it reaches the same activities in the same order. A direct clock read, a random number or a network call outside an activity could change a decision, so those go inside activities too. Save state yourself, as Billpod does, for one known pause of minutes; use an engine like Temporal for many steps with side effects or waits of hours.</p>
+
+<h3>The smallest version is a loop with counters and one pause point</h3>
+<p><strong>Smallest:</strong> a Java sketch. <code>model</code> wraps the provider's SDK and returns the reply's text, tool calls and token counts. A write tool is checked, then pauses the loop; <code>resume</code> continues it. Each HTTP request gets its own deadline; steps and cost carry over.</p>
+<pre><code>Result run(List&lt;Message&gt; messages, Usage usage) {
+  Instant deadline = Instant.now().plus(MAX_REQUEST_TIME);           // time in this request only
+  while (true) {
+    if (usage.steps() &gt;= MAX_STEPS) throw new LoopLimitException("steps");          // e.g. 6
+    if (usage.cost() &gt;= MAX_COST || Instant.now().isAfter(deadline))
+      throw new LoopLimitException("budget");
+    Reply reply = model.call(SYSTEM_PROMPT, messages, TOOLS, Duration.ofSeconds(60));
+    usage.add(reply.usage());          // steps + 1; input × input price + output × output price
+    if (reply.toolCalls().isEmpty()) return Result.answer(reply.text());
+    messages.add(Message.assistant(reply.text(), reply.toolCalls()));
+    Map&lt;String, Object&gt; results = new LinkedHashMap&lt;&gt;();               // call id → result
+    ToolCall pending = null;
+    for (ToolCall c : reply.toolCalls()) {
+      Tool t = ALLOWED.get(c.name());                                   // allow-list
+      if (t == null || !t.changesData()) results.put(c.id(), execute(t, c));
+      else if (pending != null) results.put(c.id(), NOT_RUN);           // one card at a time
+      else {
+        Object problem = t.check(c.args());     // schema, record in this household, version
+        if (problem != null) results.put(c.id(), problem);              // the model sees it
+        else pending = c;
+      }
+    }
+    if (pending != null) return Result.card(pausedStore.save(messages, results, pending, usage));
+    messages.add(Message.toolResults(results));
+  }
+}
+
+Object execute(Tool t, ToolCall c) {
+  if (t == null) return Map.of("error", "UNKNOWN_TOOL: there is no tool named " + c.name());
+  try { return t.run(t.schema().validate(c.args())); }
+  catch (Exception e) { return Map.of("error", e.getMessage()); }
+}
+
+Result resume(String pausedId, boolean approved) {
+  Paused p = pausedStore.takeOnce(pausedId);          // fails if unknown, expired or used
+  ToolCall c = p.pending();
+  p.results().put(c.id(), approved ? execute(ALLOWED.get(c.name()), c) : DECLINED);
+  p.messages().add(Message.toolResults(p.results()));
+  return run(p.messages(), p.usage());
+}
+
+@Test void stopsAModelThatNeverStops() {
+  model = (sys, msgs, tools, timeout) -&gt; Reply.toolCall("find_bills", Map.of());
+  assertThrows(LoopLimitException.class,
+      () -&gt; run(new ArrayList&lt;&gt;(List.of(Message.user("hi"))), new Usage()));
+}</code></pre>
+<p><code>DECLINED</code> and <code>NOT_RUN</code> hold the sentences quoted in the previous sections. The REST controller turns <code>LoopLimitException</code> into a message for the person, as Billpod's “Stopped after 6 steps.” does. A workflow needs even less: a chain or a router is a service method.</p>
+<p><strong>Mature:</strong> a money cap per user per day; a stored trace of every step's prompt, reply and tool result, so a bad answer can be replayed and debugged; durable execution for long runs.</p>
+
+<div class="analogy">
+<p><strong>Classic backend analogy.</strong> A workflow is a saga orchestrator (a service that drives a multi-step business process and its compensations) or a Spring Batch job: the steps and their order are in your code, and some steps happen to call a model. An agent is a queue consumer that executes commands, where the command producer is the model, reading the results of the previous command. Durable execution is the outbox pattern applied to every step: persist the outcome before moving on, so a restart never repeats a side effect.</p>
+<p><strong>Where it breaks.</strong> A saga's next step can be worked out again from code after a crash; an agent's next command cannot, so it must be reloaded from storage. A queue consumer trusts its producer; an agent checks every command against an allow-list and the stored data, and asks a person before changes. Producing a queue message is free; every agent step costs money, more the longer the run.</p>
+</div>
+
+<h3>Use an agent only when you cannot write the steps down</h3>
+<p>Anthropic's advice is “finding the simplest solution possible, and only increasing complexity when needed”: one model call, then a workflow, an agent last. An agent earns its cost when the number and order of steps depend on what is found along the way, as in an open question over a household's data. If you can draw the flowchart, write it as code. A decision that must be reliable belongs in a fixed step outside the loop, even in an agent product: Lomem's tutor chats with the learner in an agent loop, but whether the learner finished the exercise is decided by a separate model call outside that loop (its design record says “never in the turn loop”).</p>
+
+<h3>Common mistakes</h3>
+<ul>
+<li>Building an agent for a fixed process, which then costs more, runs slower and sometimes skips a step.</li>
+<li>A step cap in configuration that the loop never reads.</li>
+<li>Running every tool the model asks for, including writes, without an allow-list, a check against stored data, or a confirmation.</li>
+<li>Leaving a call id without a result when the loop pauses or skips a call; the provider rejects the next request.</li>
+<li>Restarting a long run from the beginning after a crash, which re-sends emails and re-charges cards.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>A workflow is your code calling the model in an order you wrote; an agent is a loop that resends the conversation and runs tools until the model replies without a tool call.</li>
+<li>Chaining, routing, parallelization, orchestrator-workers and evaluator-optimizer are a few lines of ordinary code each, with your code owning the exit; try them before an agent.</li>
+<li>Every agent loop gets a step cap, a per-call timeout, a token total turned into money, and a test with a fake model that never stops.</li>
+<li>Tool calls are proposals: allow-list them, check them against stored data and its version, and have a person confirm changes.</li>
+<li>A paused or long run saves each step's result, so a restart neither pays twice nor repeats a side effect.</li>
+</ul>
+</div>
+
+<p class="note">Sources: Anthropic, <a href="https://www.anthropic.com/engineering/building-effective-agents">“Building effective agents”</a> (Dec 2024), for the definitions and the five patterns. Anthropic, <a href="https://www.anthropic.com/engineering/multi-agent-research-system">“How we built our multi-agent research system”</a> (June 2025), for the token multipliers. <a href="https://ai.google.dev/api/generate-content">Gemini API reference, generateContent</a>, for the reply shape and token counts. <a href="https://ai.google.dev/gemini-api/docs/pricing">Gemini API pricing</a>, for thinking billed as output. <a href="https://temporal.io/solutions/ai">Temporal for AI</a>, for durable execution. Code excerpts are from the Lomem repository at the paths shown.</p>
+</section>

@@ -1,0 +1,150 @@
+<section class="principle" id="prompts">
+<h2>Prompts are configuration that changes what the product does, so you version them</h2>
+<p class="lede">A product feature built on a language model is steered by a block of plain-language instructions, the prompt, which your code sends to the model service with every request. Editing that text changes the feature's behaviour as surely as editing code, but no compiler, type checker or ordinary unit test notices. Treating prompts as versioned configuration means keeping one copy, testing the exact text, recording which version produced which result, and being able to roll back.</p>
+
+<h3>A language tutor ran on old instructions while every build was green</h3>
+<p>Tunatutor is an app with an AI tutor that chats with a language learner. Each tutor reply comes from a <dfn>large language model</dfn> (LLM, or just <em>model</em>): a vendor service such as Gemini or Claude that you call over HTTP, sending text and getting text back. The text you send is the <dfn>prompt</dfn>. The service keeps no memory between requests, so every chat call sends three parts again: the <dfn>system prompt</dfn>, which states the rules for the whole conversation; the earlier messages of the chat; and the learner's new message. The model reads all three and writes the next reply. This section is about the system prompt.</p>
+<p>Tunatutor's code builds the system prompt by joining several blocks of text. The first block, which the code calls Layer 1, is a numbered list of teaching rules. Later blocks describe the current <em>practice scene</em> (a scripted role-play, such as buying a train ticket) and the format the reply must take. Layer 1 opens like this:</p>
+<p class="src">apps/tunatutor/backend/src/session-types/ai-tutor/engine/ai-tutor-prompt-builder.ts:43, 45, 48, 52</p>
+<pre><code>export const DEFAULT_LAYER1_TEMPLATE = `You are a skilled, meticulous language tutor ...
+RULES:
+...
+3. {{languageRatio}}
+...
+7. REGISTER CONSISTENCY: {{registerRule}}</code></pre>
+<p>The <code>{{...}}</code> parts are placeholders that code fills in; the next sections explain them. This text lived in two places: the constant above, and a row in a <code>prompt_templates</code> database table, keyed by the name <code>ai-tutor-layer1</code>, that admins can edit from an admin screen. The app reads the row and falls back to the constant only when no row exists. A <dfn>seed script</dfn>, the SQL that fills a fresh database with starting data, had inserted an old copy of the prompt. In July 2026 a linguist reviewing tutor replies noticed that rules 14 (how complex the tutor's language should be) and 15 (which teaching techniques to use) never showed up in practice: the stale row lacked them. Each deployment matched its commit, but the instructions the model read were older than the repository's.</p>
+<p>A stale row overriding a code default is a familiar backend bug. What is new is how hard it is to see: a wrong config value usually breaks something your code checks, while a wrong prompt produces replies that still read as fluent, so only a person reading them closely notices.</p>
+
+<h3>The fix made the code constant win unless an admin has edited the row</h3>
+<p>At startup the app <em>registers</em> each prompt it knows: its key, its code default (here <code>DEFAULT_LAYER1_TEMPLATE</code>) and the list of variables the code can fill. It also loads that prompt's <code>prompt_templates</code> row into an in-memory cache, so a request does not query the table. The fix had three parts:</p>
+<ul>
+<li><strong>Delete the duplicate.</strong> The seed script no longer inserts the prompt. On a fresh database the app creates the row from the constant at startup.</li>
+<li><strong>Heal databases that already hold a stale row.</strong> Every admin save first copies the old text into an archive table, <code>prompt_template_versions</code>. So zero archive rows for a prompt means no admin ever changed it, and any difference from the constant must come from an old seed. At startup the app then overwrites the row with the constant. With one or more archive rows, the admin's text wins and the app leaves it alone.</li>
+<li><strong>Add drift tests.</strong> A <dfn>drift test</dfn> here is a plain unit test that fails when the copies of a prompt could disagree again.</li>
+</ul>
+<p class="src">apps/tunatutor/backend/src/session-types/ai-tutor/index.ts:70-85 (one special case removed, explained below)</p>
+<pre><code>export async function healStaleTemplate(key: string): Promise&lt;void&gt; {
+  const registration = getTemplateRegistration(key);    // key, code default, variables
+  if (!registration) return;
+  const content = getCachedTemplate(key);                // what the DB row holds
+  if (content === registration.defaultContent) return;   // matches the code constant
+  const versionCount = await countTemplateVersions(key); // archive rows = admin edits
+  if (versionCount &gt; 0) return;                         // an admin edited it: keep theirs
+  await resetPromptTemplate(key, { archive: false });   // overwrite with the constant
+  await loadTemplateCache(key);                          // refresh the in-memory copy
+}</code></pre>
+<p>Every instance runs this at every startup. Two instances starting together both write the same constant, so the race is harmless. The signal is only as good as its bookkeeping: the first version of this heal archived what it overwrote, so healed databases looked admin-edited. The heal now writes no archive row, and the special case left out above recognises that one machine-written text by its hash.</p>
+<p>The rule has a cost in the other direction. Once an admin has edited the row, later improvements to the code constant never reach production on their own. Tunatutor's admin screen marks each prompt CUSTOM or DEFAULT and has a Reset button that restores the code default, so a person decides when to take the new default. A team that skips this step recreates the July bug in reverse.</p>
+<p>The first drift test reads the seed SQL and fails if it inserts the row again:</p>
+<p class="src">apps/tunatutor/backend/src/session-types/ai-tutor/engine/__tests__/layer1-template-drift.test.ts:37-48 (shortened)</p>
+<pre><code>test("seed SQL no longer inserts a stale ai-tutor-layer1 prompt_templates row", () =&gt; {
+  const seedSql = readFileSync(SEED_SQL_PATH, "utf8");
+  const hasStaleInsert =
+    /INSERT INTO\s+"prompt_templates"[\s\S]*?'ai-tutor-layer1'/i.test(seedSql);
+  assert.equal(hasStaleInsert, false, ...);
+});</code></pre>
+
+<h3>A prompt is a template that code fills with variables</h3>
+<p>The <code>{{languageRatio}}</code> and <code>{{registerRule}}</code> placeholders are filled on every request. The code computes their values from the learner's level and the practice scene, then substitutes them into the text:</p>
+<p class="src">ai-tutor-prompt-builder.ts:271-275 (arguments shortened)</p>
+<pre><code>  const vars = resolveLayer1Variables(context, ...);
+  return template.replace(/\{\{(\w+)\}\}/g, (match, name: string) =&gt; {
+    const value = vars[name as keyof Layer1Variables];
+    return value !== undefined ? value : match;
+  });</code></pre>
+<p>Keep three things apart. The <em>template</em> is the fixed text with placeholders. The <em>variables</em> are the values code computes for each request. The <em>rendered prompt</em> is the final string the model actually receives. A behaviour change can come from any of the three, including a change to the code that computes a variable. Look at the <code>return</code> line: a placeholder the code does not know is left in place, so a typo such as <code>{{registerRul}}</code> reaches the model as that literal text, and nothing fails. The second drift test catches this by comparing the placeholders in the template with the registered variables:</p>
+<p class="src">layer1-template-drift.test.ts:51-65 (message shortened)</p>
+<pre><code>test("every {{token}} in DEFAULT_LAYER1_TEMPLATE is a registered Layer1 variable", () =&gt; {
+  const referenced = extractTemplateVariables(DEFAULT_LAYER1_TEMPLATE);
+  const registeredNames = new Set(LAYER1_TEMPLATE_VARIABLES.map((v) =&gt; v.name));
+  const unknown = [...referenced].filter((name) =&gt; !registeredNames.has(name));
+  assert.deepEqual(unknown, [], `unregistered variable(s): ${unknown.join(", ")}`);
+});</code></pre>
+<p>The admin screen runs the same check on save, so an admin who types an unknown placeholder gets a validation error naming it.</p>
+
+<h3>One changed sentence changed how the tutor spoke at every level</h3>
+<p>French and many other languages have a formal and an informal way to say "you" (<em>vous</em> and <em>tu</em>). Linguists call this choice the <dfn>register</dfn>. For beginners, <code>{{registerRule}}</code> used to render as:</p>
+<p class="src">ai-tutor-prompt-builder.ts:197</p>
+<pre><code>Choose INFORMAL register (tu, tú, du, etc.) and use it consistently for the ENTIRE session. ...</code></pre>
+<p>So when the tutor played a ticket seller in a practice scene, it said <em>tu</em> to a customer, which a real ticket seller would not do. A bug fix (ticket LOM-86) changed only the code that computes <code>{{registerRule}}</code>. When the tutor plays a role, the variable now renders as this sentence ("micro-scenario" is the prompt's word for the practice scene):</p>
+<p class="src">ai-tutor-prompt-builder.ts:111</p>
+<pre><code>Match the address register to the ROLE you play in this chat's micro-scenario: a service role or a stranger (shopkeeper, waiter, clerk, ticket seller, ...) takes the FORMAL / polite-neutral address form ...</code></pre>
+<p>The template did not change, and no method signature or type changed. Yet the commit message records a behaviour change "at every level": beginners now meet polite forms with shopkeepers, and from B1 up a tutor playing a peer turns casual, a case nobody had reported. The checks were a unit test that the sentence appears for role-play chats, and a diff of stored rendered prompts (a golden file, described below), where four stored prompts changed in that one sentence only. Nobody measured whether the replies got better. Three properties make an edit like this risky:</p>
+<ul>
+<li><strong>No compiler checks the text.</strong> Any string compiles, including one with a misspelled placeholder.</li>
+<li><strong>The output is not repeatable.</strong> The model picks each next word at random from a list of likely words, so the same prompt can give different replies on two calls. You cannot assert on a reply the way you assert on a return value.</li>
+<li><strong>Effects spread.</strong> A sentence added for one case is read on every call where it renders, so it can change replies in cases nobody tested.</li>
+</ul>
+
+<h3>Golden tests pin the text and evals score the replies</h3>
+<p>A <dfn>golden test</dfn> renders the prompt from fixed inputs and compares it byte for byte with a file saved earlier, the golden file. It says nothing about reply quality. It tells you whether the text the model will read has changed. Tunatutor's golden files are JSON maps from case name to rendered prompt. In the one below, each case is one practice scene at a given turn, where a turn is one learner message and one tutor reply:</p>
+<p class="src">apps/tunatutor/backend/src/session-types/ai-tutor/engine/scenario-prompts.golden.test.ts:36-44</p>
+<pre><code>for (const name of Object.keys(SCENARIO_PROMPT_STORIES)) {
+  for (const turn of SCENARIO_PROMPT_TURNS) {
+    test(`${name} at turn ${turn}: the tutor prompt is byte-identical to before quests`, () =&gt; {
+      const builder = new AiTutorPromptBuilder();
+      builder.setLayer1Template(DEFAULT_LAYER1_TEMPLATE);
+      assert.equal(builder.buildPrompt(scenarioPromptContext(name, turn)), golden[`${name}@${turn}`]);
+    });
+  }
+}</code></pre>
+<p>Tunatutor has no regenerate command: the JSON was written by calling the builder on the fixture inputs, and each intended change is re-rendered that way and noted in the test file's header comment. A common shortcut is an environment variable, such as <code>UPDATE_GOLDEN=1</code>, that makes the test write the file instead of comparing; the diff then shows up in code review. Choose the fixed inputs so that every branch of every variable renders at least once. A golden file without a role-play case would not have moved for LOM-86. The test feeds in the code constant, so it would not have caught the July incident either, where production read the database copy. The drift tests and the startup heal cover that.</p>
+<p>An <dfn>eval</dfn> checks whether the replies are good. It is a fixed list of test inputs, each sent through the model, with every reply scored by a rule, by a person, or by a second model asked to grade it. Made-up example for LOM-86: 20 practice scenes where the tutor plays a ticket seller, waiter or clerk; the rule scores a reply 1 if it addresses the learner with <em>vous</em> and never <em>tu</em>; run it on the old and the new prompt and require at least 18 of 20 before release. Tunatutor's real scenario eval has a simulated learner and a simulated tutor (two model calls with their own short prompts, not the production tutor prompt) play each scene several times, has the production judge mark which of the scene's goals the learner reached, counts a run as passed when enough goals were reached, and reports the share of passed runs (<code>run-scenario-eval.ts:413-414</code>). It tests the judge and the scenes, so it would not have scored LOM-86. Because replies vary, decide before the run how large a drop blocks the release.</p>
+
+<h3>The smallest version is the prompt in git, a version constant and a stored stamp</h3>
+<p>Keep the template in the repository next to the code that renders it, as one constant. Git then gives you history, review and rollback: revert the commit and redeploy. Add a version string and save it with every result the prompt produced. Tunatutor's lesson-note writer, which summarises a finished lesson, does this:</p>
+<p class="src">apps/tunatutor/backend/src/services/tutor-continuity/lesson-note-writer.ts:19-20, 224-225</p>
+<pre><code>/** Stamped onto every note as `writerPromptVersion` — bump when the prompt shape changes. */
+export const LESSON_NOTE_PROMPT_VERSION = "v1";
+...
+        writerModel: deps.model,
+        writerPromptVersion: LESSON_NOTE_PROMPT_VERSION,</code></pre>
+<p>The comment says to bump on a change of "shape". That is too narrow: bump on any change to the rendered text, including one-word edits and changes to the code that computes a variable, as in LOM-86. To make forgetting fail the build, add a test that hashes the golden file and asserts that the version constant equals that hash. The golden file holds rendered prompts, so it moves with both kinds of change, as far as its cases cover the variable branches.</p>
+<p>The <code>tutor_lesson_notes</code> table has <code>writer_model</code> and <code>writer_prompt_version</code> columns. The <dfn>model id</dfn> is the vendor's name for the exact model, such as <code>gemini-2.5-flash</code>; switching models can change replies with an unchanged prompt, so it is stored in its own column and the prompt version does not change with it. Months later you can see which prompt and model wrote a bad note, and group complaints or eval scores by version to find a <dfn>regression</dfn>: replies that got worse after a change. When an output is not stored, such as a chat reply, put the same two values in the log line for the model call. Made-up example: <code>llm_call prompt=ai-tutor-layer1 prompt_version=3f9a2c model=gemini-2.5-flash latency_ms=840</code>. Tunatutor's tutor replies carry no version stamp today; only the lesson notes do.</p>
+
+<h3>Storing prompts in the database lets experts edit them, at the price of two copies</h3>
+<p>Prompts are often tuned by domain experts, here a linguist, who should not need a deployment. Tunatutor's admin save checks the placeholders against the registration, then archives the old text before writing the new one:</p>
+<p class="src">apps/tunatutor/backend/src/services/prompt-templates.ts:114-122</p>
+<pre><code>  const registration = registry.get(key);
+  if (registration) {
+    assertVariablesRegistered(key, content, registration.variables);
+  }
+
+  const existing = await prisma.promptTemplate.findUnique({ where: { key } });
+  if (existing &amp;&amp; existing.content !== content) {
+    await archiveCurrentContent(key, existing.content);
+  }</code></pre>
+<p>(<code>prisma</code> is the TypeScript database library, much like a JPA repository.) Rollback is <code>activatePromptTemplateVersion</code>, which makes an archived text current again, with no deployment. The cost is two copies that can disagree, as July showed. A code version constant cannot know about an admin's edit either, so on this path stamp each result with a hash of the template text the call actually used, whether it came from the row or the code default.</p>
+
+<h3>A mature setup keeps numbered versions in a prompt service with labels</h3>
+<p>Prompt-management services such as Langfuse (an open-source tool for logging and managing LLM calls) store every save of a prompt as a numbered version. A label such as <code>production</code> points at one version, and the app asks for "the production version of prompt X". Rolling back means moving the label to an earlier number, with no deployment; running servers pick it up within about a minute, because the client library caches prompts briefly. Traces of model calls can be linked to the prompt version they used. Teams usually move <code>production</code> only after the new version passes an eval run.</p>
+
+<div class="example">
+<p><strong>Steps for one prompt change, in order:</strong></p>
+<ol>
+<li>Edit the template or the code that computes a variable.</li>
+<li>Run the test that rejects unknown <code>{{placeholders}}</code>.</li>
+<li>Re-render the golden file and read the diff. If no case changed but you expected one, add a case.</li>
+<li>Run the eval on the old and new version and compare against the threshold you set beforehand. Without an eval set, have a domain expert read a sample of replies from both.</li>
+<li>Git path: update the version constant to the new golden hash and deploy. Admin-screen path: save; the archive keeps the old text and results carry the text's hash. Prompt-service path: save a new version and move the label.</li>
+<li>Store or log the version id and model id with every output.</li>
+<li>If replies get worse: revert and redeploy, activate the archived text, or move the label back.</li>
+</ol>
+</div>
+
+<div class="analogy">
+<p><strong>Java analogy:</strong> a prompt template is like an externalised message in a Spring <code>MessageSource</code>: text with placeholders, kept outside the logic, filled at runtime. The <code>production</code> label is like a feature flag that selects which variant is live, and rollback is flipping it back.</p>
+<p><strong>Where it breaks:</strong> your code defines what a config value means, so you can reason about changing <code>timeout=30</code> to <code>timeout=60</code>. The model decides what a prompt means, so the only way to know the effect of an edit is to run it on many inputs and measure. The same version can also give different outputs on two calls, and a new model can change what an unchanged prompt does.</p>
+</div>
+
+<div class="takeaways">
+<ul>
+<li>A change to the rendered prompt, whether in the template or in the code that fills it, is a behaviour change. Version it and review its diff.</li>
+<li>Keep one copy of each prompt. If a database copy exists, decide and test which copy wins, and how code updates reach a row an admin has edited.</li>
+<li>Reject unknown <code>{{placeholders}}</code>, pin rendered text with golden tests whose cases cover every variable branch, and score replies with evals.</li>
+<li>Stamp every result with the prompt version and the model id.</li>
+</ul>
+</div>
+
+<p class="note">Sources: Tunatutor backend source, <code>apps/tunatutor/backend</code> (files and lines cited above). Langfuse, <a href="https://langfuse.com/docs/prompt-management/overview">Prompt management overview</a>, <a href="https://langfuse.com/docs/prompt-management/features/prompt-version-control">Prompt version control</a> (labels, rollback by moving <code>production</code>) and <a href="https://langfuse.com/docs/prompt-management/features/caching">Caching</a> (60-second default).</p>
+</section>

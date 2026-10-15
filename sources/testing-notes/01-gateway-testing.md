@@ -1,0 +1,67 @@
+# Testing notes from the first workflow
+
+## Key points
+
+- A model provider (OpenAI, Anthropic, Google) runs models on its servers and sells access over HTTP. An API key is the secret that bills the account that owns it, and anyone holding the key spends your money.
+- A gateway is one module or proxy that every model call must go through. In Lomem it runs these steps in order: check who pays, pick the model list, call the provider with retries inside a time budget, fall back to the next model, and record the cost of every attempt.
+- Providers charge per token, with different prices for input and output, and every response reports its token counts. Cost must be measured from those counts x stored prices. Tunatutor prices each row when it writes it. With real prices and made-up token counts, the same rater call costs $0.00018 on Flash Lite and $0.000735 on Flash.
+- Every call must name who pays: a user and a feature, or a written reason for system work. Lomem throws MissingUsageContextError before any HTTP request is made.
+- Retry only 429 and 5xx, with backoff capped at 30 s that respects Retry-After. Never retry a 400 or 401/403. Each job gets its own time budget per model (2 s for the rater, 120 s by default), and the waits count against it. Each fallback model gets a fresh budget, so the worst case is budget x models. When all models fail, the caller gets an error and must degrade: tunatutor uses a pre-written line, an unscored turn, or a code-only scorer.
+- A fallback model is a different model, so it is not a replica: it writes different answers and can cost more. The rater can fall back from Flash Lite to Flash at about 4x the price. A named model leads the list. Tunatutor's in-memory switch changes only calls that name no model.
+- Failed attempts are recorded too, as one zero-token error row per model attempt in Lomem (retries included in that attempt), because a timed-out call may still have been billed by the provider.
+- The smallest version is a wrapper class with five jobs, as in Billpod: one model, no fallback, feature labels. A mature gateway is a shared proxy such as LiteLLM that adds an OpenAI-format API (swap providers without code changes), virtual keys per team with budgets and rate limits, fallback chains across providers and regions, and spend reports.
+- The Java analogy is an outbound RestClient with Resilience4j plus a per-tenant quota service. It breaks in four places: price varies per call, fallback changes the answers and the price, picking a model trades quality for cost, and failed attempts can still cost money.
+
+## Round 1
+
+- senior: scores {'clarity': 8, 'self_contained': 6, 'examples': 8}, pass False, undefined terms: temperature, judge (JUDGE_MODEL / JUDGE_CALL), injected ports, signal / aborted (AbortSignal), abandoned(), switched(), fail(), operation (field in settle), allowance, daily spend cap, activity, CLAUDE.md, OpenAI-style API, model family, caching (of model responses), redaction, tracing, building blocks, model router, ADR (ADR-057), Flash / Flash Lite (as model tiers), ledger row (what columns)
+- skimmer: scores {'clarity': 6, 'self_contained': 5, 'examples': 7}, pass False, undefined terms: temperature, judge (JUDGE_CALL / LEVEL_CHAT_JUDGE_MODEL), injected ports, settle (until much later), ADR / ADR-057 §5, metering, ledger row, learner's allowance, daily spend cap, activity (in tunatutor), monorepo (minor), Lomem (what it is beyond 'a monorepo'), SDK (Gemini SDK), signal / aborted (AbortSignal), invoke / switched / fail / abandoned in the snippet, backoff (used in the smallest version, only implied earlier), throttles, CLAUDE.md, OpenAI-style HTTP API, virtual keys (defined, but 'gateway key' versus provider key could be sharper), redaction, tracing, caching (of what), Flash / Flash Lite (as model tiers), price rows
+- MISREAD: Neither reader explained the fallback point from the analogy: that a fallback model is a different model whose answers differ. Both described fallback only as 'try the next one in the list'. The 'where the analogy breaks' material did not reach either explain_back.
+- MISREAD: Neither reader explained why a model gateway is unlike a RestClient bean (price per call, quality versus cost when picking a model, failed attempts that still cost money). Both read the gateway as resilient HTTP plus logging.
+- MISREAD: Both readers saw the 2 s rater budget against the 3 s first backoff as a contradiction. The code shows it is intended: gemini.ts skips any retry whose wait does not fit the budget, so the rater gets no retry on the same model and moves straight to fallback. The text did not say this.
+- MISREAD: The skimmer described the backoff as 'exponential backoff using Resilience4j'. Lomem's backoff is linear (3 s × attempt number), honours Retry-After and is capped at 30 s. The skimmer dropped Retry-After completely.
+- MISREAD: The skimmer assumed a model named by the caller has no fallback, or could not tell. In Lomem the fallback list applies even when the caller names a model (candidates() puts the other enabled models after the lead).
+- MISREAD: Neither reader kept routing to cheaper models as a gateway job, or the worked cost example ($0.00018 against $0.000735). The senior's smallest version left out recording spend from token counts × prices.
+
+## Round 2
+
+- senior: scores {'clarity': 8, 'self_contained': 7, 'examples': 9}, pass False, undefined terms: metering, candidates (in candidatesTokenCount), enabled model / active model (where and how they are set), OpenAI API format, tracing (of each call, in an LLM context), time budget (used in the table before step 3 explains it)
+- skimmer: scores {'clarity': 7, 'self_contained': 7, 'examples': 8}, pass False, undefined terms: metering (in the quoted test: 'metering quietly skipped'), enabled model (vs active model), recorder (step 5) vs spend (pseudocode), possibly the same thing under two names, abandoned (as a record type), activity (tunatutor 'starts an activity'), throttling, OpenAI API format, circuit breaker (the analogy mentions it, but the gateway as described has no circuit breaker; is 'active until restart' the equivalent?), Lomem, tunatutor, billpod: project names a reader has to keep track of, monorepo (minor)
+- MISREAD: Both readers' explain_backs leave out fallback cost: neither says that a fallback can move a cheap call (the rater on Flash Lite) onto a model four times as expensive. The section never said it.
+- MISREAD: Both readers took the time budget to cover the whole call. Their sketches use one deadline for everything ('the whole call must fit a time budget'). In Lomem the timeoutMs goes to each provider call (gateway.ts run() passes the same options to every candidate; gemini.ts:374), so each fallback model gets a fresh budget. The rater's worst case is 2 s times the number of enabled models.
+- MISREAD: The senior reader wrote that the gateway picks 'the one marked active, with the other enabled models after it'. The active model does not keep second place. The list is the lead model (the caller's model if it is enabled, otherwise the active one) followed by every other enabled model in priority order (gateway.ts candidates(), registry.ts getEnabledProviders()).
+- MISREAD: Skimmer: 'retries 429 and 5xx ... never retries a 400'. The prose said 'never 4xx', which contradicts the 429 retry. 401 and 403 (a bad key) were never covered.
+- MISREAD: Both readers' smallest-version sketches catch only HTTP errors. The original sketch had the same gap and did not record timeouts or network errors, so readers copied a version that breaks the 'record every attempt' key point.
+- MISREAD: Skimmer's sketch prices rows 'from a table of model prices' at report time. Tunatutor prices each row when it writes it. The original text gave both versions.
+- MISREAD: Neither reader linked the sticky switch to a circuit breaker or knew how the old model comes back. That key-point area (fallback is not a replica, how the switch works) stayed unclear.
+- MISREAD: The key point on failed attempts possibly being billed was understood. The 100,000-call example worked against the point that cost matters ($73).
+
+## Round 3
+
+- senior: scores {'clarity': 7, 'self_contained': 8, 'examples': 9}, pass False, undefined terms: token as a cancellation handle (cancelSignal), which clashes with the earlier meaning of token, text-input / text-output price key kinds (what other kinds exist), Gemini client (the provider SDK inside the gateway, never named as such), OpenAI API JSON shape, activity (in 'when a learner starts an activity'), finishReason (only implied through MAX_TOKENS; no other values are listed)
+- skimmer: scores {'clarity': 7, 'self_contained': 7, 'examples': 9}, pass False, undefined terms: outbox, circuit breaker, Resilience4j time limiter, spend reports per tag (what a 'tag' is in LiteLLM), text-input / text-output token kinds, seeded (price table), Lomem / Billpod (named but never introduced beyond one clause)
+- MISREAD: Neither reader could tell how many spend rows a model writes when it retries 3 times. The Lomem pseudocode recorded once per model, the Java sketch once per HTTP retry, and both explain_backs carried that contradiction ('record every attempt'). The real code (gateway.ts run()) writes one row per model attempt, with the retries inside it.
+- MISREAD: The skimmer's explain_back says the list starts with 'the requested or active model', and the senior asked whether the in-memory switch overrides a named model. It does not. resolveLeadProvider uses the named model if it is enabled, so the rater stays on Flash Lite. The switch only affects calls that name no model.
+- MISREAD: The skimmer said spend is 'priced later or at write time'. Tunatutor prices each row at write time, and a later price edit applies only to rows written after it.
+- MISREAD: Neither explain_back mentions that a fallback model is a different model with different answers. Both mention the higher price only through the 4x example. This key point was missed.
+- MISREAD: Neither explain_back mentions that a timed-out or failed attempt may still have been billed by the provider. This was the reason given for recording failures, and it was missed.
+- MISREAD: Neither explain_back mentions the Java analogy or the four places it breaks.
+- MISREAD: Both read 'the feature decides' as giving no answer to what happens when every model fails. The degrade path was not shown.
+- MISREAD: Both thought the worst case was unclear: whether waits count toward the budget, and whether the 120 s default is per model, which allows 6 minutes with three models.
+- MISREAD: The senior did not carry over the point that 'anyone holding the key spends your money'. It was only implied by 'secret API key'.
+
+## Fact-check
+
+- fixed: Key reading: 'read in exactly one place' was false. Tunatutor reads GEMINI_API_KEY in services/llm/registry.ts:16 and again in index.ts:657 for the image LLM. The line now says the key is read when the app starts and builds its models.
+- fixed: Usage-context example and spend-table rows: the feature name 'level_chat' is now 'onboarding_level_chat', the name routes/level-chat.ts:44 actually uses. Only the user id stays labelled as made up.
+- fixed: Backoff: the guide said the wait comes only from the Retry-After header. It now also names Gemini's retryDelay in the error body (gemini.ts, retryDelayFromBody), and says network failures with no response are retried too (retryNetworkErrors defaults to true).
+- fixed: Rater retries: 'the rater never retries on the same model' was overstated. A Retry-After or retryDelay shorter than the time left still allows a retry. Reworded to say exactly that.
+- fixed: 'Tunatutor's chat never shows the learner an error' was overstated. rethrowIfUndegradable rethrows FST_MISSING_USAGE_CONTEXT and FST_DAILY_SPEND_CAP. It now says a model failure never reaches the learner as an error.
+- unverified: The section has no p.src excerpts, so there was no verbatim code to compare. The source note's gateway.ts range, lines 229-344, does match candidates() through the start of call().
+- unverified: The /v1/chat/completions path is not on the LiteLLM simple_proxy page. The page only says 'one OpenAI-compatible endpoint' and shows client.chat.completions.create. The path is LiteLLM's standard one but is not confirmed by the linked page.
+- unverified: General facts left as they were without a source check: about 3/4 of an English word per token, the Gemini finish-reason names, and Flash being described as 'mid-size'.
+- unverified: Gateway behaviour the guide does not mention: when the caller aborts, tunatutor's meter gets an event with no usage and writes it as a zero-token error row (recordLlmUsageCost treats !tokens as an error). The gateway marks the event aborted, so the guide's sentence is true of the gateway but not of tunatutor's stored row. Left unchanged.
+
+## Final read (first workflow)
+
+- questions left: ['What is cached input, and does my meter need a column for it from day one?', 'Why is the request body a list of messages with roles instead of one prompt string?', "Does a failed attempt's marker row have kind=input, or is kind null?", 'If the provider returns 200 with finish reason SAFETY, is that a success (no fallback) or a failure that moves to the next model?', 'If the tutor and rater calls run in parallel and both fall back to Flash, does that add rate-limit pressure on Flash? Is fallback a cause of 429s?']

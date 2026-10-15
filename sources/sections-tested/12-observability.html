@@ -1,0 +1,122 @@
+<section class="principle" id="observability">
+<h2>Observability for LLM calls records what the model saw, what it said and what it cost</h2>
+<p class="lede">An LLM call can return a confident wrong answer with HTTP 200, no exception and no log line. Observability for LLM calls keeps one record per call: the exact text sent, the text that came back, the model and prompt version, the token count, the cost and the time taken. On top of those records you sample live traffic, score it, and watch the scores for changes that no deploy of yours explains.</p>
+
+<h3>A wrong grade leaves no stack trace</h3>
+<p>A <dfn>model</dfn> (LLM) is a service you send text to and get text back from, run by a <dfn>provider</dfn> such as Google or Anthropic. The <dfn>prompt</dfn> is the text you send: fixed instructions from a <dfn>prompt template</dfn> your team writes, plus the user's data. Each edit of the template is a new <dfn>prompt version</dfn>. Providers bill per <dfn>token</dfn>, a chunk of three or four characters, in and out.</p>
+<p>The running example is a language-learning app in a small codebase of apps. In a translation drill, the learner sees an English sentence and types it in Portuguese. The app sends a model the sentence, the expected answer and the learner's answer, and the model replies with a score from 0 to 100 and a verdict, correct or not.</p>
+<div class="example">
+<p><strong>Made-up incident.</strong> On a Tuesday, five learners report the same thing. The expected answer to "I am a barista." is <code>Sou barista.</code>; they wrote <code>Eu sou um barista.</code>, which is still correct Portuguese, and it was marked wrong. Nothing has been deployed for a week. The logs show a 1.4-second call that returned 200. You need what they lack: the exact prompt, the exact reply, and which model version answered.</p>
+</div>
+<p>Here the logic is the prompt text plus a model you do not run. The only evidence is the text that went in and came out, and you have it only if you stored it.</p>
+
+<h3>LLM calls create five problems that REST calls do not have</h3>
+<ul>
+<li><strong>The bug is in the text</strong>: a missing rule, a truncated document, the wrong user's data.</li>
+<li><strong>Every call has a variable price</strong> in tokens.</li>
+<li><strong>The prompt changes outside a code deploy.</strong> Teams often keep templates in a database and edit them without a release.</li>
+<li><strong>Quality can drift with no deploy of yours.</strong> The provider updates the model behind the same name, a provider bug hits, or the inputs change. In a 2023 study, GPT-4 identified prime numbers with 84% accuracy in its March version and 51% in June, under the same API name.</li>
+<li><strong>Stored prompts contain your users' words</strong>, so a store of prompts is a store of personal data.</li>
+</ul>
+
+<div class="analogy">
+<p><strong>Classic analogy:</strong> distributed tracing plus APM plus a billing meter. The model call is one more timed downstream call, with tokens and cost as extra attributes.</p>
+<p><strong>Where it breaks:</strong> success is a judgement about the text, not a status code. A model under the same name can answer differently next week. And the payload is usually personal data.</p>
+</div>
+
+<h3>One record per call answers what happened, which version ran, how much and how slow</h3>
+<p>Every model call goes through one wrapper, which writes one record per call, failed calls included. The record carries the <dfn>trace ID</dfn> your tracing library (Micrometer Tracing or OpenTelemetry) gives each request. The wrapper:</p>
+<ol>
+<li>Notes the start time and the trace ID.</li>
+<li>Records the provider, requested model, template name and version, the feature, and the user it is billed to.</li>
+<li>Makes the call and parses the reply into your own result type.</li>
+<li>Reads from the reply the model version that actually answered, the token counts and the <dfn>finish reason</dfn>: why the model stopped (<code>STOP</code> when done, <code>MAX_TOKENS</code> at the length limit, <code>SAFETY</code> when the provider's filter cut it off).</li>
+<li>Computes the cost from a price table. An unknown model gets no cost, so it shows as a gap, not a free call.</li>
+<li>Writes the record to the log, and the redacted prompt and reply to a separate table keyed by trace ID.</li>
+</ol>
+<p>Tokens come in three kinds: <dfn>input</dfn> (the whole prompt), <dfn>cached input</dfn> (the part matching the start of a recent prompt, billed at a lower price) and <dfn>output</dfn> (the reply).</p>
+<div class="example">
+<p><strong>Made-up record</strong> from that Tuesday. The request asks for <code>gemini-flash-latest</code>, a moving alias; the reply names the version that answered.</p>
+<pre><code>{
+  "trace_id": "4f2a9c1e7b0d4c55",
+  "feature": "translation_grading", "user_id": 8812,
+  "prompt_template": "translation_grade", "prompt_version": 14,
+  "provider": "gcp.gemini", "request_model": "gemini-flash-latest",
+  "response_model": "gemini-2.5-flash-preview-09-2025",
+  "input_tokens": 912, "cached_input_tokens": 640, "output_tokens": 38,
+  "finish_reason": "STOP", "latency_ms": 1412, "cost_usd": 0.000196,
+  "score": 41, "verdict": "wrong"
+}</code></pre>
+</div>
+
+<h3>The smallest useful version is one structured log line per call</h3>
+<p>Spring AI already emits a Micrometer observation named <code>gen_ai.client.operation</code> for every chat call, with model names, token counts and finish reasons. Prompt and reply text are off by default. You add the feature, prompt version, cost and parsed result yourself. Without Spring AI, a wrapper is enough:</p>
+<p class="src">Made-up example: a minimal wrapper in Java</p>
+<pre><code>public GradeResult grade(GradeRequest req, long userId) {
+    Prompt prompt = prompts.get("translation_grade"); // name, version, text from the DB
+    String text = prompt.render(req);
+    String traceId = tracer.currentSpan().context().traceId();
+    long start = System.nanoTime();
+    ModelReply reply = null;
+    GradeResult result = null;
+    try {
+        reply = client.call(MODEL, text);
+        result = parse(reply.text());
+        return result;
+    } finally {
+        long latencyMs = (System.nanoTime() - start) / 1_000_000;
+        CallRecord rec = CallRecord.of(traceId, "translation_grading", userId,
+                prompt, MODEL, reply, result, latencyMs);
+        callLog.write(rec.withCost(prices.cost(rec))); // cost null if model unknown
+        callText.save(traceId, redactor.scrub(text),
+                reply == null ? null : redactor.scrub(reply.text()));
+    }
+}</code></pre>
+<p><code>callLog.write</code> logs one JSON line. <code>callText.save</code> writes the redacted text to a table kept 14 days and readable only by on-call engineers; that window lets you read the five barista prompts.</p>
+
+<h3>OpenTelemetry's GenAI conventions give these fields standard names</h3>
+<p>OpenTelemetry's GenAI conventions name the span attributes: <code>gen_ai.provider.name</code>, <code>gen_ai.request.model</code>, <code>gen_ai.response.model</code>, <code>gen_ai.usage.input_tokens</code>, <code>gen_ai.usage.output_tokens</code>, <code>gen_ai.response.finish_reasons</code>, and <code>gen_ai.prompt.version</code> for the template version. Prompt and reply go in <code>gen_ai.input.messages</code> and <code>gen_ai.output.messages</code>, which are opt-in because they are likely to hold personal data. The conventions are still marked "Development", so names can change. Use these names for your log fields too.</p>
+
+<h3>Drift is detected by scoring a sample of live traffic every day</h3>
+<p>Latency and error alerts never fire on drift. An <dfn>online eval</dfn> is a check that scores live production calls:</p>
+<ol>
+<li><strong>Sample.</strong> Send the trace ID to a queue when its hash modulo 100 is below 2: a random 2%. Size the rate per feature to about 200 scored calls a day.</li>
+<li><strong>Score, off the request path.</strong> A queue consumer reads the call's text and scores it with a deterministic check where one exists. Otherwise a second model, the <dfn>checker model</dfn>, judges the answer against a written <dfn>rubric</dfn>. Pin the checker to a fixed version. A person can also score.</li>
+<li><strong>Store</strong> the score keyed by trace ID.</li>
+<li><strong>Chart and alert.</strong> Chart the daily average per prompt version and per response model. Alert when a day falls below its usual band, for example three standard deviations below the 30-day mean.</li>
+</ol>
+<div class="example">
+<p><strong>Made-up end of the incident.</strong> The checker's rubric says a left-out word that keeps the meaning does not make a translation wrong. Its agreement with the verdicts sat between 0.94 and 0.97 for 30 days. On Monday Google moves <code>gemini-flash-latest</code> to a preview version. At 06:00 on Tuesday Monday's rate comes in at 0.81 and fires the alert, hours before the learners write in. Grouping the records by <code>prompt_version</code> and <code>response_model</code> shows "wrong" rising from 4% to 19% on the new model, with prompt version 14 throughout. The team pins <code>request_model</code> to <code>gemini-2.5-flash</code>.</p>
+</div>
+<p>When the reply names no specific version, replay old prompts with known-good answers daily. If they fail too, the model changed. If they pass while live scores fall, your users' inputs changed.</p>
+
+<h3>Prompts and replies must be redacted by content before they are stored</h3>
+<p>Redacting by key name fails here: the personal data sits inside the prose under no sensitive key. Scrub the text itself: patterns catch emails, phone numbers and IBANs, and a detector library such as Microsoft Presidio finds names. <code>my name is Ana Silva, write to ana@example.com</code> becomes <code>my name is &lt;PERSON&gt;, write to &lt;EMAIL&gt;</code>. Keep the text short-lived and restricted; keep the metadata (tokens, cost, versions, scores) longer.</p>
+
+<h3>A mature setup adds nested spans, dashboards, feedback and replay</h3>
+<ul>
+<li>Nested spans, one per step, under one trace.</li>
+<li>Dashboards per feature, prompt version and model.</li>
+<li>User feedback attached to its trace.</li>
+<li>Alerts on eval scores and on spend.</li>
+<li>Replay of stored prompts against a new model before switching.</li>
+</ul>
+
+<h3>Common mistakes</h3>
+<ul>
+<li>Logging token counts but not the prompt version, so a quality drop cannot be tied to the edit that caused it.</li>
+<li>Recording only the requested model name, when the reply names the specific version that changed.</li>
+<li>Storing full prompts in the normal application log, where retention is long and access is wide.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>Write one record per model call, failed calls included, with trace ID, feature, user, prompt version, requested and responding model, input, cached and output tokens, finish reason, latency, cost and the parsed result.</li>
+<li>Store prompt and reply text separately, keyed by trace ID, redacted by content, with short retention and restricted access.</li>
+<li>Detect drift by scoring a random sample of live calls off the request path, storing the score by trace ID, and charting it per day, prompt version and model with an alert band.</li>
+<li>Use the OpenTelemetry GenAI attribute names for your fields.</li>
+</ul>
+</div>
+
+<p class="note">Sources: <a href="https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/client-inference.md">OpenTelemetry GenAI client inference conventions</a>; <a href="https://arxiv.org/abs/2307.09009">Chen, Zaharia, Zou, "How is ChatGPT's behavior changing over time?"</a> (2023); <a href="https://www.anthropic.com/engineering/a-postmortem-of-three-recent-issues">Anthropic, "A postmortem of three recent issues"</a> (2025); <a href="https://docs.spring.io/spring-ai/reference/observability/index.html">Spring AI observability</a>.</p>
+</section>

@@ -1,0 +1,149 @@
+<section class="principle" id="caching">
+<h2>Caching cuts the cost of repeated text and repeated questions</h2>
+<p class="lede">An application built on a large language model pays for every piece of text it sends to the model and waits for every piece it gets back. Caching avoids paying twice for the same work. There are three kinds: the provider reuses its work on a long opening that many requests share, your service stores whole answers to identical questions, and some teams also reuse answers to questions that only mean the same thing, which is the risky kind.</p>
+
+<h3>Every call to the model resends and repays the same opening text</h3>
+<p>A few terms first. A <dfn>model</dfn> (or LLM) is a hosted service that takes text in and writes text back. A provider such as Anthropic or OpenAI runs it, and you call it over HTTP. The text you send is the <dfn>prompt</dfn>. The model reads and writes text in <dfn>tokens</dfn>, pieces of words of about four characters each. The provider bills per token, with one price for input tokens and a higher price for output tokens.</p>
+<p>The model keeps no state between calls. Your service sends everything on every request, and the request body has three parts, in this order:</p>
+<ul>
+<li><dfn>Tool definitions</dfn>: descriptions of functions in your service that the model may ask you to call, such as <code>lookupOrder(id)</code>. They are JSON schemas sent as text.</li>
+<li>The <dfn>system prompt</dfn>: the standing instructions, for example "You score videos against the user's goal. Reply in this JSON format."</li>
+<li>The <dfn>messages</dfn>: the conversation so far, each with a <code>role</code> of <code>user</code> (what the person or your service says) or <code>assistant</code> (what the model said earlier). In a chat, your service stores the history and resends all of it on each turn.</li>
+</ul>
+<p>The tools and the system prompt are often thousands of tokens and identical on every call. You pay for them every time.</p>
+
+<div class="example">
+<p><strong>Running example (real code, Lomem).</strong> Lomem is a personal project with two apps that call a model. <strong>Mytube</strong> asks a model to score YouTube videos against a user's goal. Each scoring prompt starts with a long, fixed block of instructions, a scoring rubric and an output format, and only the last lines change. <strong>Tunatutor</strong> is a language-learning app with many users. A learner types a word or sentence, for example <code>un tire-bouchon</code>, and gets back a translation, an example and a usage note, which the model writes as a JSON document Lomem calls a <dfn>bundle</dfn>. Thousands of learners ask about the same common words.</p>
+</div>
+
+<p>Mytube shows the first kind of waste: the same opening text, resent on every call. A classic backend never paid per byte of request, so it never had that problem. Tunatutor shows the second kind: the same question, asked by many users. Classic backends had that one too and solved it with a response cache.</p>
+
+<h3>Provider prompt caching reuses the work on an identical opening</h3>
+<p>Before the model writes a word, it runs a large computation over every input token. Roughly speaking (the details do not matter for caching), it produces a set of internal numbers for each token, and each token's numbers depend on all the tokens before it. That computation is most of the cost of a long prompt. With <dfn>prompt caching</dfn>, the provider keeps those numbers on its side for a few minutes. You never see or store them. If the next request starts with exactly the same tokens, the provider reuses them, charges a fraction of the input price, and the reply starts sooner. The shared opening is the <dfn>prefix</dfn>. Because each token's numbers depend on everything before it, the match must be exact from the first token: if one token near the start differs, nothing after it can be reused. The cache is also per model: the same prefix sent to another model misses. Output tokens are never cached; you always pay full price for the answer.</p>
+<p>So put stable content first and variable content last. Mytube's scoring prompt does this, and says so:</p>
+<p class="src">lomem: apps/mytube/web/lib/llm/prompts.ts:312-320</p>
+<pre><code>    // VARIABLE INPUT LAST: the static instructions + rubric + schema above are
+    // identical across every score call (all users), so they form the cacheable
+    // prefix. The GOAL varies per user and the ITEMS per page, so both come last.
+    "GOAL (JSON):",
+    goalJson,
+    "",
+    "ITEMS (JSON — each has the video review + channel review). Return exactly one",
+    "object per item below, echoing its video id:",
+    itemsJson,</code></pre>
+<p>With Anthropic you mark where a prefix ends by adding a <code>cache_control</code> field to one JSON object in the request. Everything up to and including that object becomes one cached prefix. The object can be a tool definition, a block of the system prompt, or a block of a message. Made-up request with two markers:</p>
+<pre><code>{
+  "model": "...",
+  "tools": [
+    { "name": "lookupVideo", "description": "...", "input_schema": { ... } },
+    { "name": "lookupChannel", "description": "...", "input_schema": { ... },
+      "cache_control": { "type": "ephemeral" } }
+  ],
+  "system": [
+    { "type": "text",
+      "text": "&lt;6,000 tokens of fixed instructions, rubric and output format&gt;",
+      "cache_control": { "type": "ephemeral" } }
+  ],
+  "messages": [
+    { "role": "user", "content": "&lt;this user's goal and items&gt;" }
+  ]
+}</code></pre>
+<p><code>"type": "ephemeral"</code> is the only type and means a 5-minute lifetime; adding <code>"ttl": "1h"</code> asks for one hour. You may place up to four markers, and each one creates its own cached prefix that can be hit on its own. Here, a request with a different system prompt but the same tools still reads the tools from the cache. The user message carries no marker because it differs on every call: a marker there would pay the write price for text nobody reuses.</p>
+<p>A chat is the exception. There the history is reused on the next turn, so put the marker on the last block of the newest message and move it to the new last message on every turn. A message's <code>content</code> is then written as a list of <dfn>content blocks</dfn>, JSON objects such as <code>{"type": "text", "text": "...", "cache_control": {"type": "ephemeral"}}</code>. Each turn reads the earlier turns from the cache and writes only the new ones.</p>
+<p>The facts below are from Anthropic's documentation as of October 2026:</p>
+<ul>
+<li>The prefix is read in the order tools, system prompt, messages. Changing a tool definition invalidates everything after it.</li>
+<li>An entry lives 5 minutes (or 1 hour), and every hit renews it, whichever user's request made the hit.</li>
+<li>Writing the cache costs 1.25 times the normal input price (2 times for the 1-hour lifetime), and you pay it even if nobody ever reads the entry. Reading costs 0.1 times on most models (0.05 or 0.025 times on some of the newest).</li>
+<li>A prefix below a minimum length is not cached, and no error says so. The minimum is between 512 and 4,096 tokens and is listed per model. If <code>cache_creation_input_tokens</code> and <code>cache_read_input_tokens</code> are both 0, nothing was cached.</li>
+<li>Caches are separate per organization (your company's account with the provider) and, on Anthropic's own API, per workspace (a sub-account inside it), so no other customer can hit your prefix. A cache you build yourself has no such isolation unless you add it.</li>
+<li>OpenAI, for comparison, caches automatically with no marker; on its newest models the minimum is 1,024 tokens.</li>
+</ul>
+<p>Never assume the cache works. Anthropic's response has a <code>usage</code> object that splits the input into three counts. Made-up values for a Mytube-like app on Anthropic (the real Mytube calls Cerebras and sends no marker), with no tools, one marker after a 6,000-token system prompt, and two users whose goal and items are 900 tokens each:</p>
+<pre><code>user A (miss): "input_tokens": 900, "cache_creation_input_tokens": 6000, "cache_read_input_tokens": 0
+user B (hit):  "input_tokens": 900, "cache_creation_input_tokens": 0,    "cache_read_input_tokens": 6000</code></pre>
+<p><code>input_tokens</code> counts the uncached tokens after the last marker. (In a chat with the marker on the newest message, it is close to 0, and <code>cache_creation_input_tokens</code> is the size of the newest turn.) Log the three counts per call and chart the share of input tokens served from the cache: <code>cache_read / (cache_read + cache_creation + input)</code>. This share is weighted by tokens, not requests, so it can never reach 1 while an uncached tail exists. For that example the ceiling is prefix / (prefix + tail) = 6,000 / 6,900, about 87%. A share near that ceiling is healthy. A share stuck at zero means the prefix changes between calls or is under the minimum.</p>
+
+<div class="example">
+<p><strong>Made-up example of the arithmetic.</strong> Costs are in units of "the prefix sent once at full input price". With busy traffic, two calls within 5 minutes cost 2 without a cache and 1.25 + 0.1 = 1.35 with one, so a single reuse already pays for the write. At 6,000 tokens, $3 per million input tokens and 10,000 calls a day that never pause for 5 minutes, the prefix costs $180 a day without caching and about $18 with it. Caching loses money only when calls arrive alone, each more than 5 minutes after the last. For such sparse traffic, count the calls that land within one hour:</p>
+<table>
+<thead><tr><th>Calls in the hour</th><th>No cache</th><th>5-minute cache (every call writes)</th><th>1-hour cache</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>1</td><td>1.25</td><td>2</td></tr>
+<tr><td>2</td><td>2</td><td>2.5</td><td>2.1</td></tr>
+<tr><td>3</td><td>3</td><td>3.75</td><td>2.2</td></tr>
+</tbody>
+</table>
+<p>So the 1-hour lifetime pays when the first call is followed by at least two more within the hour.</p>
+</div>
+
+<h3>An exact response cache skips the model call altogether</h3>
+<p>Prompt caching still calls the model and still pays for the output. A <dfn>response cache</dfn> stores the finished answer under a key and, on a hit, makes no call at all. This is the cache a Java engineer already knows. The two work together. Tunatutor's flow for one request:</p>
+<ol>
+<li>Normalise the input and build the key <code>(kind, targetLanguage, nativeLanguage, cacheKey)</code>. <code>kind</code> says what is cached, such as a word or a sentence. For a word, <code>cacheKey</code> is the word trimmed and lower-cased, so "Bonjour" and " bonjour " share one row. For a sentence, it is a SHA-256 hash of the normalised text, so the key has a fixed length.</li>
+<li>Look up the row in Postgres. If it exists and its version is current (next heading), return it.</li>
+<li>On a miss, call the model, with the prompt ordered for prompt caching.</li>
+<li>Validate the bundle: parse the JSON and check that the required fields exist with the right types, such as <code>translation</code> and <code>breakdown</code> (one entry per word of a sentence, with its part of speech and translation). A sentence response that fails is never stored (for a word, a failed call degrades to empty generated fields, and those are stored), and an optional field that fails its check is dropped rather than shown half-right.</li>
+<li>Write it with an <dfn>upsert</dfn> (insert the row, or update it if the key already exists).</li>
+</ol>
+<p class="src">lomem: apps/tunatutor/backend/src/services/panel-content/cache-key.ts:12-14</p>
+<pre><code>export function normalizeSentence(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, " ");
+}</code></pre>
+<p>Normalising can merge inputs that mean different things. German "Weg" (path) and "weg" (away) share one word key, so one of them gets the other's answer. Normalise only as far as the meaning allows. The rows have no time-based expiry; one stays until its version is out of date or it is evicted.</p>
+<p>The key must include everything that changes a correct answer, such as the language pair or the <dfn>tenant</dfn> (one customer organisation in a service shared by many). A shared row must hold no personal data and must not fit only one user. Lomem's design record says the shared cache is "never personalised". Its example: "I went" in French is "je suis allé" for a man and "je suis allée" for a woman, so a sentence generated for one learner could be served to a learner it does not fit. Every shared prompt therefore writes the neutral « allé(e) ». Each learner's own saved words and notes are added to the response after the lookup and are never stored in the shared row.</p>
+<p>The model is not a pure function, which a classic cache assumes. The same prompt can give a different answer on each call, even at <dfn>temperature</dfn> 0 (the setting that lowers randomness). A cache freezes one of those answers and serves it to everyone, so a bad answer is repeated to every user. Validate before storing, and give users a way to report a bad answer that evicts the row. Tunatutor files every report, and deletes the cached row once two different signed-in learners report that it is in the wrong language; other kinds of report are kept for a person to review.</p>
+<p>Two requests that miss at the same moment both call the model and both write. The upsert keeps the last answer, and the only cost is one extra model call. Add a lock only if a call is expensive enough that duplicates matter.</p>
+
+<h3>A version number in each row invalidates old answers lazily</h3>
+<p>A stored answer also goes stale when your code changes, even if no data changed: a new prompt, output format or model changes what a correct answer is. Tunatutor's read checks a version:</p>
+<p class="src">lomem: apps/tunatutor/backend/src/services/panel-content/repository.ts:39-43</p>
+<pre><code>  if (!row) return null;
+  // Staleness guard: a row written under an older bundle schema is a cache miss,
+  // so it regenerates at the current version instead of serving an outdated shape.
+  if (row.schemaVersion &lt; PANEL_BUNDLE_SCHEMA_VERSION) return null;
+  return { bundle: row.bundle, model: row.model };</code></pre>
+<p>The version is a constant in the code, <code>PANEL_BUNDLE_SCHEMA_VERSION</code> (a "panel" is the screen that shows a bundle). The developer who changes the prompt, the output schema or the model bumps it in the same commit. Every row stores the version it was written under. The version is compared on read, not put in the key, so a new answer overwrites the old row instead of leaving it behind. A row with a lower number counts as a miss and is regenerated on its next read, which is what <dfn>lazily</dfn> means here. No migration job runs, and the cost of regeneration spreads over normal traffic.</p>
+<p>Two real bumps: version 5 changed every prompt to the neutral « allé(e) », so every older row became a miss. Version 6 added a check that rejects broken lines such as a Spanish ¿ that is never closed, and the bump sent every older row through that check. The key or the version must cover everything that changes the answer, call parameters included. Lomem stores the model name in each row but does not compare it, so a model change needs a manual bump.</p>
+<p>With several instances, a rolling deploy runs old and new code side by side. An old instance that misses writes a row at the old version, and its upsert can overwrite a row the new code just wrote, which the new code then regenerates. The rows flip until the last old instance stops, and the cost is extra model calls. A write that updates only when the stored version is not higher than its own prevents this; Lomem's upsert has no such guard.</p>
+
+<h3>A semantic cache matches by meaning and can return the wrong answer</h3>
+<p>An <dfn>embedding</dfn> is a list of numbers that a separate, cheap embedding model computes for a piece of text, such that texts with similar meanings get similar lists. Similarity is usually measured as <dfn>cosine similarity</dfn>, a score that for text is in practice between 0 and 1, where 1 means the same meaning. A <dfn>semantic cache</dfn> stores each answer with the embedding of its question. For a new question it computes the embedding, finds the closest stored one, and returns that answer if the score is above a threshold such as 0.9. Gateways (proxies between your service and the provider) such as LiteLLM offer this. Lomem does not use one.</p>
+<div class="example">
+<p><strong>Made-up example.</strong> A bank's support assistant has cached the answer to "How do I cancel a card payment?". The next question is "How do I cancel a card?". The two embeddings score above the threshold, so the cache returns the steps for disputing a payment, and the customer never learns how to block a lost card. No error is raised, and the answer reads well. In a second case, the cached answer to "What is my current balance?" contains one customer's balance. If the cache is shared across users, the next customer who asks sees it.</p>
+</div>
+<p>Use a semantic cache only where a near-miss does little harm, such as FAQ answers with no personal data. Scope it per tenant, or per user where permissions differ. To set the threshold, collect a few hundred real question pairs, label each pair as same answer or different answer, and pick the lowest threshold at which no different-answer pair matches. If no threshold separates them while still giving useful hits, do not use a semantic cache for that content. Log each hit with the stored question it matched, so wrong matches can be found and the threshold raised.</p>
+
+<h3>The smallest useful version is two steps</h3>
+<ol>
+<li>Order every prompt with fixed content first. Add a <code>cache_control</code> marker at the end of the fixed part, and log the three input token counts per call.</li>
+<li>For questions that many users ask with no personal content, add an exact cache table or Redis entry. Key it on the normalised input plus the language or tenant, validate before storing, and put a version number in each row that is compared on read.</li>
+</ol>
+<p>A mature version adds a hit-rate dashboard, the 1-hour lifetime where traffic is sparse, pre-warming (filling the cache with the most common questions before users ask them), a report button that evicts a bad answer, and a measured, tenant-scoped semantic cache only where it pays.</p>
+
+<div class="analogy">
+<p><strong>Java backend analogy.</strong> Prompt caching is like a database's execution-plan cache for prepared statements: the server reuses work for identical text, and one changed character defeats it. The exact response cache is Spring's <code>@Cacheable</code> backed by Redis or a table, with a version column checked on read. A semantic cache has no classic equivalent; picture a cache that, when the exact key is missing, returns the value of the nearest key.</p>
+<p><strong>Where the analogy breaks:</strong> a plan cache is free and invisible; a prompt cache is chosen with a marker, billed, and visible in the token counts. <code>@Cacheable</code> assumes the method returns the same result each time, and a model call does not.</p>
+</div>
+
+<h3>Common mistakes break the prefix or leak data</h3>
+<ul>
+<li>A timestamp, request id or user name near the top of the prompt changes the prefix on every call, so the hit rate is zero.</li>
+<li>Tools are listed in a different order on each call, for example from a <code>HashMap</code>, so the prefix changes.</li>
+<li>A marker sits on text that changes on every call, so each call pays the write price for nothing.</li>
+<li>A shared response cache stores answers that contain one user's data.</li>
+<li>The version is not bumped when the prompt or the model changes, so old answers are still served after a deploy.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>Provider prompt caching reuses only an exact prefix: stable text first, variable text last. Reads cost 0.1 times on most models, writes 1.25 times, and an entry lasts 5 minutes after its last hit.</li>
+<li>Prove it works by logging <code>cache_read_input_tokens</code>, <code>cache_creation_input_tokens</code> and <code>input_tokens</code>.</li>
+<li>An exact response cache skips the model call. Keep personal data out of shared rows, validate before storing, and let users evict a bad answer.</li>
+<li>Stamp rows with a version compared on read, and bump it with any change to the prompt, schema, model or call parameters.</li>
+<li>A semantic cache can return a fluent wrong answer or another user's data; scope it per tenant and measure its threshold.</li>
+</ul>
+</div>
+
+<p class="note">Sources: <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Anthropic, Prompt caching</a>; <a href="https://developers.openai.com/api/docs/guides/prompt-caching">OpenAI, Prompt caching</a>; <a href="https://docs.litellm.ai/docs/proxy/caching">LiteLLM caching</a>. Lomem code quoted from <code>~/projects/lomem</code> as of 2026-10-14.</p>
+</section>

@@ -1,0 +1,166 @@
+<section class="principle" id="rollout">
+<h2>New AI behaviour reaches users in stages, and production failures become new test cases</h2>
+<p class="lede">An LLM feature can pass every test before release and still go wrong on real users, because real inputs are more varied than any test set and a wrong answer looks exactly like a right one. So AI behaviour is released in stages: it first runs on real traffic without being shown (shadow mode), then a switch turns it on once measured numbers clear a threshold fixed in advance, often for a small share of users first (a canary). Afterwards, what users report and what fails in production is written down as new test cases, so the next change is checked against it.</p>
+
+<p>The words this section uses:</p>
+<ul>
+<li>A <dfn>large language model (LLM)</dfn>, or <dfn>model</dfn>, is a hosted service, rented from a provider such as OpenAI or Anthropic, that takes text in and writes text back. You call it over HTTP by a name such as <code>gpt-4o</code>, and the provider can change what stands behind that name without telling you. Each call costs money.</li>
+<li>The text you send it, your instructions plus the data, is the <dfn>prompt</dfn>. Teams give each prompt a version, such as <code>draft-reply@8</code>, so they can tell which prompt produced which answer. The same prompt can get a different answer on two calls, because the model picks each next word partly at random.</li>
+<li>In a chat, a <dfn>turn</dfn> is one user message plus the reply to it, and a <dfn>session</dfn> is one sitting of turns. A <dfn>trace</dfn> is the stored record of one model call (prompt version, input, output), and its <dfn>trace ID</dfn> is the key you log to find it again.</li>
+<li>An <dfn>eval</dfn> is a script that runs a feature over a fixed list of <dfn>eval cases</dfn> (an input plus the expected answer), scores each output and reports pass rates. It plays the role of a test suite, except that it calls the real model and passes on a rate, not on every case.</li>
+<li>A <dfn>bar</dfn> is the threshold a measured rate must clear, such as "at least 95% of cases pass". It is written down before the measurement, so nobody can move it after seeing the numbers. A usual starting point is the current behaviour's own measured rate, so a change may not make things worse.</li>
+<li>A <dfn>flag</dfn> (feature flag, feature toggle) is a switch in code or config that turns a behaviour on or off without a code change elsewhere.</li>
+</ul>
+
+<h3>Lomem ran a second-opinion model on every placement chat without showing its answer</h3>
+<p>Lomem is a language-learning app (the author's own project, used for the real code below). In its placement chat a tutor, itself a model, asks the learner a few questions, each aimed at one level from A1 (beginner) through A2 and B1 to B2 (upper intermediate). After each answer, code extracts facts from it (was the meaning clear, did it use a paragraph, did it speculate) and records whether the learner handled the question. Rules in code turn these facts into a level, which the code calls <code>D</code>, and the learner sees <code>D</code>.</p>
+<p>The team wanted a second opinion. A model used to grade or score something is called a <dfn>judge</dfn>. This one receives the learner's answered turns plus the extracted facts, but never <code>D</code>, so it cannot copy it. Its prompt requires a JSON reply holding a level and the numbers of the turns it relied on (its <em>cited turns</em>). Nobody knew whether the judge was better than the rules, so it ran in <dfn>shadow mode</dfn>: called on every real chat, answer stored, learner still shown <code>D</code>. This is the end of the judge call:</p>
+<p class="src">apps/tunatutor/backend/src/use-cases/level-chat/judge.ts:90-104, commit 8fa41788f (shortened)</p>
+<pre><code>    const decided = decideLevel(state).level;
+    const comparison = acceptJudge(decided, { level: answer.level, citedTurns: answer.citedTurns }, rows, ...);
+    const result = { judgeLevel: answer.level, judgeWouldChange: comparison.judgeWouldChange };
+    await deps.saveJudge(input.levelChatId, result);
+    return result;
+  } catch (err: unknown) {
+    rethrowIfUndegradable(err);
+    logger.warn(..., "level chat: the shadow judge failed — D stands, nothing is stored");</code></pre>
+<p>Three details make this safe:</p>
+<ul>
+<li><strong>It runs off the request path.</strong> The chat code starts the judge in the background, once per chat, and returns the tutor's reply without waiting. The learner sees no extra delay.</li>
+<li><strong>It cannot break the chat.</strong> Any failure is caught and logged, and the chat goes on with <code>D</code> (the two errors <code>rethrowIfUndegradable</code> passes on, such as the daily spending cap, are only logged by the background runner too). The judge writes nothing except its own two columns.</li>
+<li><strong>It stores the comparison, not only the answer.</strong> The columns <code>judge_level</code> and <code>judge_would_change</code> record what the judge said and whether it would have replaced <code>D</code>.</li>
+</ul>
+<p>"The judge said something different" is not the same as "the judge is right", so a rule in code, <code>acceptJudge</code>, decides whether a difference is credible. Same level: no change. Two or more levels apart: rejected. One level apart: the judge's cited turns must back it with the rules' own facts. These are real test cases from <code>level-chat/__tests__/policy.test.ts:748-791</code> (commit 8fa41788f), where the rules said B1:</p>
+<div class="example">
+<ul>
+<li>Judge says <strong>B2</strong>, cites turns 5 and 7. Both were B2 questions, and the facts show a paragraph with speculation and consequence, which meets a B2 pass rule. Accepted: <code>judge_would_change = true</code>.</li>
+<li>Judge says B2, cites only turn 5. Rejected: moving up needs two cited turns that meet a B2 rule.</li>
+<li>Judge says <strong>A2</strong>, cites turn 8, a B1 question where the learner's meaning was not clear. Accepted downwards.</li>
+<li>Judge says A2, cites turn 1, an A1 question the learner handled. Rejected: that turn says nothing against B1.</li>
+</ul>
+<p><strong>Made-up readout</strong> after a few hundred chats: <code>412 chats, judge_would_change in 38 (9%)</code>. A person reads the 38 chats and notes, chat by chat, whether the judge or the rules placed the learner right. The bar, written before the reading, might be "the judge is right in at least 30 of the 38". If it clears, a flag makes the accepted judge level the one learners see; if not, the judge is dropped.</p>
+</div>
+<p>This judge was removed with its columns in pull request #624 the same day it was added, before any numbers came in; the design plan had named the risk "Judge never leaves shadow mode", with the impact "Judge spend with no benefit". Because it had only ever run in shadow mode, the removal changed nothing any learner saw.</p>
+
+<h3>Ordinary monitoring cannot see a wrong answer</h3>
+<p>In a classic backend, a broken release shows up as exceptions, 500s or failing tests. A model that gives a learner the wrong level returns HTTP 200 with well-formed JSON, in normal time, on inputs no test set anticipated. Only measuring quality on real traffic shows how it performs, and shadow mode does that before anyone depends on the result.</p>
+
+<h3>A new check runs in log mode before it is allowed to refuse anything</h3>
+<p>Lomem has a model write listening exercises: the learner hears a spoken line, then picks its meaning from several choices. Every generated exercise passes through named <dfn>guards</dfn>, plain code checks that refuse a bad exercise. A refused exercise is generated again, which is another paid model call. After three tries the best refused one that may still ship is served, and if none may, the request fails with a 503. A guard that refuses too often therefore makes generation slow, expensive or broken. So a new guard starts in <code>log</code> mode: it writes the refusal it would have made to a guard log and lets the exercise through.</p>
+<p class="src">apps/tunatutor/backend/src/session-types/overheard/engine/guards.ts:181-204 (shortened)</p>
+<pre><code>/**
+ * 'enforce' refuses the item. 'log' writes the refusal it WOULD have made and
+ * lets the item through, until `scripts/overheard-guard-rates.ts` shows the rate
+ * is under about 15 percent. Switching a guard on is one line here.
+ ...
+ */
+export const GUARD_MODES: Record&lt;GuardName, GuardMode&gt; = {
+  structure: "enforce",
+  ...
+  // Measured 0 percent in every language and band (overheard-guard-rates, 2026-10-07).
+  "end punctuation": "enforce",
+  // Fairness guards: measured first, switched on one by one under about 15 percent.
+  cognate: "log",
+  ...</code></pre>
+<p>"Band" here means level (A1 to B2). "Fairness guards" refuse exercises a learner could answer without understanding the line. A <em>cognate</em> is a word that looks alike in two languages, such as French <em>restaurant</em> and English <em>restaurant</em>. If the line says "Le restaurant ferme à dix heures" and the right choice is "The restaurant closes at ten" while no wrong choice mentions a restaurant, the learner can pick it by matching one word, so the <code>cognate</code> guard refuses it.</p>
+<p>The <em>rate</em> is the share of exercises a guard would refuse, per language and level. A large product reads it straight from the guard log of real traffic. Lomem has too few users for that log to give a rate per language and level, so a developer runs the script named in the comment: it generates exercises in bulk with real paid calls and prints each guard's rate. The 15 percent bar is written in the comment and the script, and every fairness guard stays in log mode until it measures under it. At 15 percent, about one exercise in seven needs a second paid call, and three refusals in a row stay rare (0.15³ is about 3 in 1,000). A guard above the bar is not switched on; a person reads a sample of what it refused. If those exercises are fine, the guard is too strict and is loosened or dropped. If they really are bad, the fix belongs in the prompt that writes them.</p>
+
+<h3>A flag turns the behaviour on only after an eval clears its bars</h3>
+<p>Lomem's translation drill grades a learner's translated sentence with a model, called the <em>grader</em> here (its code calls it a judge too). The drill moved to a new grading prompt that returns right or wrong, a <code>focus</code> (which area the mistake is in, such as word order) and a <code>why</code> (one line of explanation). Those went live with the drill. The new prompt can also return <em>marks</em>, the learner's wrong words, to be underlined on the phone. The marks are held back by a flag:</p>
+<p class="src">apps/tunatutor/backend/src/session-types/translation-drill/engine/judge-reply.ts:15-20</p>
+<pre><code>/**
+ * The switch for the judge's marks. While false, a parsed reply keeps `focus`
+ * and `why` and returns `marks: null` (unknown, so the phone draws nothing).
+ * Only TR4's PR may flip it to true.
+ */
+export const TD_JUDGE_MARKS = false;</code></pre>
+<p>TR4 is the task in the drill's plan that built the eval <code>scripts/translation-judge-gate.ts</code> (the code calls an eval that decides a flag a <em>gate</em>). The script takes real learner answers that the old prompt graded, pulled from the staging database, plus a hand-written list of cases with known right answers. It runs the new prompt on all of them and checks four bars fixed in its header:</p>
+<ol>
+<li>the new prompt's right/wrong verdict agrees with the old prompt's on at least 95% of real answers, and with the expected verdict on at least 95% of the hand-written cases;</li>
+<li>at least 95% of the marked words are actually found in the learner's text, so the phone can underline them;</li>
+<li>at least 90% of the marked words are really wrong;</li>
+<li>at least 95% of replies arrive within 2.5 seconds.</li>
+</ol>
+<p>The script prints bars 1, 2 and 4 as pass or fail. For bar 3 it prints every marked word, and a person counts the really wrong ones and writes the count into the pull request beside the output. Bar 1 exposes a gap: the new verdicts reached learners before any gate measured them, so this bar checks afterwards that they did not get worse; the hand-written cases cover places where the old prompt was itself wrong.</p>
+<p>The flag itself is an ordinary boolean. What is new is the rule that it changes only when the eval's numbers clear bars written before the run. A test asserts that the flag is <code>false</code>, so flipping it by accident fails the build; the PR that flips it on purpose also changes that test. Turning it off again restores the old behaviour, so the code for the old behaviour stays until the new one has passed several later reruns.</p>
+
+<h3>A canary shows the behaviour to a small share of users and compares quality signals</h3>
+<p>Lomem goes from off to on for everyone. Larger products add a step: a <dfn>canary</dfn> shows the new behaviour to a small share of users, compares their outcomes with everyone else's, and widens the share only if nothing got worse. The comparison uses <dfn>quality signals</dfn>, measures of what users did with the answer, because only those reveal a wrong answer.</p>
+<div class="example">
+<p><strong>Made-up example:</strong> a Spring service that drafts replies to customer emails with a model, moving from prompt version 7 to version 8. A support agent reads each draft and sends it, edits it, or throws it away.</p>
+<pre><code>boolean useV8 = Math.floorMod(customerId.hashCode(), 100) &lt; rolloutPercent; // 5, then 25, then 100
+String promptVersion = useV8 ? "draft-reply@8" : "draft-reply@7";
+Draft draft = modelClient.draft(promptVersion, email);
+traceLog.record(draft.traceId(), promptVersion, customerId);
+// later, when the support agent acts on the draft:
+traceLog.outcome(draft.traceId(), sent ? "sent" : "discarded", editDistance(draft.text(), sentText));
+// and when the agent clicks the thumbs-down button on a draft:
+traceLog.thumbsDown(draft.traceId());</code></pre>
+<p>Hashing the customer ID keeps each customer in the same group, so one person does not see the two versions alternate. <code>editDistance</code> counts how many characters the agent changed before sending. Before starting, the team writes the bar: v8 is worse if its discard rate is more than 3 points above v7's (say 20%). With a 20% rate, two groups of 1,500 drafts differ by up to about 3 points from chance alone, so they wait for 1,500 drafts in the v8 group before deciding. If v8 is worse, <code>rolloutPercent</code> goes back to 0 and the bad drafts are read to find out why. Error rates and latency are not the signals, because a bad draft is still a fast 200.</p>
+</div>
+
+<h3>Feedback is useful only when it is stored with the exact turn it is about</h3>
+<p>Once the behaviour is live, users tell you where it fails. <dfn>Explicit feedback</dfn> is what users give when asked: a thumbs-down, a "report a problem" button. Few users ever press it. <dfn>Implicit feedback</dfn> is read from what they do (send, edit, discard, retry), as in the canary example, and arrives for almost every response, so it carries far more volume.</p>
+<p>Lomem's <code>feedback</code> table holds a rating or a flag with a reason such as <code>wrong_correction</code>. The columns that make a row useful are the ones that tie it to what happened:</p>
+<ul>
+<li><code>session_id</code> and <code>turn_index</code>: which session and which turn the complaint is about. Where the session's turns are stored, these two find the exact exchange; a system that does not store turns needs the trace ID here.</li>
+<li><code>server_context</code>: a JSON snapshot of the session's state taken by the server at the moment of the click, so the row keeps it after the session moves on. Today only the AI tutor fills it (turn number, the learner's level and languages); other session types leave it empty.</li>
+<li><code>status</code>: where the report stands in triage, from open to resolved or won't-fix.</li>
+</ul>
+<p>A thumbs-down without these cannot be reproduced and cannot become a test case.</p>
+
+<h3>Confirmed production failures are added to the eval as new cases</h3>
+<p>The loop that closes the system is called the <dfn>data flywheel</dfn>: each round of real use produces cases that make the next change safer. A flagged or failed answer is <dfn>triaged</dfn>: a person checks whether the model was really wrong, and closes the report as won't-fix if it was not. When two answers could both be right, that person decides which ones the eval accepts, and the case lists all of them. A confirmed failure is written down as a new eval case with its real input and the correct answer, and the next prompt or model change must pass it. In Lomem this is done by hand, and the cases live in a file next to the gate script. One real case:</p>
+<p class="src">apps/tunatutor/backend/src/session-types/translation-drill/engine/judge-gate-fixture.ts:28</p>
+<pre><code>{ language: "fr", key: "J'ai très faim.", variants: [], answer: "J'ai vraiment faim.",
+  expected: "right", markedWords: [], note: "paraphrase: synonym adverb" },</code></pre>
+<p><code>key</code> is the reference translation, <code>variants</code> other accepted translations, <code>answer</code> what the learner typed. <strong>Made-up story</strong> of how such a row arrives: a learner types "J'ai vraiment faim" for "I am very hungry", the grader marks it wrong, and the learner flags the turn as <code>wrong_correction</code>. The developer opens the feedback row, finds the turn through <code>turn_index</code>, agrees that "vraiment" is a fine synonym for "très", sets the status to resolved, and adds the row above. From then on, every run of the gate checks that the grader accepts this answer.</p>
+<p>The loop also has to run when nothing in your code changed. The provider can update the model behind the same name, often without notice, so quality can <em>drift</em>: get worse with no deploy of yours. Only a scheduled rerun catches a silent change. Lomem's gate is run by hand today; the smallest scheduled version is a weekly CI job that runs the eval and alerts the feature's owner when a bar is missed. Its cost is cases times price per call: made-up, 300 cases at $0.002 a call is $0.60 a run. If a rerun misses a bar, the flag goes back off, users get the old behaviour, and the failing cases stay in the eval.</p>
+
+<h3>The smallest version fits in one service</h3>
+<p><strong>Made-up sketch</strong> in Java, not Lomem code:</p>
+<pre><code>static final boolean NEW_GRADER_ON = false;   // flipped only by the PR that shows the eval results
+
+public Level placement(Chat chat) {
+  Level current = rules.level(chat);
+  if (NEW_GRADER_ON) return candidateOrCurrent(chat, current);   // after the eval: users see the new result
+  shadow.shadowGrade(chat, current);                              // before: fire and forget
+  return current;
+}
+
+@Async   // a separate thread pool, never the request thread
+public void shadowGrade(Chat chat, Level current) {
+  try {
+    Level candidate = grader.grade(chat);                          // the model call, read-only
+    boolean candidateWins = comparisonRule.candidateWins(current, candidate);
+    chatRepository.saveShadow(chat.id(), candidate, candidateWins);
+  } catch (Exception e) {
+    log.warn("shadow grader failed, current level stands", e);
+  }
+}</code></pre>
+<p>Add a thumbs-down endpoint that stores the trace ID (or session and turn) with a snapshot of input and output, an eval file that confirmed failures are appended to by hand, and a scheduled job that reruns the eval. A mature version keeps flags in a flag service (a server such as Unleash that changes flags at runtime, per share of users) and compares canary groups automatically.</p>
+
+<div class="analogy">
+<p><strong>The Java analogy:</strong> shadow mode is a dark launch, meaning new code deployed to production but not shown to users. GitHub's Scientist library does it by running candidate code next to the current code, returning the current result and logging mismatches. Log-mode guards are a new validation rule deployed in report-only mode. Flags and canaries work as for any service. The flywheel is like a dead-letter queue, where messages that failed processing are parked, if each parked message were turned into a test fixture.</p>
+<p><strong>Where it breaks:</strong> Scientist counts any mismatch as a bug, but two model answers can both be right, so a mismatch needs a comparison rule such as <code>acceptJudge</code> and a person reading the cases. And quality can drift without any deploy of yours, so the checks never finish.</p>
+</div>
+
+<h3>Common mistakes</h3>
+<ul>
+<li><strong>A shadow call with side effects or on the request path.</strong> If it sends an email or writes business data, it is not shadow mode; if the request waits for it, every user pays its delay and its failures.</li>
+<li><strong>Storing the shadow output but not the comparison.</strong> Then nobody can count disagreements later without re-running everything.</li>
+<li><strong>Deleting the old behaviour when the flag flips.</strong> Then a failed rerun leaves nothing to switch back to.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>Run new AI behaviour in shadow mode first: in the background, without side effects, storing its answer and the comparison while users see the old result.</li>
+<li>Put new checks in log mode and enforce them only when their measured refusal rate is under a bar set in advance.</li>
+<li>Flip a flag only when an eval clears bars fixed before the run, and widen it through a canary judged on quality signals (discarded, edited, thumbs-down).</li>
+<li>Store every piece of feedback with the turn, input and output it refers to, and turn each confirmed failure into an eval case.</li>
+<li>Rerun the eval on a schedule, and turn the flag off when a bar is missed.</li>
+</ul>
+</div>
+
+<p class="note">Sources: Eugene Yan, <a href="https://eugeneyan.com/writing/llm-patterns/">Patterns for Building LLM-based Systems &amp; Products</a> (the "Collect user feedback" pattern, explicit and implicit feedback); GitHub, <a href="https://github.com/github/scientist">Scientist</a> (candidate code run next to current code); Pete Hodgson, <a href="https://martinfowler.com/articles/feature-toggles.html">Feature Toggles</a> (martinfowler.com). Code excerpts are from <code>~/projects/lomem</code>; the placement judge from commit 8fa41788f, removed in bdd9ab7b8 (#624).</p>
+</section>

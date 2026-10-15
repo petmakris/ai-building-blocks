@@ -1,0 +1,171 @@
+<section class="principle" id="gateway">
+<h2>The model gateway sends every model call through one door</h2>
+<p class="lede">A model gateway is one module (or one proxy service) that every part of your system must use to call a language model. It exists because each model call costs a different amount of money, fails and slows down in its own ways, needs a secret key, and must be charged to a user or a job. The gateway handles those concerns in one place, so feature code never has to.</p>
+
+<h3>Some words first</h3>
+<ul>
+<li>A <dfn>model</dfn> (or LLM, large language model) is a program that takes text in and writes text back. ChatGPT is a chat screen in front of one.</li>
+<li>A <dfn>model provider</dfn> is the company that runs models on its servers and sells access over an HTTP API: OpenAI, Anthropic, Google (Gemini), and others. You do not host the model. You send it a request, the way you would call Stripe. The provider's <dfn>client library</dfn> (its SDK) wraps those HTTP calls.</li>
+<li>An <dfn>API key</dfn> is the secret string the provider gives you. Every request carries it, and the provider bills the account that owns it. Anyone holding the key spends your money.</li>
+<li>A <dfn>prompt</dfn> is the text you send: instructions plus the user's input.</li>
+<li>A <dfn>token</dfn> is the unit of text models read and write, roughly three quarters of an English word. Providers charge per token, with separate prices for <em>input tokens</em> (what you send) and <em>output tokens</em> (what the model writes back). Every response reports both counts.</li>
+<li>A provider sells several models of different sizes. A bigger model answers better and costs more. Google's <em>Gemini 2.5 Flash</em> is a mid-size model; <em>Flash Lite</em> is a smaller, cheaper one.</li>
+<li>Every response also carries a <dfn>finish reason</dfn>: why the model stopped writing. <code>STOP</code> means it finished, <code>MAX_TOKENS</code> means it hit the output limit and the answer is cut off, and <code>SAFETY</code> means the provider's content filter blocked it. Only <code>STOP</code> means a complete answer.</li>
+<li><dfn>Metering</dfn> means recording what each call used (tokens, model, who asked) so it can be priced and reported later.</li>
+</ul>
+
+<h3>A language tutor app shows why one door is needed</h3>
+<p>Lomem is one repository that holds several small apps. One of them, tunatutor, is a language tutor built on Gemini. In its chat, every learner reply triggers two model calls that run in parallel. A <em>rater</em> call scores the learner's answer, and a <em>tutor</em> call writes the tutor's next line. The app gives them different models and limits:</p>
+<table>
+<thead><tr><th>Call</th><th>Model</th><th>Time budget per model</th><th>Output limit (tokens)</th></tr></thead>
+<tbody>
+<tr><td>rater</td><td><code>gemini-2.5-flash-lite</code></td><td>2 s</td><td>500</td></tr>
+<tr><td>tutor</td><td><code>gemini-2.5-flash</code></td><td>4 s</td><td>700</td></tr>
+</tbody>
+</table>
+<p>The <dfn>time budget</dfn> is the longest the app will wait for one model, including any waits between retries. The <dfn>output limit</dfn> caps how many tokens the model may write, which also caps the output cost. The rater does a narrow scoring job, so it runs on the cheaper model. The app keeps the provider's list prices in a database table, filled initially from Google's price page and editable by the app's owner on an admin page:</p>
+<table>
+<thead><tr><th>Model</th><th>Input, per 1M tokens</th><th>Output, per 1M tokens</th></tr></thead>
+<tbody>
+<tr><td><code>gemini-2.5-flash</code></td><td>$0.30</td><td>$2.50</td></tr>
+<tr><td><code>gemini-2.5-flash-lite</code></td><td>$0.10</td><td>$0.40</td></tr>
+</tbody>
+</table>
+
+<div class="example">
+<p><strong>Cost of one call, worked out.</strong> Real prices, made-up token counts. Gemini's response ends with this block (<code>candidatesTokenCount</code> is Gemini's name for the output count):</p>
+<pre><code>"usageMetadata": { "promptTokenCount": 1200, "candidatesTokenCount": 150 }</code></pre>
+<p>That is 1,200 input tokens and 150 output tokens. The same rater call costs:</p>
+<ul>
+<li>On Flash Lite: 1,200 × $0.10/1M + 150 × $0.40/1M = $0.00012 + $0.00006 = <strong>$0.00018</strong>.</li>
+<li>On Flash: 1,200 × $0.30/1M + 150 × $2.50/1M = $0.00036 + $0.000375 = <strong>$0.000735</strong>.</li>
+</ul>
+<p>The bigger model costs about four times as much for the same request. A longer learner answer means more input tokens and a higher price, so two calls to the same endpoint can cost very different amounts. The amounts add up: a job that re-sends a 50,000-token document to Flash 10,000 times a day spends 50,000 × 10,000 × $0.30/1M = $150 a day on input alone.</p>
+</div>
+
+<p>Now picture this app without a gateway. Each feature imports Google's client library, reads the key from the environment and calls the provider directly. These problems follow:</p>
+<ul>
+<li>No one can say which feature or which learner spent the money.</li>
+<li>When Gemini returns HTTP 429 ("too many requests": the provider's rate limit on your key) or a 5xx server error, each feature retries in its own way, or not at all.</li>
+<li>Moving a feature to a cheaper model, or to a backup model while the main one is down, means editing every call site.</li>
+<li>The key is read in a dozen places.</li>
+</ul>
+
+<h3>Every call passes five steps in a fixed order</h3>
+<p>Lomem puts the gateway in a shared package that every app calls. The key is read when the app starts and builds its models (<code>process.env.GEMINI_API_KEY</code>), and feature code never sees it. A call goes through these steps:</p>
+<ol>
+<li><strong>Check who pays.</strong> Every request carries a <dfn>usage context</dfn>. For a user's action it holds the user id and a feature name, such as <code>{ userId: 42, feature: "onboarding_level_chat" }</code> (the user id is made up; the feature name is the one the level chat uses). For a background job with no user it holds a written reason instead, such as <code>{ system: true, feature: "content_import", reason: "nightly lesson import" }</code> (also made up). A call with no context, an empty feature or a system call with no reason throws <code>MissingUsageContextError</code> before any HTTP request is made. A test pins the rule: the call must "FAIL loudly, never fall through to the provider with metering quietly skipped".</li>
+<li><strong>Pick the model list.</strong> Tunatutor keeps one row per model in a table with an <code>enabled</code> flag and a priority number, and one model marked <em>active</em> (the default). The owner sets these on an admin page. The first model in the list is the one the caller named, if it is enabled. If the caller named none, or named a disabled one, the active model goes first. Every other enabled model follows, in priority order. These followers are the <dfn>fallback list</dfn>, and they apply even when the caller named a model.</li>
+<li><strong>Call the provider, with retries inside the time budget.</strong> The gateway's Gemini client retries 429, 500, 502, 503 and 504, up to 3 HTTP requests in total. Between them it waits (<dfn>backoff</dfn>): 3 s, then 6 s, or as long as the provider asks, in its <code>Retry-After</code> response header or in the error body's <code>retryDelay</code>. A network failure with no response at all is retried the same way. No wait is longer than 30 s. It never retries another 4xx: a 400 means the request itself is wrong, and a 401 or 403 means the key is bad, so a retry fails the same way. The waits count against the budget, and a retry whose wait does not fit what is left is not made. The rater's budget is 2 s, shorter than the first 3 s wait, so the rater retries on the same model only when the provider asks for a wait shorter than what is left. The default budget, for calls that set none, is 120 s.</li>
+<li><strong>Fall back.</strong> If a model still fails, the gateway tries the next model in the list with a fresh budget. Each model may use its whole budget, so the ceiling on the total wait is the budget times the number of models. With the 120 s default and three enabled models, that is 6 minutes. If every model fails, the gateway throws an "All LLM providers failed" error, and the feature must have a plan for it. In tunatutor's chat, a model failure never reaches the learner as an error. If the tutor call fails, it uses a line written in advance for that question. If the rater fails, the turn is saved with no score. After two rater failures in a row, the chat switches to a scorer written in plain code (word count, the answer's language, past-tense words), and shows its result as the tutor's "guess".</li>
+<li><strong>Record the spend.</strong> After each model's attempt, success or failure, the gateway hands the token counts to the app's meter. One attempt means one model, retries included: three HTTP requests to Flash Lite still write one attempt. A failed attempt reports no token counts, so it is recorded as a zero-token row with an error flag, which keeps failure rates visible.</li>
+</ol>
+<p>One case is not a failure. When the caller itself cancels the call, for example because the learner left the page, the gateway records the attempt as abandoned and does not try the next model.</p>
+
+<div class="example">
+<p><strong>One rater call when Flash Lite is down.</strong> Made-up timeline; assume the owner has enabled two models, Flash (priority 1, active) and Flash Lite (priority 2).</p>
+<ul>
+<li>t = 0 s: the list is [Flash Lite (named by the rater), Flash]. Flash Lite answers 503.</li>
+<li>The first retry would wait 3 s, which does not fit the 2 s budget, so the gateway gives up on Flash Lite and writes one error row with zero tokens.</li>
+<li>t ≈ 0.2 s: the gateway calls Flash with a new 2 s budget. It answers at t ≈ 1.1 s with 1,200 input and 150 output tokens.</li>
+<li>The meter writes the success rows, priced at Flash's rates: $0.000735 instead of $0.00018.</li>
+</ul>
+<p>Two things follow. Had Flash Lite hung instead of answering 503, and Flash also been slow, the learner could have waited up to 4 s for a rating. And a fallback can quietly move a cheap job onto a model four times as expensive. Tunatutor accepts that, because the outage is short and a missing rating is worse.</p>
+</div>
+
+<p>The spend rows land in one table, <code>provider_usage_events</code>. Tunatutor prices each row when it writes it, from the price table above, so a later price edit applies only to rows written after it. A successful attempt writes one row per kind of token: input, output, and a cheaper "cached input" kind that this example does not use. A failed attempt writes a single zero-token marker row. Made-up rows for the timeline above:</p>
+<table>
+<thead><tr><th>user</th><th>feature</th><th>model</th><th>kind</th><th>tokens</th><th>error</th><th>cost</th></tr></thead>
+<tbody>
+<tr><td>42</td><td>onboarding_level_chat</td><td><code>gemini-2.5-flash-lite</code></td><td>input</td><td>0</td><td>yes</td><td>$0</td></tr>
+<tr><td>42</td><td>onboarding_level_chat</td><td><code>gemini-2.5-flash</code></td><td>input</td><td>1,200</td><td>no</td><td>$0.00036</td></tr>
+<tr><td>42</td><td>onboarding_level_chat</td><td><code>gemini-2.5-flash</code></td><td>output</td><td>150</td><td>no</td><td>$0.000375</td></tr>
+</tbody>
+</table>
+<p>A spend report is then a <code>GROUP BY</code> over this table, by feature, by user or by model. The meter writes in the background, so a slow database never delays the learner's reply. The cost is that a crash can lose a few rows. Tunatutor accepts that for internal reports. If you invoice customers from these rows, write them in the same transaction as the business change, through an outbox table, so none are lost.</p>
+
+<div class="analogy">
+<p><strong>The Java backend analogy.</strong> Think of a single outbound client bean: a <code>RestClient</code> wrapped in Resilience4j retry and time limiter, plus a circuit breaker (which stops calling a failing service for a while, then tries it again). Add a per-tenant quota service, and require that every call carry a tenant id.</p>
+<p><strong>Where the analogy breaks.</strong></p>
+<ul>
+<li>The price of a call is not fixed. It depends on how much text you send and how much the model writes, so cost has to be measured from every response, after the fact.</li>
+<li>Fallback changes the answers. The backup model is a different model, not a replica of the same service: it writes different answers, sometimes worse ones, at a different price. Instructions written and tested against one model may work less well on another.</li>
+<li>Choosing the target is a business decision. Sending a simple job to a cheaper model saves money at some cost in quality, which a load balancer never has to weigh.</li>
+<li>A failed attempt can still cost money. A call that times out on your side may already have run on the provider's side and been billed, while your row shows zero tokens. The provider's billing console stays the source of truth; compare its totals with yours.</li>
+</ul>
+</div>
+<p>Tunatutor adds a crude circuit breaker on top. When a fallback model succeeds, it becomes the active model, in that server's memory only. Calls that name no model then start on a model that works. The rater still names Flash Lite, so it keeps trying Flash Lite first. Unlike a real circuit breaker, nothing tests the old model again: it leads again only after a restart or when the owner sets the active model.</p>
+
+<h3>The smallest version is a wrapper class with five jobs</h3>
+<p>You do not need a product to start. One class that every service must use is enough. It reads the key from your secret store, and nothing else does. It requires a usage context on every call. It retries only 429 and the listed 5xx codes, with capped backoff inside a time budget. It records every attempt, timeouts and network errors included. It lets the caller name a model, with a default. Billpod, another app in Lomem, runs only this much: one model, no fallback, spend tagged with four feature names. The Java sketch below (not Lomem code) has all five Lomem steps. With a list of one model, it is the smallest version.</p>
+<pre><code>public record UsageContext(Long userId, String feature, String systemReason) {
+  void validate() {
+    if (feature == null || (userId == null &amp;&amp; systemReason == null))
+      throw new MissingUsageContextException();
+  }
+}
+
+static final Set&lt;Integer&gt; RETRYABLE = Set.of(429, 500, 502, 503, 504);
+static final Duration MAX_WAIT = Duration.ofSeconds(30);
+
+public LlmAnswer call(UsageContext ctx, String model, String prompt, Duration budget) {
+  ctx.validate();                                    // 1. who pays, before any HTTP request
+  for (String m : modelList(model)) {                // 2. named or default model, then fallbacks
+    try {
+      ProviderResponse r = postWithRetries(m, prompt, budget);   // 3. fresh budget per model
+      spend.record(ctx, m, r.inputTokens(), r.outputTokens(), false);  // 5. one row per model
+      return new LlmAnswer(r.text(), m, r.finishReason());
+    } catch (ProviderException e) {                  // gave up on this model
+      spend.record(ctx, m, 0, 0, true);              // 5. zero-token error row
+    }                                                // 4. try the next model
+  }
+  throw new AllModelsFailedException();              // the caller must degrade
+}
+
+ProviderResponse postWithRetries(String m, String prompt, Duration budget) {
+  Instant deadline = Instant.now().plus(budget);
+  for (int attempt = 1; ; attempt++) {
+    try {
+      return post(m, prompt, apiKey, deadline);      // times out at the deadline
+    } catch (ProviderHttpException e) {
+      Duration wait = min(e.retryAfter().orElse(Duration.ofSeconds(3L * attempt)), MAX_WAIT);
+      if (!RETRYABLE.contains(e.status()) || attempt == 3
+          || Instant.now().plus(wait).isAfter(deadline)) throw e;
+      sleep(wait);
+    }
+  }
+}</code></pre>
+<p>Returning the finish reason lets the caller see that an answer was cut off. Tunatutor's gateway does the same: when the model was asked for JSON and stopped at <code>MAX_TOKENS</code>, the half-written JSON fails to parse, and the error names <code>MAX_TOKENS</code> as the cause. The spend is recorded first, because the cut-off answer was still billed.</p>
+
+<h3>A mature gateway is a separate proxy shared by many teams</h3>
+<p>In larger organisations the gateway becomes its own service, such as the open-source LiteLLM. Applications send it requests in the JSON format of OpenAI's API, which most providers and tools now accept:</p>
+<pre><code>POST /v1/chat/completions
+{ "model": "gemini-2.5-flash",
+  "messages": [ { "role": "user", "content": "Rate this answer: ..." } ] }</code></pre>
+<p>The proxy translates the request for whichever provider sits behind that model name. Moving a team from one provider to another is then a proxy setting, with no change to the calling code. On top of the small version it adds:</p>
+<ul>
+<li><strong>Virtual keys.</strong> Each team gets a key issued by the proxy, with its own budget and rate limit. The real provider keys stay inside the proxy, and a leaked team key can be revoked without touching the others.</li>
+<li><strong>Fallback chains across providers and regions</strong>, for example from one provider to another, or to the same model hosted in another region.</li>
+<li><strong>Spend reports</strong> per key, team and tag (a free-form label the caller attaches, like tunatutor's feature name), without each app writing its own meter.</li>
+</ul>
+
+<h3>These mistakes come up most often</h3>
+<ul>
+<li><strong>Client library calls scattered across services.</strong> Cost and failures can no longer be seen in one place, and every model change touches every service.</li>
+<li><strong>Retrying everything.</strong> A 400 or 401 fails the same way every time, and each retry may cost money.</li>
+<li><strong>No time budget, or one too long for the job.</strong> A chat turn that waits 120 s is broken even if the answer arrives. Size the budget to what the user can wait for (tunatutor's chat calls get 2 to 4 s; a nightly batch job can take minutes), then multiply by the number of fallback models to get the worst case.</li>
+<li><strong>Unattributed calls.</strong> A cron job with no user id is spend no report will ever show. Make such calls state a reason instead.</li>
+<li><strong>Checking a user's spending cap on every model call.</strong> A check between two calls of the same chat turn can cut the turn off halfway. Tunatutor gives each learner a daily cap but checks it once, when the learner starts a lesson or chat. A proxy's per-team budget is a different control: it limits a whole team's key, not one person's conversation.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>Every model call goes through one gateway. It holds the key, the retries, the time budget, the fallback and the spend record.</li>
+<li>Every call says who pays: a user and a feature, or a written reason for system work. A call that does not is refused before it is sent.</li>
+<li>Cost is per token and differs per call. Record the token counts from each response, failed attempts included, and multiply by stored prices.</li>
+<li>Retry only 429 and 5xx, within a time budget sized for each job. Each fallback model adds its own budget and its own price, writes different answers, and the caller still needs a plan for when all of them fail.</li>
+</ul>
+</div>
+
+<p class="note">Sources: Chip Huyen, <a href="https://huyenchip.com/2024/07/25/genai-platform.html">"Building A Generative AI Platform"</a> (step 3, model router and gateway); <a href="https://docs.litellm.ai/docs/simple_proxy">LiteLLM proxy documentation</a> (virtual keys, budgets, fallbacks); Lomem: <code>packages/shared/src/llm/gateway/gateway.ts</code> (lines 229-344), <code>packages/shared/src/llm/providers/gemini.ts</code>, <code>apps/tunatutor/backend/src/services/llm/index.ts</code>, <code>apps/tunatutor/backend/src/use-cases/level-chat/</code>.</p>
+</section>

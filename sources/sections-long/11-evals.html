@@ -1,0 +1,164 @@
+<section class="principle" id="evals">
+<h2>Evals measure an LLM feature with a score over many real cases</h2>
+<p class="lede">An <dfn>eval</dfn> (short for evaluation) runs an LLM feature over a fixed set of real inputs, scores every output as pass or fail and compares the pass rate with a bar chosen before the run. It replaces <code>assertEquals</code> for code whose output is never exactly the same twice, and it tells you whether a change to a prompt or a model made the feature better or worse.</p>
+
+<p>Three terms first. A <dfn>large language model (LLM)</dfn>, or <dfn>model</dfn>, is a hosted service that takes text in and writes text back. Vendors offer several models and replace them with new versions, so "a model change" means switching your code to another one. The text you send it, your instructions plus the data, is the <dfn>prompt</dfn>. An <dfn>LLM feature</dfn> is ordinary code that builds a prompt, calls the model and parses its reply.</p>
+
+<h3>A real case shows why one assertion is not enough</h3>
+<p>The running example comes from Lomem, a private project whose app, tunatutor, teaches languages. In its translation drill the learner sees a sentence in her own language, for example English, and types it in the language she practises, for example French. If the answer equals the stored answer key or one of its accepted variants (ignoring case and punctuation), code marks it right and no model is called. Almost any other answer goes to a model with a prompt that says, in short, "here is the source sentence, the key and the learner's answer; reply with JSON saying whether it is correct". So the feature under test is itself a grader of learners. This section calls it <strong>the grader</strong>. (Lomem's code calls it the judge; "judge" is kept here for a different thing, explained below.)</p>
+<p>Made-up example of one grader reply, for the learner answer "Je mange un pomme." (the real reply has a few more fields, which no check below uses):</p>
+<pre><code>{ "correct": false,
+  "marks": [ { "word": "un", "kind": "form" } ],
+  "why": "Pomme is a feminine noun." }</code></pre>
+<p><code>correct</code> is the verdict. <code>marks</code> lists the words in the learner's answer that are wrong, so the phone can underline them; <code>kind</code> says what is wrong with each, here "right word, wrong form". The team wanted to replace the old grading prompt (named <code>card</code>, which had no marks) with a new one (<code>arc</code>, which fills them). How do you test that? Here are three rows from Lomem's hand-made test-data file (a <dfn>fixture</dfn>). <code>expected: "right"</code> means the grader should reply <code>correct: true</code>; <code>markedWords</code> are the words a person expects to see marked:</p>
+<p class="src">apps/tunatutor/backend/src/session-types/translation-drill/engine/judge-gate-fixture.ts:28, 42, 51</p>
+<pre><code>  { language: "fr", key: "J'ai très faim.", variants: [], answer: "J'ai vraiment faim.", expected: "right", markedWords: [], note: "paraphrase: synonym adverb" },
+...
+  { language: "fr", key: "Je mange une pomme.", variants: [], answer: "Je mange un pomme.", expected: "wrong", markedWords: ["un"], note: "article error" },
+...
+  { language: "fr", key: "Je ne veux pas de café.", variants: [], answer: "Je veux du café.", expected: "wrong", markedWords: ["veux", "du"], note: "negation lost" },</code></pre>
+<p>A JUnit test for the first row would call the model and <code>assertTrue(reply.correct)</code>. It might pass today and fail tomorrow with the same code, for three reasons that do not exist in a classic backend:</p>
+<ul>
+<li><strong>The output varies.</strong> A model picks each next word with some randomness. A setting called <dfn>temperature</dfn>, usually between 0 and 1, controls how much: 0 means "always take the likeliest word", higher means more variety. Lomem calls the model at <code>temperature: 0.3</code>. Even at 0, Anthropic's documentation says results "will not be fully deterministic".</li>
+<li><strong>The output is open-ended.</strong> The <code>why</code> sentence has no single correct string to compare with.</li>
+<li><strong>One case proves nothing.</strong> A new prompt that fixes paraphrases can quietly break negations. You only see it across many cases.</li>
+</ul>
+
+<h3>An eval has three parts: a dataset, a scorer and a bar</h3>
+<ul>
+<li>The <strong>dataset</strong> is the list of inputs, each with a reference: what a good output looks like.</li>
+<li>The <strong>scorer</strong> is the code (or person) that turns one output into pass or fail.</li>
+<li>The <strong>bar</strong> is the pass rate that must be reached, for example 95%, one per check. You write it down before the run, so a disappointing result cannot move it. When a run misses the bar, you read the failing rows, fix the prompt and run again. You do not lower the bar.</li>
+</ul>
+<p>Where the bar comes from: the old version's score on the same rows, if there is an old version. For a brand-new feature, run the cheapest alternative on the same rows (for the grader: "exact match with the key, everything else wrong") and require a clear gain over it, or decide from what an error costs. "A learner may see at most one wrong grade in 20 answers" is a 95% bar.</p>
+
+<h3>Lomem's translation gate is a complete eval</h3>
+<p>Lomem's <code>scripts/translation-judge-gate.ts</code> decides whether the marks may be switched on for users with a feature flag (a config switch). Lomem calls such a check a <dfn>gate</dfn>. Step by step:</p>
+<ol>
+<li><strong>Load the dataset.</strong> Up to 200 real learner answers from a local copy of the staging database (the pre-production environment, which holds real test usage), spread evenly across languages, leaving out answers that equal the key. Plus the 36 fixture rows.</li>
+<li><strong>Run both prompts on every row,</strong> with the same model, temperature and reply format as production, timing every call. That is up to about 470 model calls per run, each one paid for.</li>
+<li><strong>Score every reply</strong> with the checks in the table below.</li>
+<li><strong>Print the results:</strong> PASS or FAIL for checks 1, 2 and 4, each fixture row the new prompt got wrong with its note, and a table of every marked word for a person to read for check 3. An option writes every reply, with old and new verdict, to a JSON file for reading the real rows.</li>
+<li><strong>A person decides.</strong> The script's exit code does not depend on the checks. The flag is switched on only when checks 1, 2 and 4 print PASS and the person's own count for check 3 reaches its bar.</li>
+</ol>
+<p>Check 1, "is the verdict right?", uses two sources because they answer two questions:</p>
+<ul>
+<li><strong>Real rows (1a) measure change.</strong> No person has said whether a real answer is right, so the old prompt's verdict stands in as the reference. Agreement means "nothing changed on everyday traffic". It says nothing about correctness, and a disagreement may be a fix: the new prompt is right where the old one was wrong.</li>
+<li><strong>Fixture rows (1b, 1c) measure correctness,</strong> because a person decided each answer. Real traffic rarely contains a correct paraphrase, so those rows had to be written by hand.</li>
+<li><strong>A person reads every disagreement on the real rows.</strong> Each one is either a break, which sends you back to the prompt, or a fix. A fix gets a human answer and moves into the fixture, where the new prompt must now match that answer. The row is still scored, against a better reference, so moving it does not loosen anything. The 95% bar stays as written.</li>
+</ul>
+<table>
+<thead><tr><th>Check</th><th>A row passes when</th><th>Bar</th></tr></thead>
+<tbody>
+<tr><td>1a. Verdict, real rows</td><td>The new prompt gives the same right/wrong verdict as the old one</td><td>95% of real rows</td></tr>
+<tr><td>1b. Verdict, fixture rows</td><td>The new verdict equals <code>expected</code></td><td>95% of fixture rows</td></tr>
+<tr><td>1c. Paraphrases</td><td>A fixture row whose note starts with "paraphrase" (15 of the 36) is graded right</td><td>No failure allowed</td></tr>
+<tr><td>2. Marks land</td><td>The reply has no marks, or at least one mark sits on a word the learner actually wrote</td><td>95% of all replies</td></tr>
+<tr><td>3. Marks are right</td><td>A person reads the marked word and agrees it is an error</td><td>90% of marked words, from at least 20 real rows</td></tr>
+<tr><td>4. Speed</td><td>The new prompt's reply arrives within 2.5 seconds</td><td>95% of replies</td></tr>
+</tbody>
+</table>
+<p>Check 2 is deliberately weak: one good mark is enough. Whether each mark is a real error is check 3's job, and the fixture's <code>markedWords</code> are printed next to each marked word as a hint for that person.</p>
+
+<h3>A golden dataset is a set of inputs with a known right answer</h3>
+<p>The fixture is a <dfn>golden dataset</dfn>: inputs paired with the answer a person who knows the domain decided is correct. Each row carries a <code>note</code> naming the kind of case ("tense slip", "negation lost"), so a failure report says which kind of case broke. The best golden rows are real inputs a person has labelled, such as the real-row fixes above; hand-written rows fill the kinds real traffic lacks. A purpose-built set often grows to 100 rows or more, and it grows each time a new kind of failure is found.</p>
+
+<h3>The scorer is the cheapest check that can decide a case</h3>
+<table>
+<thead><tr><th>Scorer</th><th>When it fits</th><th>In the translation gate</th></tr></thead>
+<tbody>
+<tr><td>Exact match</td><td>The output is a label, a number or an enum</td><td>Check 1: one verdict against another</td></tr>
+<tr><td>Code assertion</td><td>A property code can test: valid JSON, a field present, a time limit, a word that occurs in the input</td><td>Checks 2 and 4</td></tr>
+<tr><td>LLM-as-judge</td><td>Only a reader can tell: is the marked word really an error, is the explanation accurate</td><td>Not used yet; a person does check 3</td></tr>
+</tbody>
+</table>
+<p>An <dfn>LLM-as-judge</dfn> is a second, separate model call, made by the eval and not by the feature, that reads the feature's output and grades it against a <dfn>rubric</dfn>, a short written list of what counts as pass and fail. Made-up example of a judge for check 3:</p>
+<pre><code>Rubric: You get a learner's sentence, the answer key and one marked word.
+PASS if the marked word is itself wrong (wrong form, wrong word, wrong place).
+FAIL if the word is correct and the error is elsewhere, or there is no error.
+Reply with JSON: {"verdict": "PASS" | "FAIL", "reason": "..."}
+
+Judge reply for "Je mange un pomme.", marked word "mange":
+{"verdict": "FAIL", "reason": "mange is correct; the error is the article un."}</code></pre>
+<p>The judge is itself an LLM feature that can be wrong, so you check it before you trust it. A person labels outputs pass or fail, with both kinds well represented (Husain and Shankar suggest at least 50 of each), the judge grades the same outputs, and you measure two numbers. Here a "positive" is an error, as in their guide: the share of the person's fails the judge also failed (<dfn>true positive rate</dfn>) and the share of the person's passes the judge also passed (<dfn>true negative rate</dfn>). Both matter, because a judge that passes everything scores 100% on the second. There is no fixed target: choose it from what a missed failure and a false alarm cost; where the judge disagrees with the person, rewrite the rubric and measure again, and repeat when the judge's model changes. The hand-read words of check 3 are exactly the labels that would validate such a judge.</p>
+
+<h3>Error analysis tells you what to measure</h3>
+<p>You cannot write good scorers before you know how the feature fails. <dfn>Error analysis</dfn> means reading 30 to 100 real outputs by hand, writing a one-line note on each bad one, and grouping the notes into categories. The <code>note</code> column in Lomem's fixture is the result: each category ("article error", "negation lost") became one or more rows, and the report counts failures per category, which tells you where to work next. A category that code can check, such as "marked a word the learner never wrote", also gets a check of its own (check 2). Keep separate checks separate: had speed and correctness been one pass/fail, a slow right answer would count as a wrong one.</p>
+
+<h3>Regression evals guard what works, capability evals measure what does not yet</h3>
+<p>A <dfn>regression eval</dfn> reproduces a bug that was fixed and asserts it stays fixed. Lomem's example is for a second grader, which reads a <dfn>transcript</dfn> (the full text of a learner's practice conversation with the app) and decides, for each goal of the lesson, whether the conversation completed it (the check below calls the two outcomes ACCEPTED and REJECTED), such as "Everyday Transactions" (buying something). It once accepted a conversation where the learner only rescheduled a meetup, because both talk about times and places: a <dfn>false accept</dfn>. The check that guards the fix:</p>
+<p class="src">apps/tunatutor/backend/scripts/scenario-judge-precision-check.mts:10-12</p>
+<pre><code> *   • NEGATIVE — a reschedule-only transcript (a learner rescheduling a meetup, NO
+ *     transaction): the "Everyday Transactions" objective MUST be REJECTED.
+ *   • POSITIVE — a real shop transaction: "Everyday Transactions" MUST be ACCEPTED.</code></pre>
+<p>It pairs the bad case with a good one, so a "fix" that rejects everything also fails, and it exits 0 only when both come out as stated. With two cases it is all-or-nothing. As fixed bugs accumulate, their cases form a <dfn>regression set</dfn> run together.</p>
+<ul>
+<li>A <strong>regression set</strong> should pass at or near 100%. A drop blocks the change: it does not ship until someone has read the failing case and fixed the prompt.</li>
+<li>A <strong>capability eval</strong> uses the same loop and scorers on cases the feature does not handle well yet. It may start at 40%. It blocks nothing; you watch it climb. When a case passes reliably, move it into the regression set.</li>
+</ul>
+<p>The regression set belongs in the build pipeline as a required step for every prompt or model change, when the team accepts the cost of model calls on each build. Lomem does not: it runs both scripts by hand, because every run calls a paid service over the network. The arithmetic, such as the agreement percentage, lives in plain functions with ordinary unit tests in CI.</p>
+
+<h3>The number of cases decides how small a difference you can trust</h3>
+<p>The <dfn>true rate</dfn> is the pass rate you would get over every input users will ever send. You never see it: your n cases are a sample of those inputs, and the rate you measure is an estimate of it. The <dfn>standard error</dfn> says how far that estimate typically lies from the true rate: √(p × (1 − p) / n) for a measured rate p over n cases. The estimate falls within two standard errors of the true rate about 95% of the time. With 200 cases at 95%, that is 2 × √(0.95 × 0.05 / 200) ≈ 3 percentage points; with 40 cases, about 7, and one failure alone moves the rate 2.5 points. So 94% against 96% on 200 cases does not show that one prompt is better for users.</p>
+<p>The model's randomness adds a second, usually smaller wobble: run the same prompt twice on the same rows and a few borderline rows flip. When you compare two prompts, run both on the same rows. Then the difference cannot come from which rows were drawn, and the only rows that carry information are the ones whose verdict changed. Read each of them: is it a fix or a break? Run it again: a row that flips back was randomness. That is why the Lomem gate lists every fixture row the new prompt got wrong, and why its JSON file keeps both verdicts for every real row.</p>
+
+<h3>Repeated runs need two different numbers: pass@k and pass^k</h3>
+<p>A mature eval runs each case several times (<em>k</em> times) to see the randomness. Two summaries answer different questions.</p>
+<div class="example">
+<p>Made-up example: a case passes in 75% of single runs, and the runs are independent (each call is a fresh request, so one result does not affect the next). You run it k = 3 times.</p>
+<ul>
+<li><strong>pass@3</strong>, "at least one of the three passed". All three fail with chance 0.25³, so pass@3 = 1 − 0.25³ ≈ 98%. This fits when something can check each attempt and keep a good one, for example generated code kept only if its unit tests pass.</li>
+<li><strong>pass^3</strong>, "all three passed": 0.75³ ≈ 42%. This fits when every user gets one attempt and each must be right, as with a grader shown to a learner.</li>
+</ul>
+<p>The dataset score is the share of cases that passed under the chosen rule, and the bar is set on that share. Report the rule that matches how users meet the feature: pass^k for the grader.</p>
+</div>
+<p>The Lomem gate runs each row once, so its 95% bars are single-run rates. Switching to pass^3 lowers every score (a case that passes 95% of single runs passes all three only 0.95³ ≈ 86% of the time), so a pass^3 bar must be set anew from a measured run, not copied from the single-run bar.</p>
+
+<h3>The smallest version is a CSV file and a loop</h3>
+<p>Read 30 to 50 real inputs yourself and write the expected verdict next to each, with a note naming its kind of case. That is the CSV: <code>answer,key,expectedRight,note</code>. Leave out answers that equal the key if your code never sends those to the model. Then a loop that runs them through your real prompt and model, keeps speed apart from correctness, counts failures per note and sets an exit code. Sketch in Java (not Lomem code; <code>grader</code> is your existing service that calls the model and parses the JSON reply into a <code>Verdict</code> record; <code>loadCsv</code> is any CSV reader):</p>
+<pre><code>record Case(String answer, String key, boolean expectedRight, String note) {}
+
+List&lt;Case&gt; cases = loadCsv("golden.csv");
+int right = 0, fast = 0;
+Map&lt;String, Integer&gt; failsByNote = new TreeMap&lt;&gt;();
+for (Case c : cases) {
+    long start = System.currentTimeMillis();
+    Verdict v = grader.grade(c.key(), c.answer());      // real prompt, real model
+    if (System.currentTimeMillis() - start &lt;= 2500) fast++;
+    if (v.correct() == c.expectedRight()) right++;
+    else {
+        failsByNote.merge(c.note(), 1, Integer::sum);
+        System.out.println("FAIL [" + c.note() + "] " + c.answer());
+    }
+}
+double rightRate = (double) right / cases.size(), fastRate = (double) fast / cases.size();
+System.out.printf("verdict %.1f%% (bar 95%%), speed %.1f%% (bar 95%%), fails %s%n",
+        rightRate * 100, fastRate * 100, failsByNote);
+System.exit(rightRate &gt;= 0.95 &amp;&amp; fastRate &gt;= 0.95 ? 0 : 1);</code></pre>
+<p>Run it before every prompt or model change. With 40 cases the rate is coarse, so read every printed failure instead of trusting a one-point change. A mature version adds more labelled real rows, a validated LLM judge for what code cannot check, each case run k times, results stored per prompt and model version, and the regression set as a required pipeline step. It also scores a sample of live production replies with code assertions and the judge (there is no answer key there, so exact match cannot be used) and alerts when their failure rate rises.</p>
+
+<div class="analogy">
+<p><strong>Classic backend analogy:</strong> an eval is a parameterised test suite with a load-test threshold. The golden dataset is the data table of a JUnit <code>@ParameterizedTest</code>; the bar is like "p95 latency under 300 ms" in a load test, which passes even though some requests are slow.</p>
+<p><strong>Where it breaks:</strong> one green unit-test run is proof; an eval score is a statistical sample that moves between runs. And an eval's scorer can itself be wrong, which never happens with <code>assertEquals</code>.</p>
+</div>
+
+<h3>Common mistakes</h3>
+<ul>
+<li>Writing the dataset before reading real outputs. The rows then test what the author already knew.</li>
+<li>Using a 1-to-10 score where pass or fail would do. Nobody can say what separates a 6 from a 7, so the numbers drift.</li>
+<li>Comparing two prompts on different rows, or reusing a bar after changing the rows or k.</li>
+<li>Letting the set go stale. New failures seen in production must become new rows.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>An eval is many real cases, a scorer per case and a pass-rate bar per check, written down before the run and never lowered.</li>
+<li>Real rows scored against the old version measure change; correctness comes from golden rows a person labelled, and real fixes are labelled into them.</li>
+<li>Use exact match or code assertions first; use an LLM judge only for what code cannot check, and validate it against human labels on passes and fails.</li>
+<li>Regression sets pair bad cases with good ones, sit near 100% and block changes; capability evals measure progress and block nothing.</li>
+<li>A pass rate is an estimate: about ±3 points at 200 cases, so compare prompts on the same rows, read the rows that flipped, and pick pass@k or pass^k by how users meet the feature.</li>
+</ul>
+</div>
+
+<p class="note">Sources: Hamel Husain and Shreya Shankar, <a href="https://hamel.dev/blog/posts/evals-faq/">AI Evals: Everything You Need to Know</a> (error analysis, binary scorers, validating judges against human labels). Anthropic, <a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals for AI agents</a> (capability versus regression evals, pass@k and pass^k). Anthropic, <a href="https://platform.claude.com/docs/en/api/messages/create">Messages API reference, Create a Message</a> (temperature). Code quoted from Lomem, <code>apps/tunatutor/backend</code>.</p>
+</section>

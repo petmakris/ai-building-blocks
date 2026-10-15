@@ -1,0 +1,113 @@
+<section class="principle" id="context">
+<h2>Context engineering decides what the model sees on every call</h2>
+<p class="lede">A language model answers only from the text sent to it in one request, and that text has a hard size limit. Context engineering is the server code that chooses, orders and trims that text for every call. It exists because the model keeps no state between calls, and because a request that is too full gives worse answers as well as costing more.</p>
+
+<h3>The model remembers nothing between two calls</h3>
+<p>The running example is <em>Ask Billpod</em>, a chat panel in a household-bills app from a small codebase of apps that this guide quotes. A person types two messages:</p>
+<ol>
+<li>"Did we pay the electricity bill this month?"</li>
+<li>"Mark it paid, by e-banking."</li>
+</ol>
+<p>Billpod answers each message by calling a <dfn>large language model</dfn> (LLM): a remote service that takes text in and returns text out over an HTTP API. The model has no session. It cannot know what "it" means in the second message unless that request also contains the first question and its answer.</p>
+<p>So the browser keeps the conversation and sends it with every new message, and the server rebuilds the whole model request each time.</p>
+
+<h3>Tokens measure the request, and the window caps it</h3>
+<p>A <dfn>token</dfn> is the unit a model reads and bills by, roughly four characters of English. The <dfn>context window</dfn> is the most tokens one request can hold, counting the input <em>and</em> the answer the model writes. Current models allow 200,000 to about 1,000,000 tokens. The limit is enforced: Anthropic's API rejects an input over it with HTTP 400 "prompt is too long". Because the answer counts too, each request also sets <code>maxTokens</code>, the most tokens the model may write; Billpod sets 2,048. A reply that reaches that cap stops mid-sentence.</p>
+
+<h3>Each request is assembled from five layers</h3>
+<p>A model request carries three fields of content. The <dfn>system prompt</dfn> holds the developer's instructions for the whole conversation. The <dfn>tool definitions</dfn> describe functions the model may ask the server to run: a name, a description in plain words, and a JSON Schema for the arguments. The <dfn>messages</dfn> are a list, each with a <dfn>role</dfn>: <code>user</code> for the person, <code>assistant</code> for the model, and <code>tool</code> for data the server sends back. Billpod fills five layers into these fields, fresh for every message:</p>
+<table>
+<thead><tr><th>Layer</th><th>API field</th><th>What Billpod puts there</th></tr></thead>
+<tbody>
+<tr><td>System prompt</td><td>system prompt</td><td>Fixed instructions, plus facts the model cannot know: today's date, timezone, currency and the app's language</td></tr>
+<tr><td>Tool definitions</td><td>tools</td><td>46 functions such as <code>find_bills</code> and <code>mark_paid</code></td></tr>
+<tr><td>History</td><td>messages</td><td>The newest past messages that fit a budget</td></tr>
+<tr><td>New message</td><td>messages</td><td>"Mark it paid, by e-banking."</td></tr>
+<tr><td>Tool calls and results</td><td>messages</td><td>What the model asked for while answering this message, and the data that came back</td></tr>
+</tbody>
+</table>
+
+<div class="example">
+<p><strong>One answer can take several model calls.</strong> Made-up values in Billpod's real request shape. The server's first request for "Mark it paid, by e-banking.":</p>
+<pre><code>{
+  "systemPrompt": "You are Ask Billpod ... Today is Tuesday, 2026-10-13 ...",
+  "tools": [ { "name": "find_bills", ... }, { "name": "mark_paid", ... }, ... ],
+  "messages": [
+    { "role": "user",      "content": "Did we pay the electricity bill this month?" },
+    { "role": "assistant", "content": "Not yet. The electricity bill, 84.20 CHF, is due on 20 October." },
+    { "role": "user",      "content": "Mark it paid, by e-banking." }
+  ],
+  "maxTokens": 2048
+}</code></pre>
+<ol>
+<li><strong>Call 1.</strong> The model replies with text plus a list of <dfn>tool calls</dfn>, each with an id. Here it asks for <code>find_bills {"text": "electricity"}</code>, because the history kept only the earlier answer's text.</li>
+<li><strong>Call 2.</strong> The server runs the calls in order, appends the calls and their matching results to the messages, and calls the model again. Errors go back as results too. Now the model asks for <code>mark_paid</code> on bill <code>b_19</code>.</li>
+<li><strong>A pause for the person.</strong> Only the writes on a fixed list, such as <code>mark_paid</code>, wait for the person's approval; reads and plain additions run at once. The server sends the browser a sealed <dfn>approval ticket</dfn>, which it can neither read nor change, holding the calls so far and the exact <code>mark_paid</code> call.</li>
+<li><strong>Call 3.</strong> On approval the browser sends the ticket back. The server runs the sealed call and calls the model once more; nothing is re-run. The model replies "Done" with an empty list of tool calls, which ends the loop.</li>
+</ol>
+<p>The rule: call the model, run the tools it asks for, append calls and results, and stop when the list is empty. Billpod caps this at 6 model calls per answer.</p>
+</div>
+
+<h3>The history is cut to a budget, newest message first</h3>
+<p>Billpod keeps the newest history that fits 24,000 characters, roughly 6,000 tokens. The system prompt and tools are counted outside that budget. Earlier answers' tool calls and results are left out; each earlier write keeps only a one-line note of its outcome, such as <code>mark_paid (electricity): done</code>. The trimming walks backwards from the newest message:</p>
+<p class="src">apps/billpod/backend/src/ai/assistant/history.ts:36-45 (simplified)</p>
+<pre><code>  let used = 0;
+  let from = rendered.length;
+  for (let i = rendered.length - 1; i &gt;= 0; i--) {
+    const cost = rendered[i].content.length;
+    // The newest message (the person's question) is always kept.
+    if (i &lt; rendered.length - 1 &amp;&amp; used + cost &gt; budget) break;
+    used += cost;
+    from = i;
+  }
+  while (from &lt; rendered.length - 1 &amp;&amp; rendered[from].role !== "user") from++;</code></pre>
+<p>Three rules follow. The newest message always survives. Older messages are dropped whole, never cut in the middle. The kept slice starts on a <code>user</code> message, because model APIs expect the roles to alternate, starting with the person.</p>
+<p>Billpod counts characters instead of tokens because that is free. The margin below the window absorbs the estimate's error.</p>
+
+<h3>A fuller window gives less reliable answers</h3>
+<p>In a 2025 study by Chroma, 18 models answered the same questions about a long chat twice: once from the full history of about 113,000 tokens, once from only the relevant part, about 300 tokens. Every model answered more questions correctly from the short version. Passages that looked relevant but were not, called <dfn>distractors</dfn>, hurt the most. This is <dfn>context rot</dfn>: a fuller window gives less reliable answers. So the budget limits quality as well as size and cost.</p>
+
+<h3>Load data when a question needs it</h3>
+<p>Billpod sends none of the household's bills up front. Its system prompt says: "Use the tools for every fact. Never guess an amount, a date, or whether something is paid." Old tool results are not replayed, because household data changes; that is why the model called <code>find_bills</code> again in Call 1. Anthropic calls this <dfn>just-in-time</dfn> loading: keep small references such as an id in the window and fetch the content with a tool when needed.</p>
+
+<h3>Long-running agents compact, clear and delegate</h3>
+<p>An <dfn>agent</dfn> calls tools in a loop for many steps, so its window fills much faster. Billpod uses none of the following; they come from Anthropic's write-up on context engineering:</p>
+<ul>
+<li><strong>Compaction.</strong> When the window is nearly full, ask the model to summarise the conversation so far, and send that summary in place of the history from then on.</li>
+<li><strong>Clearing old tool results.</strong> Replace the output of a tool called many steps ago with a short placeholder.</li>
+<li><strong>Notes outside the window.</strong> The agent writes progress to a file and reads it back later.</li>
+<li><strong>Sub-agents.</strong> A separate model conversation with its own empty window does a search and returns only a summary, "often 1,000-2,000 tokens".</li>
+</ul>
+
+<h3>The smallest version fits in one class</h3>
+<p>The minimum is what Billpod does: one assembler that builds the five layers, with history trimmed to a budget, and runs the tool loop with a step cap. A mature version adds:</p>
+<ul>
+<li>a log of every assembled request, so a wrong answer can be traced to what the model saw;</li>
+<li>real token counts from the provider instead of a character estimate;</li>
+<li>a separate budget for each layer, with a rule for which layer is cut first.</li>
+</ul>
+
+<div class="analogy">
+<p><strong>Classic backend analogy.</strong> Context assembly is a response assembler that builds one DTO under a hard payload limit. The system prompt is the static part, the history is a paged query sorted newest first, and tool calls are lazy loading: fetch the association only when it is accessed.</p>
+<p><strong>Where it breaks.</strong> A DTO consumer reads every field the same way. A model reads free text: the order and wording of the layers change its behaviour, and a correct but irrelevant field makes its answer worse. And nothing raises an error when something important was trimmed. The model answers anyway, from what is left.</p>
+</div>
+
+<h3>Common mistakes come from treating the window like a payload</h3>
+<ul>
+<li><strong>Sending everything because it fits.</strong> Context rot and cost start long before the window is full.</li>
+<li><strong>Forgetting facts the model cannot know,</strong> such as today's date, timezone and language.</li>
+<li><strong>Replaying old tool results,</strong> which waste tokens and can contradict current data.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>The model is stateless: every call must carry everything it needs.</li>
+<li>The context window is a hard token limit for input plus output, and answer quality drops well before it is reached.</li>
+<li>Build each request in one assembler from layers: system prompt, tool definitions, trimmed history, the new message, and this answer's tool calls and results.</li>
+<li>Fetch data with tools when a question needs it, and do not replay old tool results.</li>
+<li>Long agent runs also need compaction, cleared tool results, notes outside the window and sub-agents.</li>
+</ul>
+</div>
+
+<p class="note">Sources: Anthropic, <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Effective context engineering for AI agents</a> (Sep 2025); Anthropic, <a href="https://platform.claude.com/docs/en/build-with-claude/context-windows">Context windows</a> (API docs); Hong, Troynikov and Huber, <a href="https://www.trychroma.com/research/context-rot">Context Rot: How Increasing Input Tokens Impacts LLM Performance</a>, Chroma (Jul 2025). Code: Ask Billpod (<code>apps/billpod/backend/src/ai/assistant/</code>).</p>
+</section>

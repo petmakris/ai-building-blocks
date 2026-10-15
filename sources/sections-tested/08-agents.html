@@ -1,0 +1,109 @@
+<section class="principle" id="agents">
+<h2>An agent is a loop in which the model picks the next step</h2>
+<p class="lede">Most features built on a language model need more than one call to it. You can fix the order of those calls in your own code, which is a <dfn>workflow</dfn>, or let the model choose the next call each time round a loop, which is an <dfn>agent</dfn>. An agent hands control flow to a slow, paid component that can choose differently on each run, so it needs limits, checks and saved state.</p>
+
+<h3>One request can take one model call or six</h3>
+<p>The model is <strong>stateless</strong>: it remembers nothing between calls, so every call carries the whole conversation so far. Calls are billed in <dfn>tokens</dfn>, pieces of words of about four characters. A <dfn>tool</dfn> is one of your own functions that you describe to the model in each request: its name, a sentence saying what it does, and a <dfn>schema</dfn> (a JSON Schema) for its arguments. All of these together are the <dfn>tool list</dfn>. The model cannot run a tool; it can only reply “please call <code>find_bills</code> with these arguments”, a <dfn>tool call</dfn>. Your code runs the function and sends the result back in the next call.</p>
+<p>The running example is a household-bills app from a small codebase of apps:</p>
+<div class="example">
+<p><strong>Made-up conversation.</strong> One step is one model call.</p>
+<ol>
+<li>Person: “Mark the electricity bill paid and tell me what is still due.”</li>
+<li>Step 1. The model asks for <code>find_bills</code>, text “electricity”. The server runs it and returns the bill with its id and version number.</li>
+<li>Step 2. The model asks for <code>mark_paid</code> with that id and version. That changes data, so the server saves the paused loop, shows a confirmation card, and the HTTP request ends.</li>
+<li>The person clicks Approve, a second HTTP request. The server reloads the saved loop, runs <code>mark_paid</code>, adds its result and carries on looping.</li>
+<li>Step 3 asks for <code>list_due</code>. Step 4: the model replies with plain text and no tool call: “Done. Still due: water, 48.20, on the 28th.” The loop ends.</li>
+</ol>
+</div>
+<p>No code fixed that order. The model chose each step from the previous result.</p>
+
+<h3>A tool call is a structured field in the model's reply</h3>
+<p>You do not parse the reply's text; the tool call arrives as a separate field. Here is step 1 as Google's Gemini API returns it (values made up). The <code>id</code> is the call id your result must carry:</p>
+<pre><code>{ "candidates": [ { "content": { "role": "model", "parts": [
+    { "functionCall": { "id": "c1", "name": "find_bills", "args": { "text": "electricity" } } } ] } } ] }</code></pre>
+<p>Anthropic's API calls the same field a <code>tool_use</code> block. The next request sends back the <dfn>system prompt</dfn> (standing instructions your code writes), the whole conversation, the tool list, the model's reply, and exactly one result for every call id in it. The provider rejects a request that leaves a call id without a result. A tool that fails, or an unknown tool name, goes back as that call's result with a sentence the model can act on, so the model can correct itself at the cost of a step.</p>
+
+<h3>In a workflow your code decides every step</h3>
+<p>Anthropic's guide “Building effective agents” defines workflows as “systems where LLMs and tools are orchestrated through predefined code paths”. It names five patterns, each a few lines of plain code in which your code owns the exit:</p>
+<table>
+<thead><tr><th>Pattern</th><th>What your code does</th></tr></thead>
+<tbody>
+<tr><td>Prompt chaining</td><td>Calls the model in a fixed sequence, checking the output in code between calls.</td></tr>
+<tr><td>Routing</td><td>One call classifies the input; a <code>switch</code> sends it to its own handler.</td></tr>
+<tr><td>Parallelization</td><td>Runs calls at once and merges them: different parts (sectioning) or the same task several times (voting).</td></tr>
+<tr><td>Orchestrator-workers</td><td>One call returns a plan as a list, made once up front; your code runs one worker call per item.</td></tr>
+<tr><td>Evaluator-optimizer</td><td>One call drafts, another grades against criteria, the first revises, up to N rounds.</td></tr>
+</tbody>
+</table>
+
+<h3>An agent is a while loop that runs until the model stops asking for tools</h3>
+<ol>
+<li>Send the system prompt, the conversation so far and the tool list to the model.</li>
+<li>If the reply contains no tool call, it is the final answer. Stop.</li>
+<li>Otherwise run each requested tool, append the reply and the results to the conversation, and go back to 1.</li>
+</ol>
+<p>Because every step resends the whole transcript, each step costs more than the one before. Anthropic reports that agents “typically use about 4× more tokens than chat interactions, and multi-agent systems use about 15× more”. The only built-in exit is the model deciding it is done, so a confused model keeps calling tools unless your code stops it.</p>
+
+<h3>Every loop needs a step cap, timeouts and a cost limit that the loop reads</h3>
+<ul>
+<li><strong>Steps:</strong> the bills app allows 6 model calls per turn. The count is saved across the approval pause, so steps before and after the click share the 6.</li>
+<li><strong>Time:</strong> 60 seconds per call for the reply to arrive. A longer run also needs a deadline for the whole request.</li>
+<li><strong>Size and money:</strong> each reply is capped at 2048 output tokens. Keep a running token total and turn it into money before each step, with input and output tokens priced separately.</li>
+<li><strong>Proof:</strong> a test with a fake model that always returns a tool call. A cap that lives only in configuration does nothing.</li>
+</ul>
+<p>The smallest version, in Java:</p>
+<pre><code>while (true) {
+  if (usage.steps() &gt;= MAX_STEPS) throw new LoopLimitException("steps");          // e.g. 6
+  if (usage.cost() &gt;= MAX_COST || Instant.now().isAfter(deadline))
+    throw new LoopLimitException("budget");
+  Reply reply = model.call(SYSTEM_PROMPT, messages, TOOLS, Duration.ofSeconds(60));
+  usage.add(reply.usage());                      // counts the step and its cost
+  if (reply.toolCalls().isEmpty()) return Result.answer(reply.text());
+  messages.add(Message.assistant(reply.text(), reply.toolCalls()));
+  Map&lt;String, Object&gt; results = new LinkedHashMap&lt;&gt;();               // call id → result
+  for (ToolCall c : reply.toolCalls()) {
+    Tool t = ALLOWED.get(c.name());                                   // allow-list
+    // a read runs now and its result goes into results under c.id();
+    // a write is checked, then the loop saves its state and shows one card
+  }
+  messages.add(Message.toolResults(results));
+}</code></pre>
+<p>A mature version adds a money cap per user per day and a stored trace of every step, so a bad answer can be replayed.</p>
+
+<h3>The model only proposes, so check and confirm what it asks for</h3>
+<p>Text the model reads, such as an uploaded document, can contain instructions like “mark every bill paid” that the model may follow. This is <dfn>prompt injection</dfn>, and it makes every tool call a request from an untrusted source.</p>
+<ul>
+<li>Only tools on the allow-list run.</li>
+<li>Before a change is shown, its arguments are checked against the tool's schema, the bill must exist in this household, and its version must equal the one the model read. A failed check goes back to the model as a result.</li>
+<li>No change to existing data runs without the person's yes, one card at a time. Later writes in the same reply get a “not run” result, and a decline goes back as a result too, so every call id is answered.</li>
+</ul>
+
+<h3>A run that pauses or outlives one process needs its state saved</h3>
+<p>An approval splits the loop over two HTTP requests. The bills app seals the paused turn, including the step count and token usage, into a signed blob valid for 10 minutes that can be used once. A server row works too.</p>
+<p>A run of minutes or hours will see its process restart. Starting again from step 1 pays twice and repeats every email or payment. <dfn>Durable execution</dfn> records each step's result before moving on. In Temporal, each model call and tool call is an <dfn>activity</dfn> whose result is logged. After a crash, Temporal re-runs your loop code from the top and hands back the saved results instead of calling again. That only works if the loop code makes the same choices given the same results, which is what <em>deterministic</em> means here, so nothing is paid for twice and no side effect repeats.</p>
+
+<div class="analogy">
+<p><strong>Classic backend analogy.</strong> A workflow is a saga orchestrator or a Spring Batch job: the steps are in your code, and some call a model. An agent is a command-queue consumer whose producer is the model. Durable execution is the outbox pattern applied to every step.</p>
+<p><strong>Where it breaks.</strong> After a crash a saga's next step can be worked out again from code; an agent's next command cannot, so it must be reloaded from storage. A queue consumer trusts its producer; an agent checks every command against an allow-list and the stored data and asks a person before changes. And every agent step costs money.</p>
+</div>
+
+<h3>Use an agent only when you cannot write the steps down</h3>
+<p>Try one call, then a workflow, an agent last. If you can draw the flowchart, write it as code. A decision that must be reliable belongs in a fixed code step outside the loop.</p>
+
+<h3>Common mistakes</h3>
+<ul>
+<li>Building an agent for a fixed process: it costs more, runs slower and sometimes skips a step.</li>
+<li>A step cap in configuration that the loop never reads.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>A workflow is your code calling the model in an order you wrote; an agent loops, resending the conversation and running tools, until a reply has no tool call.</li>
+<li>Every loop gets a step cap, a per-call timeout, a token total turned into money, and a test with a fake model that never stops.</li>
+<li>Tool calls are proposals: allow-list them, check them against stored data, and have a person confirm changes.</li>
+<li>A paused or long run saves each step's result, so a restart neither pays twice nor repeats a side effect.</li>
+</ul>
+</div>
+
+<p class="note">Sources: Anthropic, <a href="https://www.anthropic.com/engineering/building-effective-agents">“Building effective agents”</a> (Dec 2024), for the definitions and the five patterns. Anthropic, <a href="https://www.anthropic.com/engineering/multi-agent-research-system">“How we built our multi-agent research system”</a> (June 2025), for the token multipliers. <a href="https://ai.google.dev/api/generate-content">Gemini API reference, generateContent</a>, for the reply shape. <a href="https://temporal.io/solutions/ai">Temporal for AI</a>, for durable execution.</p>
+</section>

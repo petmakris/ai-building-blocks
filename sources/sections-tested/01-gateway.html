@@ -1,0 +1,112 @@
+<section class="principle" id="gateway">
+<h2>The model gateway sends every model call through one door</h2>
+<p class="lede">A model gateway is one module (or one proxy service) that every part of your system must use to call a language model. Each model call costs a different amount, fails in its own ways, needs a secret key and must be charged to a user or a job. The gateway handles all of that in one place, so feature code never has to.</p>
+
+<h3>Models are rented over HTTP and billed per token</h3>
+<ul>
+<li>A <dfn>model provider</dfn> (OpenAI, Anthropic, Google) runs models on its servers and sells access over an HTTP API. You do not host the model. You call it the way you would call Stripe.</li>
+<li>An <dfn>API key</dfn> is the secret every request carries. The provider bills the account that owns it, so anyone holding the key spends your money.</li>
+<li>A <dfn>token</dfn> is the unit of text a model reads and writes, roughly three quarters of an English word. Providers charge per token, with separate prices for <em>input tokens</em> (what you send) and <em>output tokens</em> (what the model writes). Every response reports both counts.</li>
+<li>A provider sells models of different sizes. A bigger model answers better and costs more. Google's <em>Gemini 2.5 Flash</em> is mid-size; <em>Flash Lite</em> is smaller and cheaper.</li>
+</ul>
+
+<h3>A language tutor app shows why one door is needed</h3>
+<p>The running example is a language tutor app built on Gemini, one of a small codebase of apps that share a gateway. Every learner reply triggers two model calls. A <em>rater</em> call scores the answer on Flash Lite with a 2 s time budget. A <em>tutor</em> call writes the next line on Flash with a 4 s budget. The <dfn>time budget</dfn> is the longest the app will wait for one model, waits between retries included. The app keeps the provider's list prices in a table its owner can edit:</p>
+<table>
+<thead><tr><th>Model</th><th>Input, per 1M tokens</th><th>Output, per 1M tokens</th></tr></thead>
+<tbody>
+<tr><td><code>gemini-2.5-flash</code></td><td>$0.30</td><td>$2.50</td></tr>
+<tr><td><code>gemini-2.5-flash-lite</code></td><td>$0.10</td><td>$0.40</td></tr>
+</tbody>
+</table>
+
+<div class="example">
+<p><strong>Cost of one call, worked out.</strong> Real prices, made-up token counts. Gemini's response ends with this block (<code>candidatesTokenCount</code> is the output count):</p>
+<pre><code>"usageMetadata": { "promptTokenCount": 1200, "candidatesTokenCount": 150 }</code></pre>
+<p>The same rater call costs:</p>
+<ul>
+<li>On Flash Lite: 1,200 × $0.10/1M + 150 × $0.40/1M = <strong>$0.00018</strong>.</li>
+<li>On Flash: 1,200 × $0.30/1M + 150 × $2.50/1M = <strong>$0.000735</strong>.</li>
+</ul>
+<p>The bigger model costs about four times as much for the same request.</p>
+</div>
+
+<p>Without a gateway, each feature calls the provider itself. No one can say who spent the money, each feature retries errors its own way, and the key is read in a dozen places.</p>
+
+<h3>Every call passes five steps in a fixed order</h3>
+<p>The key is read once, when the app starts, and feature code never sees it. Then each call goes through these steps:</p>
+<ol>
+<li><strong>Check who pays.</strong> Every request carries a <dfn>usage context</dfn>: a user id and a feature name, such as <code>{ userId: 42, feature: "onboarding_level_chat" }</code>, or, for a background job, a written reason, such as <code>{ system: true, feature: "content_import", reason: "nightly lesson import" }</code> (both made up). A call with no context, no feature, or a system call with no reason throws <code>MissingUsageContextError</code> before any HTTP request is made.</li>
+<li><strong>Pick the model list.</strong> The model the caller named goes first, if it is enabled. Otherwise the default model does. Every other enabled model follows in priority order. These followers are the <dfn>fallback list</dfn>.</li>
+<li><strong>Call the provider, with retries inside the time budget.</strong> Retry only 429 (the provider's rate limit) and 5xx, up to 3 requests, waiting 3 s, then 6 s, or as long as <code>Retry-After</code> asks, never more than 30 s. Never retry a 400 (the request is wrong) or a 401/403 (the key is bad): a retry fails the same way. The waits count against the budget, and a retry whose wait does not fit is not made. The default budget is 120 s.</li>
+<li><strong>Fall back.</strong> If a model still fails, try the next one with a fresh budget. The worst-case wait is therefore the budget times the number of models: 6 minutes with the 120 s default and three models. If all fail, the caller gets an error and must degrade. The tutor app uses a pre-written line, saves an unscored turn, or switches to a scorer written in plain code.</li>
+<li><strong>Record the spend.</strong> After each model's attempt, success or failure, write its token counts to the meter. One attempt is one model, retries included. A failed attempt reports no tokens, so it is written as a zero-token row with an error flag. It still matters: a call that timed out on your side may have run, and been billed, on the provider's side.</li>
+</ol>
+
+<div class="example">
+<p><strong>One rater call when Flash Lite is down.</strong> Made-up timeline, with Flash and Flash Lite enabled.</p>
+<ul>
+<li>t = 0 s: the list is [Flash Lite (named by the rater), Flash]. Flash Lite answers 503.</li>
+<li>The first retry would wait 3 s, which does not fit the 2 s budget, so the gateway gives up on Flash Lite and writes one zero-token error row.</li>
+<li>t ≈ 0.2 s: the gateway calls Flash with a new 2 s budget. It answers at t ≈ 1.1 s with 1,200 input and 150 output tokens.</li>
+<li>The meter writes the success rows at Flash's prices: $0.000735 instead of $0.00018.</li>
+</ul>
+<p>The fallback quietly moved a cheap job onto a model four times as expensive. The app accepts that, because the outage is short and a missing rating is worse.</p>
+</div>
+
+<p>The spend rows land in one table, priced when each row is written, so a later price edit applies only to new rows. A spend report is then a <code>GROUP BY</code> by feature, user or model.</p>
+
+<div class="analogy">
+<p><strong>The Java backend analogy.</strong> Think of a single outbound <code>RestClient</code> bean wrapped in Resilience4j retry and time limiter, plus a per-tenant quota service, with every call required to carry a tenant id.</p>
+<p><strong>Where the analogy breaks.</strong></p>
+<ul>
+<li>The price of a call is not fixed. It depends on how much text goes in and comes out, so cost is measured from every response, after the fact.</li>
+<li>Fallback changes the answers. The backup is a different model, not a replica, with a different price.</li>
+<li>Picking the model is a business decision. A cheaper model saves money at some cost in quality, which a load balancer never has to weigh.</li>
+<li>A failed attempt can still cost money, while your row shows zero tokens.</li>
+</ul>
+</div>
+<p>The tutor app also makes a fallback model that succeeded the new default, in memory. That changes only calls that name no model, so the rater keeps trying Flash Lite first.</p>
+
+<h3>The smallest version is a wrapper class with five jobs</h3>
+<p>One class that every service must use is enough: it alone holds the key, requires a usage context, retries within a budget, records every attempt and lets the caller name a model. Another app in the same codebase runs only this much: one model, no fallback, spend tagged with feature names. The Java sketch below (not the codebase's own code) shows the core loop:</p>
+<pre><code>public LlmAnswer call(UsageContext ctx, String model, String prompt, Duration budget) {
+  ctx.validate();                                    // 1. who pays, before any HTTP request
+  for (String m : modelList(model)) {                // 2. named or default model, then fallbacks
+    try {
+      ProviderResponse r = postWithRetries(m, prompt, budget);   // 3. fresh budget per model
+      spend.record(ctx, m, r.inputTokens(), r.outputTokens(), false);  // 5. one row per model
+      return new LlmAnswer(r.text(), m);
+    } catch (ProviderException e) {                  // gave up on this model
+      spend.record(ctx, m, 0, 0, true);              // 5. zero-token error row
+    }                                                // 4. try the next model
+  }
+  throw new AllModelsFailedException();              // the caller must degrade
+}</code></pre>
+
+<h3>A mature gateway is a separate proxy shared by many teams</h3>
+<p>In larger organisations the gateway becomes its own service, such as the open-source LiteLLM. Applications call it in OpenAI's API format, so swapping providers is a proxy setting, with no code change. On top of the small version it adds:</p>
+<ul>
+<li><strong>Virtual keys</strong>: each team gets its own key with a budget and rate limit, and the real provider keys stay inside the proxy.</li>
+<li><strong>Fallback chains</strong> across providers and regions.</li>
+<li><strong>Spend reports</strong> per key, team and tag, without each app writing its own meter.</li>
+</ul>
+
+<h3>These mistakes come up most often</h3>
+<ul>
+<li><strong>Client library calls scattered across services.</strong> Cost and failures cannot be seen in one place, and every model change touches every service.</li>
+<li><strong>Retrying everything.</strong> A 400 or 401 fails the same way every time, and each retry may cost money.</li>
+<li><strong>No time budget, or one too long for the job.</strong> Size the budget to what the user can wait for, then multiply by the number of models to get the worst case.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>Every model call goes through one gateway. It holds the key, the retries, the time budget, the fallback and the spend record.</li>
+<li>Every call says who pays: a user and a feature, or a written reason. A call that does not is refused before it is sent.</li>
+<li>Cost is per token and differs per call. Record the token counts from each response, failed attempts included, and multiply by stored prices.</li>
+<li>Retry only 429 and 5xx, within a budget sized for the job. Each fallback model adds its own budget and price, writes different answers, and the caller still needs a plan for when all of them fail.</li>
+</ul>
+</div>
+
+<p class="note">Sources: Chip Huyen, <a href="https://huyenchip.com/2024/07/25/genai-platform.html">"Building A Generative AI Platform"</a> (step 3, model router and gateway); <a href="https://docs.litellm.ai/docs/simple_proxy">LiteLLM proxy documentation</a> (virtual keys, budgets, fallbacks); Lomem: <code>packages/shared/src/llm/gateway/gateway.ts</code>, <code>packages/shared/src/llm/providers/gemini.ts</code>, <code>apps/tunatutor/backend/src/services/llm/index.ts</code>.</p>
+</section>

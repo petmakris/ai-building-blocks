@@ -1,0 +1,107 @@
+<section class="principle" id="caching">
+<h2>Caching cuts the cost of repeated text and repeated questions</h2>
+<p class="lede">An application built on a large language model pays for every piece of text it sends and gets back. Caching avoids paying twice for the same work. The provider can reuse its work on a long opening that many requests share; your service can store whole answers to identical questions; and some teams reuse answers to questions that only mean the same thing, which is risky.</p>
+
+<h3>Every call to the model resends and repays the same opening text</h3>
+<p>A <dfn>model</dfn> is a hosted service you call over HTTP: text in, text out. It counts text in <dfn>tokens</dfn>, pieces of words of about four characters, and the provider bills per token. The model keeps no state between calls, so every request resends everything, in this order:</p>
+<ul>
+<li><dfn>Tool definitions</dfn>: JSON schemas of functions the model may ask your service to call.</li>
+<li>The <dfn>system prompt</dfn>: the standing instructions.</li>
+<li>The <dfn>messages</dfn>: the conversation so far.</li>
+</ul>
+<p>The tools and system prompt are often thousands of tokens, identical on every call, and paid for every time.</p>
+
+<div class="example">
+<p><strong>Running example.</strong> A small codebase of apps has two that call a model. One scores videos; each prompt starts with a long fixed block of instructions and only the last lines change. The other is a language-learning app with many users. A learner types a word and gets back a translation and usage note as JSON. Thousands of learners ask about the same common words.</p>
+</div>
+
+<h3>Provider prompt caching reuses the work on an identical opening</h3>
+<p>The model runs a large computation over every input token, and each token's result depends on all tokens before it. With <dfn>prompt caching</dfn>, the provider keeps those results for a few minutes. If the next request starts with exactly the same tokens, it reuses them, charges a fraction of the input price, and replies sooner. The shared opening is the <dfn>prefix</dfn>. The match must be exact from the first token: if one token near the start differs, nothing after it is reused. The cache is per model, and output tokens are never cached.</p>
+<p>So put stable content first and variable content last. With Anthropic you mark where a prefix ends by adding <code>cache_control</code> to a tool definition, a system prompt block or a message content block. Everything up to it becomes one cached prefix. A made-up request:</p>
+<pre><code>{
+  "tools": [
+    { "name": "lookupVideo", ... },
+    { "name": "lookupChannel", ...,
+      "cache_control": { "type": "ephemeral" } }
+  ],
+  "system": [
+    { "type": "text",
+      "text": "&lt;6,000 tokens of fixed instructions, rubric and output format&gt;",
+      "cache_control": { "type": "ephemeral" } }
+  ],
+  "messages": [
+    { "role": "user", "content": "&lt;this user's goal and items&gt;" }
+  ]
+}</code></pre>
+<p><code>"ephemeral"</code> means a 5-minute lifetime; adding <code>"ttl": "1h"</code> asks for one hour. Up to four markers are allowed, and each creates its own cached prefix. The user message carries no marker: it differs on every call, so a marker would pay the write price for nothing. In a chat the history is reused on the next turn, so the marker goes on the newest message and moves to the new one every turn.</p>
+<p>From Anthropic's documentation as of October 2026:</p>
+<ul>
+<li>The prefix order is tools, system prompt, messages.</li>
+<li>An entry lives 5 minutes (or 1 hour), and every hit renews it, whichever user made the hit.</li>
+<li>A write costs 1.25 times the normal input price (2 times for 1 hour), even if nobody reads it. A read costs 0.1 times on most models.</li>
+<li>A prefix below the model's minimum, between 512 and 4,096 tokens, is not cached, and no error says so.</li>
+<li>Caches are separate per organization and workspace.</li>
+<li>OpenAI caches automatically with no marker, from 1,024 tokens.</li>
+</ul>
+<p>Never assume the cache works. The response's <code>usage</code> object splits input into <code>cache_read_input_tokens</code>, <code>cache_creation_input_tokens</code> and <code>input_tokens</code> (uncached). If read and creation are both 0, nothing was cached. Log the three counts and chart read / (read + creation + input). The share is weighted by tokens, so it peaks below 1, at prefix / (prefix + tail): with a 6,000-token prefix and a 900-token tail, about 87%. A share stuck at zero means the prefix changes between calls or is under the minimum.</p>
+<p>One reuse within 5 minutes pays for the write: 1.25 + 0.1 = 1.35 instead of 2. Caching loses money only when most calls arrive alone, more than 5 minutes apart. The 1-hour lifetime pays when the first call is followed by at least two more within the hour.</p>
+
+<h3>An exact response cache skips the model call altogether</h3>
+<p>A <dfn>response cache</dfn> stores the finished answer under a key and, on a hit, makes no call. The language app's flow:</p>
+<ol>
+<li>Normalise the input (trim, lower-case) and build the key from it plus the language pair.</li>
+<li>Look up the row; if its version is current, return it.</li>
+<li>On a miss, call the model (prompt-cached).</li>
+<li>Validate the JSON; a failed answer is not stored.</li>
+<li>Write it with an <dfn>upsert</dfn> (insert, or update if the key exists).</li>
+</ol>
+<p>Normalise only as far as meaning allows: German "Weg" (path) and "weg" (away) share one lower-cased key. The key must include everything that changes a correct answer, such as the language or the <dfn>tenant</dfn> (one customer in a shared service).</p>
+<p>A shared row must hold no personal data and must not fit only one user. "I went" in French is "je suis allé" for a man and "je suis allée" for a woman, so the shared prompts write the neutral « allé(e) ».</p>
+<p>The model is not a pure function: the same prompt can give different answers, even at <dfn>temperature</dfn> 0 (the setting that lowers randomness). A cache freezes one answer and serves it to every user. Validate before storing, and let users report a bad answer so it is evicted. When two misses arrive at once, both call the model and the upsert keeps the last answer; the cost is one extra call.</p>
+
+<h3>A version number in each row invalidates old answers lazily</h3>
+<p>A stored answer goes stale when the prompt, output format or model changes. The read checks a version:</p>
+<p class="src">lomem: apps/tunatutor/backend/src/services/panel-content/repository.ts:39-43</p>
+<pre><code>  if (!row) return null;
+  if (row.schemaVersion &lt; PANEL_BUNDLE_SCHEMA_VERSION) return null;
+  return { bundle: row.bundle, model: row.model };</code></pre>
+<p>The version is a code constant, bumped in the same commit that changes the prompt, the output schema or the model. Each row stores its version. An older row counts as a miss and regenerates on its next read, so no expiry or migration job is needed. The key or version must cover everything that changes the answer, call parameters included.</p>
+<p>During a rolling deploy, an old instance can overwrite a row the new code just wrote. A write that updates only when the stored version is not higher prevents this.</p>
+
+<h3>A semantic cache matches by meaning and can return the wrong answer</h3>
+<p>An <dfn>embedding</dfn> is a list of numbers for a text, similar for similar meanings; <dfn>cosine similarity</dfn> scores two of them, roughly 0 to 1. A <dfn>semantic cache</dfn> returns a stored answer when the new question's score against its question is above a threshold such as 0.9.</p>
+<div class="example">
+<p><strong>Made-up example.</strong> A bank's assistant has cached the answer to "How do I cancel a card payment?". The next question, "How do I cancel a card?", scores above the threshold, so the customer gets steps for disputing a payment instead of blocking a lost card. No error is raised. If the cached answer to "What is my current balance?" is shared, the next customer sees someone else's balance.</p>
+</div>
+<p>Use it only for low-harm content with no personal data, scoped per tenant. Set the threshold from labelled question pairs, skip it if none separates them, and log each hit with the question it matched.</p>
+
+<h3>The smallest useful version is two steps</h3>
+<ol>
+<li>Order prompts stable-first, add a <code>cache_control</code> marker, and log the three input token counts.</li>
+<li>Add an exact cache for common questions with no personal content, with a version in each row compared on read.</li>
+</ol>
+<p>A mature version adds a hit-rate dashboard, the 1-hour lifetime for sparse traffic, pre-warming, a report button that evicts bad answers, and a tenant-scoped semantic cache only where it pays.</p>
+
+<div class="analogy">
+<p><strong>Java backend analogy.</strong> Prompt caching is like a database's plan cache for prepared statements: the server reuses work for identical text, and one changed character defeats it. The exact response cache is Spring's <code>@Cacheable</code> on Redis or a table, with a version column checked on read.</p>
+<p><strong>Where the analogy breaks:</strong> a prompt cache is chosen with a marker, billed, and visible in token counts. <code>@Cacheable</code> assumes the method returns the same result each time, and a model call does not.</p>
+</div>
+
+<h3>Common mistakes break the prefix or leak data</h3>
+<ul>
+<li>A timestamp near the top of the prompt, or tools listed in an unstable order (for example from a <code>HashMap</code>), changes the prefix on every call, so the hit rate is zero.</li>
+<li>The version is not bumped when the prompt or the model changes, so old answers are served after a deploy.</li>
+</ul>
+
+<div class="takeaways">
+<ul>
+<li>Prompt caching reuses only an exact prefix: stable text first, variable text last.</li>
+<li>Prove it works by logging the three input token counts.</li>
+<li>An exact response cache skips the model call. Keep personal data out, validate before storing, and let users evict a bad answer.</li>
+<li>Stamp rows with a version compared on read, and bump it with any change to the prompt, schema, model or call parameters.</li>
+<li>A semantic cache can return a fluent wrong answer or another user's data.</li>
+</ul>
+</div>
+
+<p class="note">Sources: <a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Anthropic, Prompt caching</a>; <a href="https://developers.openai.com/api/docs/guides/prompt-caching">OpenAI, Prompt caching</a>; <a href="https://docs.litellm.ai/docs/proxy/caching">LiteLLM caching</a>. Lomem code quoted from <code>~/projects/lomem</code> as of 2026-10-14.</p>
+</section>
