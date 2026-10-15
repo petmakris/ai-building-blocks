@@ -428,17 +428,12 @@ def parse_story(block: Block) -> Story | None:
         for k in ("title", "caption"):
             if not overview.get(k):
                 probs.append(f"Story/Overview: missing '- {k.capitalize()}:'")
-        svg = ROOT / "diagrams" / f"{block.id}.svg"
         spec = ROOT / "diagrams" / f"{block.id}.map.json"
-        if spec.exists():
+        if not spec.exists():
+            probs.append(f"Story/Overview: no diagrams/{block.id}.map.json")
+        else:
             import json
             title = json.loads(spec.read_text()).get("title", "")
             if title.strip() != overview.get("title", "").strip():
                 probs.append(f"Story/Overview: Title differs from diagrams/{block.id}.map.json's title ({title!r})")
-        elif not svg.exists():
-            probs.append(f"Story/Overview: no diagrams/{block.id}.svg")
-        if not spec.exists() and svg.exists():
-            ttl = " ".join(html.unescape(m) for m in re.findall(r'<text class="ttl"[^>]*>(.*?)</text>', svg.read_text()))
-            if ttl.strip() != overview.get("title", "").strip():
-                probs.append(f"Story/Overview: Title differs from the SVG's ttl text ({ttl!r})")
     return Story(hook, panel, idea, walk, steps, takeaways, trap, build, probs, overview)

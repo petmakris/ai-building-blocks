@@ -59,35 +59,12 @@ a { color: var(--cyan) }
 /* walkthrough */
 .walk h2, .take h2, .trap h2, .build h2, .next h2 { font-size: clamp(26px, 3vw, 34px); font-weight: 750 }
 .walk .lead { color: var(--dim); margin-top: 10px; max-width: 42em }
-.walk-grid { margin-top: 36px; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 44px; align-items: start }
-.stage { margin: 0; position: sticky; top: 84px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px }
-.stage svg { width: 100%; height: auto; display: block }
-.stage .cap { font-size: 13px; color: var(--dim); margin-top: 8px }
-.steps { display: flex; flex-direction: column; gap: 22vh; padding-block: 8vh 30vh }
-.step { border-left: 3px solid var(--line); padding: 6px 0 6px 22px; transition: border-color .25s, opacity .25s; opacity: .45 }
-.step.on { border-color: var(--accent); opacity: 1 }
 .step .n { font: 600 13px var(--mono); color: var(--accent) }
 .step h3 { font-size: 22px; font-weight: 700; margin-top: 4px }
 .step p { margin-top: 8px; color: var(--dim) }
 .step .fact { margin-top: 12px; font-size: 14.5px; background: var(--sunk); border-radius: 10px; padding: 10px 14px; color: var(--fg) }
 
 /* diagram marks */
-.lane-head rect { fill: var(--sunk); stroke: var(--line) }
-.lane-head text { fill: var(--fg); font: 600 16px var(--sans) }
-.lane { stroke: var(--line); stroke-dasharray: 3 5 }
-.st { opacity: .22; transition: opacity .3s }
-.st.on { opacity: 1 }
-.st.done { opacity: .55 }
-.st circle + text.num, .st .num { font-size: 12px }
-.st line, .st path { stroke: currentColor; stroke-width: 2; fill: none }
-.st.on line, .st.on path { stroke: var(--accent); stroke-width: 2.5 }
-.st text { fill: currentColor; font: 500 16px var(--sans) }
-.st.on text { fill: var(--fg) }
-.st .tag { font: 600 14px var(--mono) }
-.st text.bad, .st.on text.bad { fill: var(--bad) } .st text.ok, .st.on text.ok { fill: var(--sage) }
-.st circle { fill: var(--card); stroke: currentColor; stroke-width: 1.5 }
-.st.on circle { stroke: var(--accent); fill: var(--accent-soft) }
-.st .num { font: 700 11px var(--mono) }
 .dash { stroke-dasharray: 6 5 }
 
 /* takeaways */
@@ -128,13 +105,11 @@ a { color: var(--cyan) }
 @media (max-width: 860px) {
   body { font-size: 16px }
   .wrap { gap: 64px }
-  .hook, .walk-grid, .trap-box, .next { grid-template-columns: minmax(0, 1fr) }
+  .hook, .trap-box, .next { grid-template-columns: minmax(0, 1fr) }
   .hook { padding-top: 40px; gap: 28px }
-  .stage { top: 58px; z-index: 2 }
-  .steps { gap: 40vh; padding-block: 4vh 50vh }
   .bar .ref { display: none }
 }
-@media (prefers-reduced-motion: reduce) { .st, .step { transition: none } }
+
 
 /* generated-page additions */
 .bar #theme { font: 500 13px var(--sans); color: var(--dim); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer }
@@ -146,9 +121,6 @@ a { color: var(--cyan) }
 .refs a, .card .id a { color: var(--faint); text-decoration: none; border-bottom: 1px dotted currentColor }
 .refs a:hover, .card .id a:hover { color: var(--accent) }
 .bill .row.big .p { font: 800 44px var(--sans); color: var(--accent); line-height: 1 }
-.st .lbl { fill: currentColor }
-.st text.bad, .st.on text.bad { fill: var(--bad) } .st text.ok, .st.on text.ok { fill: var(--sage) }
-.stage svg { max-height: calc(100vh - 130px); width: auto; max-width: 100%; margin: 0 auto }
 .code { color: #e4e9e6 }
 .code .h { background: rgb(243 169 87 / .14); display: inline-block; width: calc(100% + 48px); margin-inline: -24px; padding-inline: 24px }
 .code .tag { color: #14181a; background: #f3a957; border-radius: 4px; padding: 0 5px; font-weight: 700; font-size: 11.5px; font-style: normal }
@@ -269,50 +241,17 @@ span.linenos.special { color: #e6edf3; background-color: #6e7681; padding-left: 
 
 /* phone: the diagram stays pinned in the top 45% of the screen; the step being read sits below it */
 @media (max-width: 860px) {
-  .stage { position: sticky; top: 54px; z-index: 3; padding: 8px; box-shadow: 0 10px 24px -14px rgb(0 0 0 / .4) }
-  .stage svg { width: 100%; max-height: 45vh; height: auto }
-  .stage .lane-head rect { fill: var(--card) }
-  .stage .cap { display: none }
-  .steps { gap: 28vh; padding-block: 52vh 40vh }
-  .step { background: var(--bg) }
 }
 
 /* code blocks: the inline-code style must not apply inside them */
 .code code { background: none; border: 0; border-radius: 0; padding: 0; font: inherit; color: inherit }
 .code { color: #e6edf3 }
 
-/* Overview: one hand-drawn diagram of the whole block, full width under the hook. */
+/* The block map, full width under the hook. */
 .ov { margin-top: 72px }
 .ov h2 { font-size: clamp(22px, 2.6vw, 30px); font-weight: 750; margin-top: 8px; max-width: 46em }
 .ov-fig { margin: 22px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 18px }
-.ov-scroll { overflow-x: auto }
-.ov-svg { display: block; width: 100%; min-width: 760px; height: auto; font-family: var(--sans) }
 .ov-fig figcaption { margin-top: 16px; font-size: 15px; color: var(--dim); max-width: 60em }
-.ov-svg .zl { font-size: 12.5px; font-weight: 600; letter-spacing: .08em; fill: var(--dim) }
-.ov-svg .bx { fill: var(--card); stroke: var(--line); stroke-width: 1.5 }
-.ov-svg .bx.blue { fill: var(--blue-soft); stroke: var(--blue) }
-.ov-svg .bx.red { fill: var(--red-soft); stroke: var(--red) }
-.ov-svg .bx.green { fill: var(--green-soft); stroke: var(--green) }
-.ov-svg .bx.amber { fill: var(--amber-soft); stroke: var(--amber) }
-.ov-svg .zone { fill: none; stroke-width: 1.5; stroke-dasharray: 6 5; stroke: var(--dim) }
-.ov-svg .zone.red { stroke: var(--red) } .ov-svg .zone.blue { stroke: var(--blue) }
-.ov-svg .nm { font-size: 15.5px; font-weight: 600; fill: var(--fg) }
-.ov-svg .sb { font-size: 13px; fill: var(--dim) }
-.ov-svg .zn { font-size: 13px; font-weight: 600 }
-.ov-svg .mono { font-family: var(--mono); font-size: 13px }
-.ov-svg .nm.mono { font-size: 14.5px }
-.ov-svg text.blue, .ov-svg tspan.blue { fill: var(--blue) }
-.ov-svg text.red, .ov-svg tspan.red { fill: var(--red) }
-.ov-svg text.green, .ov-svg tspan.green { fill: var(--green) }
-.ov-svg text.amber, .ov-svg tspan.amber { fill: var(--amber) }
-.ov-svg .lb { font-size: 13px; fill: var(--fg) }
-.ov-svg .ar { fill: none; stroke: var(--dim); stroke-width: 1.8 }
-.ov-svg .ar.blue { stroke: var(--blue) } .ov-svg .ar.red { stroke: var(--red) }
-.ov-svg .ah { fill: var(--dim) } .ov-svg .ah.blue { fill: var(--blue) } .ov-svg .ah.red { fill: var(--red) }
-.ov-svg .ttl { font-size: 22px; font-weight: 700; fill: var(--fg) }
-.ov-svg .ar.amber { stroke: var(--amber) } .ov-svg .ah.amber { fill: var(--amber) } .ov-svg .ar.green { stroke: var(--green) } .ov-svg .ah.green { fill: var(--green) }
-.ov-svg .dash { stroke-dasharray: 6 4 }
-.ov-svg .lk { fill: none; stroke: var(--green); stroke-width: 1.5; stroke-dasharray: 2 4 }
 .ov-get { margin-top: 10px; font-size: 14px; color: var(--dim) } .ov-get a { color: var(--accent) }
 /* Slides: one diagram fills the screen. */
 body.deck { padding: 0; height: 100vh; overflow: hidden; background: var(--card) }
@@ -320,7 +259,6 @@ body.deck { padding: 0; height: 100vh; overflow: hidden; background: var(--card)
 .slide { height: 100vh; display: flex; flex-direction: column; padding: 2vh 3vw 64px }
 .slide .sn { font: 600 13px var(--mono); color: var(--dim); letter-spacing: .06em; text-transform: uppercase }
 .sl-fig { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center }
-.sl-fig .ov-svg { width: auto; height: 100%; max-width: 100%; min-width: 0 }
 .deck-nav { position: fixed; bottom: 14px; right: 18px; display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--dim) }
 .deck-nav button, .deck-nav a { font: 500 14px var(--sans); color: var(--fg); background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; text-decoration: none }
 
@@ -330,7 +268,7 @@ body.deck { padding: 0; height: 100vh; overflow: hidden; background: var(--card)
 .walk-detail { margin-top: 18px }
 .walk-detail summary { cursor: pointer; font-weight: 600; color: var(--dim) }
 .steps.flat { display: grid; gap: 18px; margin-top: 14px }
-.steps.flat .step { opacity: 1; min-height: 0; border-left-color: var(--line) }
+.steps.flat .step { border-left: 3px solid var(--line); padding: 6px 0 6px 22px }
 .slide .sl-fig .vz-player { height: 100%; grid-template-rows: minmax(0, 1fr) auto auto; width: 100% }
 .slide .sl-fig .vz-stage { min-height: 0; display: flex; justify-content: center; overflow: hidden }
 .slide .sl-fig .vz-stage svg.vz { height: 100%; width: auto; max-width: 100%; min-width: 0 }

@@ -1,10 +1,9 @@
 """Render a block's Story section as the reader-facing page.
 
-The page reads top to bottom: hook, the overview diagram (a hand-drawn SVG from
-diagrams/<block>.svg), idea, a walkthrough whose diagram stays on
-screen and lights up the step being read, takeaways, the trap, the smallest
-version as code, and the way on. The diagram is drawn here as inline SVG from
-the walkthrough's marks, so every label comes from the store.
+The page reads top to bottom: hook, the block's map (diagrams/<block>.map.json),
+idea, the walkthrough as a lane sequence (diagrams/<block>.seq.json) with its
+steps in full below it, takeaways, the trap, the smallest version as code, and
+the way on. Both diagrams are drawn by the shared library (tools/vzlib.py).
 """
 from __future__ import annotations
 
@@ -42,87 +41,6 @@ CHAR = {"lbl": 8.6, "tag": 8.7}   # average glyph width at the stylesheet's size
 
 GUTTER = 44   # the step numbers live left of this line; no label may enter it
 
-
-def text_width(cls: str, label: str) -> float:
-    return len(label) * CHAR.get(cls.split()[0], 8.6)
-
-
-def fit_text(cls: str, x: float, y: float, label: str, anchor: str, W: float) -> str:
-    """Place a label so it stays inside GUTTER..W, moving it inward when it would spill."""
-    w = text_width(cls, label)
-    left = x - w / 2 if anchor == "middle" else x - w if anchor == "end" else x
-    if left < GUTTER:
-        x, anchor = GUTTER, "start"
-    elif left + w > W - 6:
-        x, anchor = W - 6, "end"
-    return f'<text class="{cls}" x="{x:.0f}" y="{y}" text-anchor="{anchor}">{E(label)}</text>'
-
-
-def diagram(story: Story) -> str:
-    lanes = story.walk["lanes"]
-    n = len(lanes)
-    G = 40                                   # left gutter for the step numbers
-    W = max(640, 130 * n + G)
-    gap = (W - G - 10) / n
-    x = {lane: G + gap * (i + 0.5) for i, lane in enumerate(lanes)}
-    box = min(gap - 18, 132)
-    out = []
-    y = 78
-    groups = []
-    for s in story.steps:
-        g = []
-        top = y
-        for mk in s.marks:
-            tone = f" {mk.tone}" if mk.tone in ("bad", "ok") else ""
-            if mk.kind in ("arrow", "event", "reply"):
-                y += 30
-                x1, x2 = x[mk.src], x[mk.dst]
-                d = 1 if x2 > x1 else -1
-                cls = ' class="dash"' if mk.kind in ("reply", "event") else ""
-                g.append(f'<line{cls} x1="{x1:.0f}" y1="{y}" x2="{x2 - 5 * d:.0f}" y2="{y}" marker-end="url(#ah)"/>')
-                lx = (x1 + x2) / 2
-                if mk.kind == "reply":
-                    g.append(fit_text(f"tag{tone}", lx, y + 19, mk.label, "middle", W))
-                    y += 26
-                else:
-                    g.append(fit_text(f"lbl{tone}", lx, y - 9, mk.label, "middle", W))
-            elif mk.kind == "self":
-                y += 20
-                xs = x[mk.src]
-                w = text_width("lbl", mk.label)
-                fits_right = xs + 44 + w <= W - 6
-                fits_left = xs - 44 - w >= GUTTER
-                d = 1 if (fits_right or not fits_left) else -1
-                g.append(f'<path d="M{xs:.0f} {y} h{34 * d} v24 h{-30 * d}" marker-end="url(#ah)"/>')
-                if fits_right or fits_left:
-                    g.append(fit_text(f"lbl{tone}", xs + 44 * d, y + 16, mk.label, "start" if d > 0 else "end", W))
-                    y += 28
-                else:   # no room beside the loop: the label gets its own line below it
-                    g.append(fit_text(f"lbl{tone}", GUTTER + 4, y + 46, mk.label, "start", W))
-                    y += 52
-            elif mk.kind == "tag":
-                y += 24
-                xs = x[mk.src]
-                g.append(fit_text(f"tag{tone}", xs + 10, y, mk.label, "start", W))
-                y += 8
-        cx = 20
-        cy = (top + y) / 2 + 4
-        g.append(f'<circle cx="{cx:.0f}" cy="{cy:.0f}" r="11"/><text class="num" x="{cx:.0f}" y="{cy + 4:.0f}" text-anchor="middle">{s.n}</text>')
-        groups.append(f'<g class="st" data-step="{s.n}">{"".join(g)}</g>')
-        y += 22
-    H = y + 18
-    heads = "".join(
-        f'<rect x="{x[l] - box / 2:.0f}" y="10" width="{box:.0f}" height="40" rx="9"/>'
-        f'<text x="{x[l]:.0f}" y="35" text-anchor="middle">{E(l)}</text>' for l in lanes)
-    lanes_svg = "".join(f'<line class="lane" x1="{x[l]:.0f}" y1="50" x2="{x[l]:.0f}" y2="{H - 10}"/>' for l in lanes)
-    label = "; ".join(f"step {s.n}: {s.title}" for s in story.steps)
-    return (f'<svg viewBox="0 0 {W:.0f} {H}" role="img" aria-label="{E(label)}">'
-            '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-            '<path d="M0 0 10 5 0 10z" fill="context-stroke"/></marker></defs>'
-            f'<g class="lane-head">{heads}</g>{lanes_svg}{"".join(groups)}</svg>')
-
-
-# ---------------------------------------------------------------- code
 
 def code_block(lang: str, code: str) -> str:
     try:
@@ -166,10 +84,9 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
 
     ov = story.overview or {}
     overview = ""
-    svg = ROOT / "diagrams" / f"{block.id}.svg"
     map_fig = vzlib.map_figure(block.id)
-    if ov and (map_fig or svg.exists()):
-        fig = map_fig or f'<div class="ov-scroll">{svg.read_text()}</div>'
+    if ov and map_fig:
+        fig = map_fig
         overview = (f'<section class="ov"><p class="kicker">The whole picture</p>'
                     f'<figure class="ov-fig">{fig}'
                     f'<figcaption>{inline(ov.get("caption", ""))}</figcaption>'
@@ -183,14 +100,9 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
         steps.append(f'<article class="step" data-step="{s.n}"><span class="n">Step {s.n}</span><h3>{inline(s.title)}</h3>'
                      f'<p>{inline(s.text)}</p>{fact}<p class="refs">{ref_links(s.refs)}</p></article>')
 
-    seq_fig = vzlib.sequence_figure(block.id)
-    if seq_fig:
-        walk_body = (f'<figure class="seq-fig">{seq_fig}</figure>'
-                     f'<details class="walk-detail"><summary>Each step in full, with its sources</summary>'
-                     f'<div class="steps flat">{"".join(steps)}</div></details>')
-    else:
-        walk_body = (f'<div class="walk-grid"><figure class="stage">{diagram(story)}<figcaption class="cap">Each step lights up as you read it.</figcaption></figure>'
-                     f'<div class="steps">{"".join(steps)}</div></div>')
+    walk_body = (f'<figure class="seq-fig">{vzlib.sequence_figure(block.id)}</figure>'
+                 f'<details class="walk-detail"><summary>Each step in full, with its sources</summary>'
+                 f'<div class="steps flat">{"".join(steps)}</div></details>')
 
     cards = "".join(
         f'<div class="card"><span class="n">{k}</span><h3>{inline(t)}</h3><p>{inline(x)}</p><span class="id">{ref_links(r)}</span></div>'
@@ -302,8 +214,6 @@ def slides(blocks: dict[str, Block], order: list[str], version: str) -> str:
     for b in order:
         head = f'{blocks[b].number:02d} · {E(blocks[b].front.get("title", ""))}'
         fig = vzlib.map_figure(b)
-        if not fig and (ROOT / "diagrams" / f"{b}.svg").exists():
-            fig = (ROOT / "diagrams" / f"{b}.svg").read_text()
         if fig:
             out.append(f'<section class="slide" id="{b}"><span class="sn">{head}</span><div class="sl-fig">{fig}</div></section>')
         seq = vzlib.sequence_figure(b)
