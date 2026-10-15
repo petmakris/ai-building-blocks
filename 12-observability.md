@@ -10,6 +10,98 @@ related: [evals, caching, guardrails, governance, structured, agents, tools, rol
 
 # Observability for LLM calls
 
+## Story
+
+### Hook
+- Headline: Five learners say a correct answer was marked wrong. ==Your logs show 200.==
+- Setup: A language app asks a model (an LLM, a service that takes text and returns text) to grade a learner's Portuguese. In this made-up incident, learners type `Eu sou um barista.`, which is correct, and the app marks it wrong. Nothing was deployed for a week, the logged call returned 200 in 1.4 seconds, and the error tracker is empty.
+- Teaser: A log can show what every model call cost. Nothing in it says whether the answer was right.
+
+### Panel
+- Title: GPT-4 finding prime numbers, same API name, three months apart
+- Row: March 2023 version | 84% | correct answers | struck
+- Row: June 2023 version | 51% | correct answers | accent
+- Row: Quality lost with no deploy | 33 points | | big
+- Source: Real numbers from a 2023 study. The 33-point drop is the difference of the two.
+- Refs: E7, N9, N10, C23
+
+### Idea
+- Sentence: Write ==one record per model call== with the exact text, the prompt version (which revision of your instructions to the model was sent) and the model that actually answered. Then score a sample of live calls to catch quality drops that no deploy of yours explains.
+- Analogy: It is distributed tracing plus APM plus a billing meter. The model call is one more timed downstream call. It also carries tokens (the units of text the vendor bills by) and cost. The analogy breaks at correctness. APM counts a fast 200 as a success, but a model's reply can be fast, return 200 and still be wrong. So you keep the reply text and score it, which APM never does.
+
+### Walkthrough
+- Title: A model changes behind its name. Here is how the records catch it.
+- Lead: A made-up incident on a real feature, with real model names. Every number in it is made up unless a step says otherwise. The grading prompt is at version 14. The app requests `gemini-flash-latest`, an alias: a model name the vendor can point at a different model.
+- Lanes: Wrapper, Gemini, Records, Checker, Owner
+- Step 1 · A wrong grade comes back as a success | refs: F1.6, F1.7, E1, P2
+  - Arrow: Wrapper → Gemini: grade, model gemini-flash-latest
+  - Reply: Gemini → Wrapper: 200 in 1.4 s · verdict wrong | bad
+  - Text: On Monday morning Google points the alias at a preview (pre-release) model. The grading feature now marks correct answers wrong. Every call is fast, returns 200 and throws nothing.
+- Step 2 · The wrapper writes one record per call | refs: F1.11, F1.14, C15, E2, N16
+  - Event: Wrapper → Records: v14 · preview model · $0.000196
+  - Event: Wrapper → Records: redacted prompt and reply
+  - Text: Every model call goes through one wrapper, a single function in your code. It logs the prompt version and the model the reply says answered, not only the one requested. It also stores the prompt and reply with names and emails scrubbed out. That text goes to a restricted table kept 14 days.
+  - Fact: The response model name `gemini-2.5-flash-preview-09-2025` is real.
+- Step 3 · A second model scores a 2% sample | refs: F1.15, F2.4, F2.6, C17, C25, N17, M6, M11
+  - Self: Wrapper: trace-ID hash mod 100 < 2
+  - Arrow: Records → Checker: redacted text and rubric
+  - Reply: Checker → Records: DISAGREE, stored as 0 | bad
+  - Text: Calls that finished normally (finish reason `STOP`, not failed and not cut off at the length limit or by the content filter) enter a random 2% draw. Drawn calls go on a queue, off the request path. A checker model, a second pinned model, reads the redacted text, the grader's verdict and a rubric (a written list of what counts as correct). It answers AGREE if the verdict is correct and DISAGREE if not, stored as 1 or 0.
+- Step 4 · The nightly job sees Monday fall below its band | refs: F2.7, F2.8, C29, C30, N20, N21, N23, N24, N25, Q9
+  - Self: Records: Monday 0.81, alert line 0.92
+  - Event: Records → Owner: alert at 06:00 Tuesday | bad
+  - Text: The agreement rate is the share of a day's scored calls where the checker agrees with the grader's verdict. The alert line is 0.92. It sits three standard deviations (how far the rate usually moves) below the rate's 30-day mean. Monday scores 0.81, so the alert fires at 06:00 Tuesday. The first learner reports come that afternoon.
+- Step 5 · Grouping by version shows the model moved | refs: F3.2, F3.4, C15, N26, Q7
+  - Arrow: Owner → Records: group by prompt_version, model
+  - Reply: Records → Owner: v14 both days · graded wrong 4% to 19%
+  - Text: The prompt version is 14 on every call, so no prompt edit caused it. The response model changes on Monday. With it, the share of answers graded wrong goes from 4% to 19%. The stored text lets the owner read the five reported calls.
+- Step 6 · Pin the model and replay ten times | refs: F3.6, F3.7, F3.8, C33, N27, M16
+  - Tag: Wrapper: request gemini-2.5-flash, pinned
+  - Arrow: Owner → Gemini: 5 stored prompts × 10 runs
+  - Reply: Gemini → Owner: 50 of 50 pass | ok
+  - Text: The team requests a fixed version name instead of the alias. The same prompt can give a different reply each run, so the owner replays each of the five stored prompts ten times. All fifty runs pass. The barista case joins the test set.
+
+### Takeaways
+1. A wrong answer returns 200 | The call is fast, throws nothing and leaves the error tracker empty. Only a quality score catches it. | P2, P7, Q16, M5
+2. Pin the checker and bill it | A checker on a moving alias changes along with the model it checks. Send its calls through the same wrapper under their own feature name, so its cost shows. | M11, M12
+3. Score about 200 calls a day | That keeps chance noise near 1.5 percentage points of the agreement rate. 200 is 2% of 10,000 calls a day, or 20% of 1,000. Score from a queue, never inside the request. | C31, E4, E10, N18, N19, M6
+4. Redact names inside the prompt text | A prompt is one long text field with names and emails under no sensitive key. Redact the text itself and keep it in a restricted table. | P8, M4, M10
+
+### Trap
+- Title: Keeping the text only for the sampled calls
+- Assume: "We score 2% of calls, so we only need the text of those 2%." | So the wrapper saves prompt and reply only when a call is picked for scoring.
+- Actually: With a 2% sample, a reported call is almost never in it. | Store the redacted text of every call for a short window, 14 days in the example, so the owner can read the five reported calls. Sample only the scoring.
+- Refs: M7, Q1, N16, E1
+
+### Build
+- Title: The smallest version is one wrapper that writes a record per call
+- Lead: Record the call, keep the redacted text, and sample it for scoring. This Java sketch is shortened from the made-up wrapper in example E9. It is a teaching sketch, not production code.
+- Refs: E9, F3.6
+- Code:
+```java
+static final String MODEL = "gemini-2.5-flash";             // [6] a fixed name, never an alias
+public GradeResult grade(GradeRequest req, long userId) {
+  Prompt prompt = prompts.get("translation_grade");         // name, version, text from the DB
+  String text = prompt.render(req), traceId = tracer.currentSpan().context().traceId();
+  long start = System.nanoTime();
+  ModelReply reply = null; GradeResult result = null;
+  try {
+    reply = client.call(MODEL, text);                       // [1] a wrong answer is still a 200
+    return result = parse(reply.text());
+  } finally {
+    long latencyMs = (System.nanoTime() - start) / 1_000_000;
+    CallRecord rec = CallRecord.of(traceId, "translation_grading", userId,
+        prompt, MODEL, reply, result, latencyMs);           // [2] response model read from reply
+    callLog.write(rec.withCost(prices.cost(rec)));          // [2] one line per call, failures too
+    callText.save(traceId, redactor.scrub(text),             // [2] redacted text, every call
+        reply == null ? null : redactor.scrub(reply.text()));
+    if (result != null && "STOP".equals(rec.finishReason())
+        && Math.floorMod(traceId.hashCode(), 100) < 2) evalQueue.send(traceId); // [3] finished normally, 2% drawn
+  }
+}
+```
+- Note: The checker (step 3), the nightly job (step 4) and the query (step 5) run over these records, outside the wrapper. One gap to fix before production: if the code in `finally` throws, its exception replaces the call's return value or the call's own exception. It needs its own try and a logged warning.
+
 ## Summary
 
 Observability for LLM calls records what the model saw, what it said and what it cost, in one record per model call: the exact text sent, the text that came back, the model and prompt version, the token counts, the cost and the time taken.

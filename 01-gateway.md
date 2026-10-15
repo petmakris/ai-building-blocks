@@ -10,6 +10,88 @@ related: [structured, tools, observability, caching, guardrails, governance, eva
 
 # The model gateway
 
+## Story
+
+### Hook
+- Headline: Your cheap model goes down. Nothing breaks. ==The bill quadruples.==
+- Setup: A rating feature calls a small model, a paid AI service. That model starts failing, the code falls back to a bigger one, and every answer still arrives. Nobody notices until someone asks why the same feature now costs four times as much, and who spent it.
+- Teaser: Every model call costs money, fails in its own ways and needs a secret key. Where does all that live?
+
+### Panel
+- Title: One rater call: 1,200 tokens (units of text) in, 150 out
+- Row: Gemini 2.5 Flash Lite | $0.00018 | $0.10 per 1M in · $0.40 per 1M out | struck
+- Row: Gemini 2.5 Flash | $0.000735 | $0.30 per 1M in · $2.50 per 1M out | accent
+- Row: Same request, after fallback | ×4 | | big
+- Source: Real list prices. The token counts are made up.
+- Refs: N2, N3, N5, N6, N21, N22, N23, E1
+
+### Idea
+- Sentence: Send every model call through ==one door== that knows who pays, which model to try next, how long to wait, and what each attempt cost.
+- Analogy: If you write Java: it is one outbound `RestClient` bean wrapped in a retry and a time limiter, plus a quota service, with every call required to carry a tenant id. Two things differ. Every call costs money, at its model's price. The backup is a different model, so it gives different answers.
+
+### Walkthrough
+- Title: The cheap model answers 503. Here is every step the gateway takes.
+- Lead: A made-up timeline with the real rules of a working gateway. The rater has a 2-second time budget, and both models are enabled.
+- Lanes: Feature, Gateway, Flash Lite, Flash, Spend log
+- Step 1 · Check who pays, before any network call | refs: C16, F1.2, E5
+  - Arrow: Feature → Gateway: rate this answer
+  - Tag: Gateway: who pays? userId 42 · "onboarding_level_chat" ✓
+  - Text: Every request carries a usage context: a user and a feature, or, for a background job, a written reason. A call without one is refused on the spot, so no request reaches the provider without someone to charge it to.
+  - Fact: The user id `42` is made up; the feature name `onboarding_level_chat` is real. The rule is real: no context, no call.
+- Step 2 · Build the list of models to try | refs: C26, F1.3, F1.4
+  - Self: Gateway: list: [Flash Lite, Flash]
+  - Text: The model the feature asked for goes first. Every other enabled model follows, in priority order. That tail is the fallback list.
+- Step 3 · Retry only what a retry can fix, inside the budget | refs: F2, C30, C32, C33
+  - Arrow: Gateway → Flash Lite: call, 2 s budget
+  - Reply: Flash Lite → Gateway: 503 · next try after 3 s → give up | bad
+  - Text: A 429 (rate limit) or a 500, 502, 503 or 504 might pass on a second try. A 400 or 401 never will, so it is not retried. The 503 used the first try. The second would come only after a 3-second wait. That wait does not fit the 2-second budget, so the gateway gives up on Flash Lite.
+- Step 4 · Write down the failure too | refs: C35, F1.8c, C22, M7
+  - Event: Gateway → Spend log: Flash Lite · 0 tokens · error
+  - Text: The failed attempt reports no tokens. It is still recorded, as a zero-token row marked as an error.
+- Step 5 · Fall back to the next model | refs: C27, F1.5, C33, E3
+  - Arrow: Gateway → Flash: fallback, fresh 2 s budget
+  - Reply: Flash → Gateway: 200 at 1.1 s · 1,200 in · 150 out | ok
+  - Text: Flash gets a fresh 2-second budget and answers about 1.1 seconds after the call began. The feature never sees the outage. Its answer now comes from a different model, which writes different answers.
+- Step 6 · Price the attempt the moment it happens | refs: C23, F4, C20, E1
+  - Arrow: Gateway → Spend log: Flash · $0.000735 · priced now
+  - Arrow: Gateway → Feature: the answer
+  - Text: The tokens are priced at the rates in force when the row is written, and later price edits never change it. The rows (one for input, one for output) are written to the spend log in the background, while the answer goes back. A cost report is then one `GROUP BY` over feature, user or model. That is how someone finds the ×4.
+
+### Takeaways
+1. A model is a paid HTTP API | You rent it from a provider and pay per token, with separate prices for what you send and what it writes. Cost is measured from each response, after the fact. | C2, C6, C7, C23
+2. No payer, no call | Every call names a user and a feature, or a reason. The check runs before any request leaves your system. | C16
+3. Retry 429 and 500, 502, 503, 504, never other 4xx | Retries wait 3 s, then 6 s, unless the provider asks for another wait, and never past 30 s. Every wait counts against the model's time budget, so the default 3 s wait never fits the rater's 2 s budget; only a shorter wait the provider asks for does. | F2, C30, C32, C33
+4. A fallback is another model | It changes the answers and the price. Each model gets a fresh budget, so the worst-case wait is the budget times the number of models. | C26, C27
+5. Record every attempt | Failures get a zero-token row. A timeout on your side can still be a bill on theirs. | C35, F4, C22, M7
+
+### Trap
+- Title: Treating the fallback like a replica
+- Assume: "If the main model is down, the backup does the same job." | So fallback is switched on and forgotten, like a second database node behind a load balancer.
+- Actually: The backup is a different product with a different price. | It writes different answers and can cost four times as much. Watch spend per model so a quiet fallback shows up in a report.
+- Refs: C27, E1, M10
+
+### Build
+- Title: The smallest gateway is one class with five jobs
+- Lead: Hold the key, retry, keep each model inside a time budget, fall back, and record every attempt, after refusing any call with no payer. This Java sketch shows the call loop; the key lives inside `postWithRetries`, shown in full in E14. It is a teaching sketch, not production code.
+- Refs: E14
+- Code:
+```java
+public LlmAnswer call(UsageContext ctx, String model, String prompt, Duration budget) {
+  ctx.validate();                                      // [1] who pays, before any HTTP request
+  for (String m : modelList(model)) {                  // [2] named or default model, then fallbacks
+    try {
+      ProviderResponse r = postWithRetries(m, prompt, budget); // [3] retries inside a [5] fresh budget
+      spend.record(ctx, m, r.inputTokens(), r.outputTokens(), false); // [6] price and log
+      return new LlmAnswer(r.text(), m, r.finishReason());
+    } catch (ProviderException e) {
+      spend.record(ctx, m, 0, 0, true);                // [4] zero-token error row, then [5] next model
+    }
+  }
+  throw new AllModelsFailedException();               // the caller must degrade
+}
+```
+- Note: The numbers match the six steps above. Gaps to fix before production: only `ProviderException` is caught, so any other exception, such as a network timeout not wrapped in one, gets no spend row, skips the fallback and goes straight to the caller. It also has no branch for a caller abort, and `validate()` does not reject a non-positive user id.
+
 ## Summary
 
 A model gateway is one module, or one proxy service, that every part of a system must use to call a language model [S1].

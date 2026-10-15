@@ -10,6 +10,96 @@ related: [gateway, structured, guardrails, hitl, governance, caching]
 
 # Shadow mode, flags and the feedback loop
 
+## Story
+
+### Hook
+- Headline: A new prompt ships, every dashboard stays green, and ==its answers are wrong.==
+- Setup: A prompt is the instruction text the app sends to the model. A model that gives a wrong answer still returns HTTP 200 with well-formed JSON, in normal time. Error rates, exceptions and latency stay flat. The feature passed every test before release. Real users send inputs no test set covered, so the first one to see the failure is a user.
+- Teaser: Your eval, a scripted run over fixed cases with the real model, passed. How does the new behaviour meet real users without betting them on it?
+
+### Panel
+- Title: A second model could grade the chat for 15 seconds because the learner never waited for it
+- Row: Language-tutor reply | 4 s | gemini-2.5-flash, the learner waits for it | 
+- Row: Judge: the same model grading the chat | 15 s | runs in the background, its answer never shown | accent
+- Row: Learner's wait for the judge | 0 s | the reply returns without waiting for the judge | big
+- Source: Real time limits from Lomem's code at commit 8fa41788f.
+- Refs: N1, N3, N5, C12, X2, X5
+
+### Idea
+- Sentence: New AI behaviour ==earns its way to users in stages==: it first runs unseen on real traffic (shadow mode), a flag turns it on only when measured numbers clear a bar written down beforehand, and every confirmed failure becomes a new test case.
+- Analogy: In a classic backend, shadow mode is a dark launch, or GitHub's Scientist library. Scientist runs new code next to the current code, returns the current result and logs mismatches. The analogy breaks on mismatches: two different model answers can both be right. So a mismatch needs a rule in code and a person to judge it.
+
+### Walkthrough
+- Title: A judge model disagrees with the rules. Here is every step before anyone trusts it.
+- Lead: In Lomem's language app, a tutor chats with a learner. Rules in code place the learner at a level from A1 (beginner) to B2, and the learner sees that level. The judge grades the same chat in shadow mode, so the learner still sees the rules' level. The chat below is real test data from the code. The readout numbers in step 6 are made up.
+- Lanes: Learner, Server, Judge, DB, Team
+- Step 1 · Start the judge once, then answer without waiting | refs: F1.4, F1.5, F1.6, F1.8, C10, C12
+  - Arrow: Learner → Server: the answer that reaches the wind-down
+  - Self: Server: claim the judge for this chat ✓
+  - Arrow: Server → Learner: tutor reply, no wait for the judge
+  - Text: When the chat reaches its wind-down, or is force-closed, the server claims the judge: it writes a start time in the database. The claim succeeds only once, so the judge runs at most once per chat. The server starts the judge in the background. It returns the tutor's reply without waiting.
+- Step 2 · The judge reads the answers, never the rules' level | refs: F2.1, F2.2, F2.3, C10, C41, X5, M18, E1
+  - Arrow: Server → Judge: answered turns + their facts
+  - Reply: Judge → Server: B2 · cited turns 5 and 7
+  - Text: A turn is one tutor question plus the learner's answer. Each answer already carries facts: fields such as its text type and whether its meaning was clear. The judge gets the answered turns and their facts. It never gets the rules' level, so it cannot copy it. It replies in JSON with a level and its cited turns, the turns it relied on.
+- Step 3 · Check in code whether the judge's level is backed by evidence | refs: F3.1, F3.4, F3.5, F3.6, F3.7, E1, C11, C40
+  - Self: Server: rules say B1 · judge says B2, one level up
+  - Self: Server: 2 cited turns pass the B2 check · no B2 question failed
+  - Tag: Server: accepted · would change the level
+  - Text: A judge two or more levels away from the rules is rejected. A judge one level up needs two things. First, at least two cited turns whose facts pass the code's check for that level. Second, no question at that level that the learner failed.
+  - Fact: Real test case. Had the judge cited only turn 5, the verdict would be rejected.
+- Step 4 · Store the comparison next to the answer | refs: F2.7b, C13, M3, K6
+  - Event: Server → DB: judge_level B2 · judge_would_change true
+  - Text: The server stores the judge's level and whether it would change the rules' level. It writes only the judge's own columns. Later, someone can count disagreements without re-running anything.
+- Step 5 · The learner still sees the rules' level | refs: F2.8, F2.9, F2.10, F4.5, C9, C14, Q1
+  - Arrow: Server → Learner: your level: B1
+  - Self: Server: judge error → log it, keep the rules' level
+  - Text: Nothing the judge says reaches the learner yet. If the judge fails, the server logs it, stores nothing and keeps the rules' level.
+- Step 6 · A person reads the disagreements against a bar written first | refs: F4.1, F4.2, F4.3, F4.4, F4.4a, F4.5, E2, E3
+  - Tag: Team: bar written first: right in ≥ 30 of 38
+  - Arrow: Team → DB: count judge_would_change
+  - Reply: DB → Team: 38 of 412 chats
+  - Text: Once enough chats have run, the team counts the stored disagreements. A person reads each one and notes whether the judge or the rules placed the learner right. If the judge clears the bar, a flag shows learners the judge's accepted level. If not, the judge is dropped.
+  - Fact: 412, 38 and the bar of 30 are made up. Lomem dropped its real judge the same day it was added. Because it only ran in shadow, no learner saw a change.
+
+### Takeaways
+1. Wrong answers look like right ones | A wrong answer is a fast HTTP 200 with valid JSON, so error rates and latency miss it. Measure what users do with the answer instead: edit it, discard it, retry it. | P1, C25, M6
+2. Shadow first, off the request path | Run the new behaviour in the background, with no side effects. Store the comparison while users see the old result. | C9, C12, C13, M3
+3. Write the bar before the numbers | A flag flips only when an eval clears bars fixed in advance. | C5, C6, C7, C22, M7
+4. Failures become eval cases | A confirmed failure, stored with the turn it is about, becomes a new eval case. | C31, C33, C34, C35
+
+### Trap
+- Title: Counting every mismatch as an improvement
+- Assume: "The new model answered differently, so it caught what the old behaviour missed." | So the team counts mismatches, as GitHub Scientist does for code, and ships when the count looks high.
+- Actually: Two model answers can both be right, so a mismatch is not a bug in the old answer. | Count a difference only when a rule in code finds evidence for it. Have a person read the disagreements against a bar written before reading.
+- Refs: M5, M7, C11, C39, P4
+
+### Build
+- Title: The smallest shadow mode is one async method and one flag
+- Lead: Compute the current result, grade it again in the background, compare in code, store the new result and the comparison, and flip a flag only after the readout. This Java sketch is for teaching. Lomem's real code is TypeScript.
+- Refs: F13, K22, C9, C12, F1.5, F2.10
+- Code:
+```java
+public Level placement(Chat chat) {
+  Level current = rules.level(chat);                         // the rules' level, which the user sees
+  if (NEW_GRADER_ON) return candidateOrCurrent(chat, current); // [6] flipped only after the readout
+  shadow.shadowGrade(chat, current);                         // [1] start, don't wait
+  return current;                                            // [5] the user still sees the rules' level
+}
+
+@Async   // a separate thread pool, never the request thread
+public void shadowGrade(Chat chat, Level current) {
+  try {
+    Level candidate = grader.grade(chat);                    // [2] gets the chat, never `current`
+    boolean candidateWins = comparisonRule.candidateWins(current, candidate); // [3] evidence check in code
+    chatRepository.saveShadow(chat.id(), candidate, candidateWins);           // [4] level and comparison
+  } catch (Exception e) {
+    log.warn("shadow grader failed, current level stands", e); // [5] failure keeps the rules' level
+  }
+}
+```
+- Note: Each [n] marks the code for walkthrough step n. The sketch skips step 1's claim, so the same chat can be graded twice. Lomem claims the chat first: it sets `judge_started_at` only where it is still empty.
+
 ## Summary
 
 Rollout of AI behaviour is the set of steps that move a new model-driven behaviour from "built" to "seen by every user" while measuring its quality on real traffic at each step.

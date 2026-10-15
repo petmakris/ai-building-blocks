@@ -10,6 +10,97 @@ related: [tools, structured, memory, rag, agents, hitl, guardrails, caching, obs
 
 # Context engineering
 
+## Story
+
+### Hook
+- Headline: Send the model the whole chat, and ==it gets more answers wrong.==
+- Setup: A language model (the AI that writes the replies) remembers nothing between calls. So every request must carry the conversation again. The easy fix is to send all of it. A context window (the most text one call can carry) of a million tokens holds plenty; tokens are the word pieces a model reads and bills by. In a 2025 test, 18 models answered questions about a long chat better when given only the roughly 300 tokens that held the answers than when given all roughly 113,000.
+- Teaser: If more text makes answers worse, some code must pick, on every call, what the model sees.
+
+### Panel
+- Title: Same questions about one long chat, 18 models
+- Row: Full chat history | ~113,000 tokens | fewer correct answers | struck
+- Row: Only the relevant part | ~300 tokens | more correct answers | accent
+- Row: Models that did better with less | 18 of 18 | | big
+- Source: Real figures from Chroma's July 2025 study. Only which version scored higher is recorded here, not the scores.
+- Refs: N38, N39, N40, N41, E8, C26
+
+### Idea
+- Sentence: On every call, ==build the model's whole view from scratch==: choose, order and trim the text so the smallest set that does the job fits a hard token limit.
+- Analogy: In backend terms, it is an endpoint that builds one response object from several sources under a hard size limit. The history is a newest-first paged query. Tool calls (the model asking the server to run a function) are lazy loading. The difference is that the model reads the payload as free text. Order and wording change what it does. A correct but irrelevant field makes its answer worse.
+
+### Walkthrough
+- Title: The person types "Mark it paid, by e-banking." Here is how the server builds what the model sees.
+- Lead: Ask Billpod is a chat panel in a household-bills app. The person first asked whether the electricity bill was paid, and the model said not yet. Names and values are made up; rules and limits are real.
+- Lanes: Browser, Assembler, Model, Bill tools
+- Step 1 · The browser resends the whole conversation | refs: C1, C20, F1.2
+  - Arrow: Browser → Assembler: 3 messages, never more than 40
+  - Text: The browser holds the chat and sends it with every new message, at most the newest 40. The server stores none of it.
+- Step 2 · Trim the history to a budget, newest first | refs: F4, C18, N6, N4, C4, C47, E5
+  - Self: Assembler: keep the newest within 24,000 chars
+  - Text: The server walks back from the newest message, adding up characters. Older messages that do not fit are dropped whole. Model APIs expect turns to alternate, starting with the person. So the kept slice must start on a message from the person, never on a model reply. Characters stand in for tokens because counting characters is free.
+  - Fact: A common rule of thumb, unverified, is four characters of English per token. By it, 24,000 characters is about 6,000 tokens.
+- Step 3 · Write in the facts the model cannot know | refs: C17, C8, F7.4, M2
+  - Self: Assembler: system prompt + Tue 2026-10-13, CHF
+  - Text: The model has no clock. The system prompt is the developer's instructions, sent in a field of their own. The server writes into it today's date in the household's timezone, plus the currency and language.
+- Step 4 · Call the model with prompt, tools, history and message | refs: C16, F1.12, F1.14, C28, X7, E1, E2
+  - Arrow: Assembler → Model: prompt · 46 tools · history · message
+  - Reply: Model → Assembler: which bill? call find_bills
+  - Text: The request carries the system prompt, 46 tool definitions (functions the model may ask the server to run), the trimmed history and the new message. The history keeps the text of earlier answers but drops their tool results. The bill id was in those results, so the model asks to look the bill up again.
+- Step 5 · Fetch the bill fresh, because bills change | refs: C28, M3, E3, F1.21b
+  - Arrow: Assembler → Bill tools: find_bills("electricity")
+  - Reply: Bill tools → Assembler: b_19 · version 3 · 84.20 CHF | ok
+  - Text: Billpod drops old tool results on purpose: a bill shown as unpaid earlier may be paid by now. Fetching only the bill it needs gives the model just the relevant part. The server appends the call and its result to the messages and calls the model again.
+- Step 6 · Pause the loop for the person's yes | refs: C23, C22, F1.21, F1.23, F1.24
+  - Reply: Model → Assembler: call mark_paid b_19
+  - Arrow: Assembler → Browser: card + sealed ticket
+  - Text: mark_paid is on a fixed list of writes that need the person's yes on a card; reads and four plain additions run at once. The server seals the tool calls and results made for this message so far, with large results replaced by a short note, plus the exact mark_paid call, into an approval ticket. The ticket is an encrypted blob the browser can neither read nor change. The server sends the card and ticket, ends the HTTP request and keeps nothing.
+- Step 7 · Resume from the ticket and stop on a reply with no tool calls | refs: F2.2, F2.14, F2.15, C14, N12, E4
+  - Arrow: Browser → Assembler: yes + same chat + ticket
+  - Reply: Model → Assembler: "Done" · no tool calls | ok
+  - Text: The browser sends the same chat again, plus the ticket. The server restores the tool calls from the ticket, runs mark_paid and calls the model a third time. A reply with no tool calls ends the loop. Billpod also caps the loop at 6 model calls per answer, counted across the pause; a resumed turn always gets one more, so 7 at most.
+  - Fact: This message took 3 model calls across 2 requests from the browser.
+
+### Takeaways
+1. The browser carries the conversation | Every request must carry it, because the model keeps nothing. Billpod's browser resends it, and the server stores none of it. | C1, C20
+2. A fuller window answers worse | Irrelevant text lowers accuracy long before the window's token limit. Send the smallest context that does the job. | C26, C5, M1
+3. Trim whole messages, newest first | Keep the newest that fit a budget, start on the person's message, and never cut one in half. | C18, F4, M5
+4. Fetch data again, never replay it | Old tool results go stale. Keep a one-line outcome note and let the model read again. | C28, C19, M3
+
+### Trap
+- Title: Sending everything because it fits
+- Assume: "The window holds a million tokens, so send every bill and the whole chat." | Like extra fields in a JSON payload, they cost a little bandwidth and the consumer ignores them.
+- Actually: Extra text makes the model worse, not only slower and dearer. | Context rot (answers getting less reliable as the window fills) starts long before the limit. In a made-up example, last October's electricity bill sits next to this one, and the model could mark the wrong bill paid. Send the smallest set that does the job and fetch the rest with tools.
+- Refs: M1, Q14, C26, C27, E7
+
+### Build
+- Title: The smallest assembler is one method with a loop
+- Lead: Take the browser's chat, trim it, add the facts the model cannot know, and loop over tool calls with a cap. Billpod's real code is TypeScript; this is a Java teaching sketch of the same order of steps, not production code.
+- Refs: X8, X6, X15, X16, F4, F1.14, C23, C42
+- Code:
+```java
+public Reply answer(List<Message> fromBrowser, Household h) {    // [1] the browser sends the chat
+  List<Message> history = trimNewestFirst(fromBrowser, 24_000);  // [2] whole messages, start on user
+  String system = RULES + "Today is " + h.today() + " (" + h.zone() + "). Currency: " + h.currency(); // [3]
+  List<Message> transcript = new ArrayList<>();
+  for (int step = 0; step < 6; step++) {                          // [7] stop after 6 calls
+    ModelReply r = gateway.call(system, TOOLS, concat(history, transcript), MAX_OUTPUT_TOKENS); // [4] 2048
+    if (r.toolCalls().isEmpty()) return Reply.text(r.text());    // [7] no tool calls: done
+    transcript.add(Message.assistant(r.toolCalls()));
+    List<Result> results = new ArrayList<>(); ToolCall card = null;
+    for (ToolCall c : r.toolCalls()) {
+      if (card != null && c.isWrite()) results.add(Result.notRun(c)); // [6] one card at a time: later writes are not run
+      else if (needsCard(c)) card = c;                           // [6] hold this call for the person's yes
+      else results.add(tools.run(c));                            // [5] reads and the 4 additions run now
+    }
+    if (card != null) return Reply.card(seal(transcript, results, card)); // [6]
+    transcript.add(Message.tool(results));
+  }
+  return Reply.text("Stopped after 6 steps.");
+}
+```
+- Note: Each [n] marks the code for walkthrough step n. Resuming from a ticket, the start of step 7, is left out. Like Billpod, the sketch does not log the assembled request. So when an answer is wrong, there is no record of what the model was shown.
+
 ## Summary
 
 A language model answers only from the text sent to it in one request, and that text has a hard size limit measured in tokens (the context window). Context engineering is the server code that chooses, orders and trims that text for every call: system prompt, tool definitions, trimmed history, the new message, and this answer's tool calls and results. It exists because the model keeps no state between calls, so every call must carry everything it needs, and because a request that is too full gives less reliable answers (context rot) as well as costing more. A classic backend never had this problem: a database or service keeps its own state, and a bigger payload never makes it reason worse. In Lomem, Ask Billpod does the basic version (one assembler, a character budget for history, facts the model cannot know, just-in-time tool reads, a step cap); it does none of the long-running-agent techniques (compaction, clearing tool results, notes outside the window, sub-agents), does not log the assembled request and does not count real tokens before a call.

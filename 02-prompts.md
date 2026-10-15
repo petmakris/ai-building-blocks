@@ -10,6 +10,96 @@ related: [context, structured, tools, memory, evals, observability, caching, gov
 
 # Prompts as versioned configuration
 
+## Story
+
+### Hook
+- Headline: The right code shipped. ==The model still read older rules.==
+- Setup: Tunatutor, a language-tutor app in the Lomem repo, sends a block of teaching rules to the model, the AI that writes the replies, on every call. That text is the first block of the prompt; code adds more blocks after it. The rules live in code and also in a database row, so an admin can edit them. A seed script, the SQL that fills a fresh database, had put an old copy in that row. At startup the app preferred the database copy. Builds passed, tests passed and the replies stayed fluent. Only a linguist reviewing replies noticed that two rules never showed up.
+- Teaser: Calling a model is the easy part. Keeping the words you send in one place, with a version on them, is where this app went wrong.
+
+### Panel
+- Title: The July 2026 stale prompt row
+- Row: Numbered rules in the code copy | 15 | DEFAULT_LAYER1_TEMPLATE | accent
+- Row: Rules 14 and 15 in the copy the model read | missing | old row from the seed SQL | struck
+- Row: Tests that failed | 0 | the golden tests, which compare the prompt with a saved file, read the code copy | big
+- Row: Found by | a linguist, 2026-07-10 | reviewing replies |
+- Source: All values are real, from tunatutor's code and the July 2026 incident record (E1).
+- Refs: N1, N2, N16, E1, X22, X27, C12
+
+### Idea
+- Sentence: A prompt is configuration that changes what the feature does, so keep ==one copy==, test the exact text the model reads, stamp its version on every result, and be able to roll it back.
+- Analogy: A prompt template is like a string in an i18n message file: text with named slots filled per request. The difference is that the model decides what the text means, not your code. So you learn what an edit did only by running many inputs.
+
+### Walkthrough
+- Title: The stale row is still in the database. Here is every step the fixed startup takes.
+- Lead: A replay of today's fixed startup against the July row. The steps follow the real code and its test case for a stale, never-edited row (E5 Case A).
+- Lanes: App, Database, Cache, Model
+- Step 1 · Register the code copy before reading anything | refs: F1.1, C42, X18, X2, C8
+  - Self: App: register ai-tutor-layer1 · 8 slots
+  - Text: The app records the prompt's key, its default text in code, and the 8 placeholders (`{{name}}` slots) that code fills. Engineers review this code copy in git.
+- Step 2 · Load the database row into the cache | refs: F1.2, F1.3, C44, F11.2, N2
+  - Arrow: App → Database: read row ai-tutor-layer1
+  - Reply: Database → App: old text · no rules 14, 15 | bad
+  - Arrow: App → Cache: keep the row's text
+  - Text: Each process keeps the row's text in memory, so building a prompt reads the cache, not the table. Before the fix, startup ended here and the row won. Steps 3 to 5 are the fix.
+- Step 3 · Compare the cached text with the code copy | refs: F1.5, F1.5a, C26
+  - Self: App: cached text ≠ code default
+  - Text: If the two are equal there is nothing to heal. Here they differ, so the app must decide which copy wins.
+- Step 4 · Ask whether a person ever edited the row | refs: F1.7, F1.7a, C27, X14, E5
+  - Arrow: App → Database: count archived versions
+  - Reply: Database → App: 0 → never edited by an admin | ok
+  - Text: Every admin save that changes the text first copies the old text into an archive table. Zero archived versions means no person changed it, so the code copy wins. A count above zero keeps the admin's text.
+- Step 5 · Reset the row without writing an archive | refs: F1.8, F1.9, X13, E6, M3
+  - Arrow: App → Database: write code default · archive: false
+  - Arrow: App → Cache: reload the healed text
+  - Text: The heal writes the code copy over the row. It writes no archive row, because an archive row would make the row look admin-edited and stop later heals.
+- Step 6 · Fill the slots and send the whole prompt on each turn | refs: F2.0, F2.3, F2.4, F2.8, C7, C6, N16
+  - Arrow: Cache → App: rules text, at session start
+  - Arrow: App → Model: rendered prompt with all 15 rules
+  - Reply: Model → App: a fluent reply | ok
+  - Text: A session reads the rules from the cache once, when it is created or reopened. On every turn, code computes the 8 slot values from the learner's level and the practice scene. The filled text goes to the model with every call.
+- Step 7 · Stamp the prompt version and model on the result | refs: F8.4, C13, C14, C15, X32
+  - Event: App → Database: note · prompt "v1" · model id
+  - Text: Tutor replies carry no stamp today. Tunatutor's other prompt, the lesson-note writer, does. It saves its prompt version and the model id (the vendor's exact model name) in two columns on each note. Months later you can see which prompt and which model wrote a bad note.
+
+### Takeaways
+1. A prompt edit changes behaviour | The model reads the text on every call. No compiler or type check sees an edit, and a wrong prompt still gives fluent replies. | C9, C12, P1, P4
+2. Keep one copy, decide who wins | Tunatutor's rule: the code copy wins unless an admin edited the row. A startup heal resets unedited stale rows. | C24, C26, X17
+3. Version the rendered text | Change the version on any change to the text the model reads, including the code that fills a slot. Store the model id in its own field. | C13, C14, M4, M5
+4. Golden tests pin text only | A golden test compares the rendered prompt byte for byte with a saved file. To learn whether replies got better, run an eval, a scored run of fixed inputs on old and new versions, or have a domain expert read replies from both. | C17, C19, M9
+
+### Trap
+- Title: Trusting golden tests to catch a stale copy
+- Assume: "The golden tests pin the prompt, so a wrong prompt fails the build." | So the database copy feels covered by the same tests.
+- Actually: The golden tests feed in the code copy, never the database row. | In July they stayed green while the model read the stale row. The fix deleted the row from the seed SQL. A drift test now reads that SQL file and fails if it inserts the row, and the startup heal resets a stale row that slips through.
+- Refs: M8, Q1, E1, X21, X22, X27, X17
+
+### Build
+- Title: The fix is three calls at startup and one small heal function
+- Lead: This is tunatutor's real TypeScript from the Lomem repo, trimmed from X18 and X17. The trim drops a one-off check for one legacy row.
+- Refs: X17, X18, X16, C16, C13
+- Code:
+```ts
+registerPromptTemplate(LAYER1_KEY, {                    // [1] code copy + its slots
+  defaultContent: DEFAULT_LAYER1_TEMPLATE,
+  variables: LAYER1_TEMPLATE_VARIABLES,
+});
+await loadTemplateCache(LAYER1_KEY);                    // [2] row text into the cache
+await healStaleTemplate(LAYER1_KEY);
+
+export async function healStaleTemplate(key: string): Promise<void> {
+  const registration = getTemplateRegistration(key);
+  if (!registration) return;
+  const content = getCachedTemplate(key);                // [3] compare cache with code copy
+  if (content === registration.defaultContent) return;
+  const versionCount = await countTemplateVersions(key); // [4] admin-edited? keep theirs
+  if (versionCount > 0) return;
+  await resetPromptTemplate(key, { archive: false });   // [5] code copy over row, no archive
+  await loadTemplateCache(key);
+}
+```
+- Note: Markers [1] to [5] mark where steps 1 to 5 start. One gap before production: tutor replies carry no prompt version. Stamp each reply with a hash of the text it used, because a constant like the lesson notes' "v1" does not change when an admin edits the row.
+
 ## Summary
 
 A product feature built on a language model is steered by a block of plain-language instructions, the prompt, which code sends to the model service with every request (S6).

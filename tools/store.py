@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 HEADINGS = [
-    "Summary", "Problem", "Concepts", "Components", "Flows", "States",
+    "Story", "Summary", "Problem", "Concepts", "Components", "Flows", "States",
     "Worked examples", "Variants and options", "Facts and numbers",
     "Code in Lomem", "Analogy to classic backend", "Pitfalls",
     "Misconceptions", "Open questions", "Sources",
@@ -260,3 +260,158 @@ def load(path: Path) -> Block:
 
 def load_all() -> list[Block]:
     return [load(p) for p in sorted(ROOT.glob("[0-9][0-9]-*.md"))]
+
+
+# ---------------------------------------------------------------- story layer
+
+@dataclass
+class Mark:
+    kind: str            # arrow | reply | event | self | tag
+    src: str
+    dst: str
+    label: str
+    tone: str = ""       # bad | ok | ""
+
+
+@dataclass
+class StoryStep:
+    n: int
+    title: str
+    refs: list[str]
+    marks: list[Mark]
+    text: str = ""
+    fact: str = ""
+    line: int = 0
+
+
+@dataclass
+class Story:
+    hook: dict[str, str]
+    panel: dict
+    idea: dict[str, str]
+    walk: dict
+    steps: list[StoryStep]
+    takeaways: list[tuple[str, str, list[str]]]
+    trap: dict
+    build: dict
+    problems: list[str]
+
+
+def _refs(s: str) -> list[str]:
+    return [r.strip() for r in re.split(r"[,\s]+", s) if r.strip()]
+
+
+def parse_story(block: Block) -> Story | None:
+    text = block.sections.get("Story")
+    if text is None:
+        return None
+    base = block.section_lines.get("Story", 0)
+    probs: list[str] = []
+    subs: dict[str, list[tuple[int, str]]] = {}
+    cur = None
+    for i, l in enumerate(text.split("\n")):
+        m = re.match(r"^### (.+)$", l)
+        if m:
+            cur = m.group(1).strip()
+            subs[cur] = []
+        elif cur:
+            subs[cur].append((base + i + 1, l))
+
+    def kv(name: str) -> dict[str, str]:
+        out: dict[str, str] = {}
+        for _, l in subs.get(name, []):
+            m = re.match(r"^- ([A-Z][A-Za-z ]+?):\s*(.*)$", l)
+            if m and m.group(1) not in ("Row", "Code"):
+                out[m.group(1).lower()] = m.group(2).strip()
+        return out
+
+    for need in ("Hook", "Idea", "Walkthrough", "Takeaways", "Trap", "Build"):
+        if need not in subs:
+            probs.append(f"Story: missing '### {need}'")
+
+    hook = kv("Hook")
+    panel = kv("Panel")
+    panel["rows"] = []
+    for _, l in subs.get("Panel", []):
+        m = re.match(r"^- Row:\s*(.*)$", l)
+        if m:
+            cells = [c.strip() for c in m.group(1).split("|")] + ["", "", "", ""]
+            panel["rows"].append(tuple(cells[:4]))
+    idea = kv("Idea")
+    walk = kv("Walkthrough")
+    lanes = [x.strip() for x in walk.get("lanes", "").split(",") if x.strip()]
+    walk["lanes"] = lanes
+
+    steps: list[StoryStep] = []
+    for ln, l in subs.get("Walkthrough", []):
+        m = re.match(r"^- Step (\d+)\s*·\s*(.+?)(?:\s*\|\s*refs:\s*(.*))?$", l)
+        if m:
+            steps.append(StoryStep(int(m.group(1)), m.group(2).strip(), _refs(m.group(3) or ""), [], line=ln))
+            continue
+        m = re.match(r"^\s+- (Arrow|Reply|Event|Self|Tag|Text|Fact):\s*(.*)$", l)
+        if m and steps:
+            kind, body = m.group(1).lower(), m.group(2).strip()
+            if kind in ("text", "fact"):
+                setattr(steps[-1], kind, body)
+                continue
+            body, _, tone = body.partition(" | ")
+            if kind in ("self", "tag"):
+                who, _, label = body.partition(":")
+                steps[-1].marks.append(Mark(kind, who.strip(), who.strip(), label.strip(), tone.strip()))
+            else:
+                head, _, label = body.partition(":")
+                src, _, dst = head.partition("→")
+                steps[-1].marks.append(Mark(kind, src.strip(), dst.strip(), label.strip(), tone.strip()))
+
+    takeaways = []
+    for ln, l in subs.get("Takeaways", []):
+        m = re.match(r"^\d+\.\s*(.+)$", l)
+        if m:
+            parts = [p.strip() for p in m.group(1).split(" | ")]
+            if len(parts) < 3:
+                probs.append(f"line {ln}: takeaway needs 'title | text | refs'")
+                continue
+            takeaways.append((parts[0], parts[1], _refs(parts[2])))
+
+    trap = kv("Trap")
+    for k in ("assume", "actually"):
+        h, _, t = trap.get(k, "").partition(" | ")
+        trap[k] = (h.strip(), t.strip())
+
+    build = kv("Build")
+    code_lines = [l for _, l in subs.get("Build", [])]
+    joined = "\n".join(code_lines)
+    cm = re.search(r"```(\w*)\n(.*?)\n```", joined, re.S)
+    build["lang"], build["code"] = (cm.group(1), cm.group(2)) if cm else ("", "")
+
+    # validation
+    for k in ("headline", "setup", "teaser"):
+        if not hook.get(k):
+            probs.append(f"Story/Hook: missing '- {k.capitalize()}:'")
+    if not idea.get("sentence"):
+        probs.append("Story/Idea: missing '- Sentence:'")
+    if not (2 <= len(lanes) <= 6):
+        probs.append(f"Story/Walkthrough: {len(lanes)} lanes, want 2-6")
+    if not (4 <= len(steps) <= 8):
+        probs.append(f"Story/Walkthrough: {len(steps)} steps, want 4-8")
+    for s in steps:
+        if not s.text:
+            probs.append(f"line {s.line}: step {s.n} has no '- Text:'")
+        if not [mk for mk in s.marks if mk.kind != "tag"]:
+            probs.append(f"line {s.line}: step {s.n} draws nothing (needs Arrow, Reply, Event or Self)")
+        for mk in s.marks:
+            for lane in {mk.src, mk.dst}:
+                if lane not in lanes:
+                    probs.append(f"line {s.line}: step {s.n} uses lane '{lane}', not in Lanes")
+    if not (3 <= len(takeaways) <= 5):
+        probs.append(f"Story/Takeaways: {len(takeaways)}, want 3-5")
+    if not trap.get("title") or not trap["assume"][0] or not trap["actually"][0]:
+        probs.append("Story/Trap: needs Title, Assume and Actually")
+    if not build.get("code"):
+        probs.append("Story/Build: no code block")
+    all_refs = [r for s in steps for r in s.refs] + [r for t in takeaways for r in t[2]]
+    all_refs += _refs(panel.get("refs", "")) + _refs(trap.get("refs", "")) + _refs(build.get("refs", ""))
+    for r in all_refs:
+        if r not in block.ids:
+            probs.append(f"Story: ref {r} points at nothing in this block")
+    return Story(hook, panel, idea, walk, steps, takeaways, trap, build, probs)

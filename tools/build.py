@@ -31,7 +31,8 @@ from pygments.util import ClassNotFound
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check import state_key  # noqa: E402
-from store import HEADINGS, ROOT, Block, Flow, Lifecycle, Step, load_all  # noqa: E402
+from store import HEADINGS, ROOT, Block, Flow, Lifecycle, Step, load_all, parse_story  # noqa: E402
+import story_page  # noqa: E402
 
 ASSETS = Path(__file__).resolve().parent / "site"
 MERMAID = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs"
@@ -57,7 +58,7 @@ def md(text: str) -> str:
 
 # ---------------------------------------------------------------- linking
 
-def link_ids(fragment: str, block: Block, blocks: dict[str, Block], titles: dict[str, str]) -> str:
+def link_ids(fragment: str, block: Block, blocks: dict[str, Block], titles: dict[str, str], up: str = "../") -> str:
     """Turn item ids into links, outside <pre>, <code> and existing <a>."""
     parts = re.split(r"(<pre.*?</pre>|<a\b.*?</a>|<code>.*?</code>|<[^>]+>)", fragment, flags=re.S)
     cross = re.compile(r"\b(?P<blk>[a-z]+)\.(?P<item>[A-Z]\d+(?:\.\d+[a-z]?)?)\b")
@@ -68,7 +69,7 @@ def link_ids(fragment: str, block: Block, blocks: dict[str, Block], titles: dict
         if blk not in blocks:
             return m.group(0)
         t = html.escape(titles.get(f"{blk}.{item}", ""), quote=True)
-        return f'<a class="ref" href="../{blk}/#{item}" title="{t}">{blk}.{item}</a>'
+        return f'<a class="ref" href="{up}{blk}/reference/#{item}" title="{t}">{blk}.{item}</a>'
 
     def local_sub(m: re.Match) -> str:
         item = m.group("item")
@@ -310,11 +311,11 @@ def render_states(block: Block, ctx) -> str:
 
 
 class Ctx:
-    def __init__(self, block: Block, blocks: dict[str, Block], titles: dict[str, str]):
-        self.block, self.blocks, self.titles = block, blocks, titles
+    def __init__(self, block: Block, blocks: dict[str, Block], titles: dict[str, str], up: str = "../../"):
+        self.block, self.blocks, self.titles, self.up = block, blocks, titles, up
 
     def post(self, fragment: str) -> str:
-        return link_ids(anchor_list_items(anchor_rows(fragment)), self.block, self.blocks, self.titles)
+        return link_ids(anchor_list_items(anchor_rows(fragment)), self.block, self.blocks, self.titles, self.up)
 
 
 SECTION_IDS = {h: re.sub(r"[^a-z]+", "-", h.lower()).strip("-") for h in HEADINGS}
@@ -331,7 +332,7 @@ def block_page(block: Block, blocks: dict[str, Block], titles: dict[str, str], o
     next_b = blocks[order[i + 1]] if i + 1 < len(order) else None
 
     def chips(ids: list[str]) -> str:
-        return " ".join(f'<a class="chip" href="../{d}/">{html.escape(blocks[d].front.get("title", d))}</a>' for d in ids if d in blocks) or '<span class="dim">none</span>'
+        return " ".join(f'<a class="chip" href="../../{d}/">{html.escape(blocks[d].front.get("title", d))}</a>' for d in ids if d in blocks) or '<span class="dim">none</span>'
 
     body = []
     for h in HEADINGS:
@@ -358,15 +359,15 @@ def block_page(block: Block, blocks: dict[str, Block], titles: dict[str, str], o
     life_toc = "".join(f'<a class="sub" href="#{lc.id}">{lc.id} · {html.escape(lc.title[:48])}</a>' for lc in block.lifecycles)
     toc = toc.replace(f'<a href="#flows">', f'<a href="#flows">', 1)
     nav = "".join(
-        f'<a class="{"on" if b == block.id else ""}" href="../{b}/"><span class="num">{blocks[b].number:02d}</span> {html.escape(blocks[b].front.get("title", b))}</a>'
+        f'<a class="{"on" if b == block.id else ""}" href="../../{b}/reference/"><span class="num">{blocks[b].number:02d}</span> {html.escape(blocks[b].front.get("title", b))}</a>'
         for b in order)
     pager = (f'<nav class="pager">'
-             + (f'<a href="../{prev_b.id}/">← {html.escape(prev_b.front.get("title", ""))}</a>' if prev_b else "<span></span>")
-             + (f'<a href="../{next_b.id}/">{html.escape(next_b.front.get("title", ""))} →</a>' if next_b else "<span></span>")
+             + (f'<a href="../../{prev_b.id}/reference/">← {html.escape(prev_b.front.get("title", ""))}</a>' if prev_b else "<span></span>")
+             + (f'<a href="../../{next_b.id}/reference/">{html.escape(next_b.front.get("title", ""))} →</a>' if next_b else "<span></span>")
              + "</nav>")
     main = f"""
 <header class="hero">
-  <p class="eyebrow">Building block {block.number:02d} of {len(blocks)} · <span class="status s-{status.replace(' ', '-')}">Lomem: {html.escape(status)}</span></p>
+  <p class="eyebrow"><a href="../">← Read the story</a> · Reference for block {block.number:02d} of {len(blocks)} · <span class="status s-{status.replace(' ', '-')}">Lomem: {html.escape(status)}</span></p>
   <h1>{html.escape(f.get("title", block.id))}</h1>
   <p class="lede">{html.escape(f.get("summary", ""))}</p>
   <dl class="meta"><dt>Learn first</dt><dd>{chips(deps)}</dd><dt>Related</dt><dd>{chips(rel)}</dd>
@@ -375,7 +376,7 @@ def block_page(block: Block, blocks: dict[str, Block], titles: dict[str, str], o
 {''.join(body)}
 {pager}"""
     side = f"""<div class="toc"><p class="toc-h">On this page</p>{toc}<p class="toc-h">Flows</p>{flow_toc}<p class="toc-h">Lifecycles</p>{life_toc}</div>"""
-    return page(f.get("title", block.id), main, nav, side, depth=1)
+    return page(f.get("title", block.id) + " · reference", main, nav, side, depth=2)
 
 
 ASSET_VERSION = ""
@@ -465,7 +466,7 @@ def home_page(blocks: dict[str, Block], titles, order) -> str:
 def glossary_page(blocks, titles, order) -> str:
     g = readme_section(5)
     from types import SimpleNamespace
-    ctx = Ctx(SimpleNamespace(ids=set(), id=""), blocks, titles)
+    ctx = Ctx(SimpleNamespace(ids=set(), id=""), blocks, titles, up="../")
     nav = "".join(f'<a href="../{b}/"><span class="num">{blocks[b].number:02d}</span> {html.escape(blocks[b].front.get("title", b))}</a>' for b in order)
     main = f'<header class="hero"><p class="eyebrow">Glossary</p><h1>Every concept in the store, with the block that defines it</h1></header><section class="sec">{ctx.post(md(g))}</section>'
     return page("Glossary", main, nav, "", depth=1)
@@ -513,14 +514,26 @@ def main() -> int:
     order = topo_order(blocks)
     titles, index = item_titles(blocks)
     (out / "assets" / "search.json").write_text(json.dumps(index, ensure_ascii=False))
-    (out / "index.html").write_text(home_page(blocks, titles, order))
+    stories = {b: parse_story(blk) for b, blk in blocks.items()}
+    stories = {b: s for b, s in stories.items() if s and not s.problems}
+    path_rows = re.findall(r"^\|\s*(R\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|", readme_section(4), re.M)
+    (out / "assets" / "code.css").write_text("")
+    (out / "index.html").write_text(story_page.home(blocks, order, stories, path_rows, ASSET_VERSION, REPO))
     (out / "glossary").mkdir()
     (out / "glossary" / "index.html").write_text(glossary_page(blocks, titles, order))
     for b in order:
         if a.only and b not in a.only:
             continue
-        (out / b).mkdir()
-        (out / b / "index.html").write_text(block_page(blocks[b], blocks, titles, order))
+        (out / b / "reference").mkdir(parents=True)
+        ref = block_page(blocks[b], blocks, titles, order)
+        (out / b / "reference" / "index.html").write_text(ref)
+        blk = blocks[b]
+        counts = {"concepts": len(ITEM_HEAD.findall(blk.sections.get("Concepts", ""))), "flows": len(blk.flows),
+                  "lifecycles": len(blk.lifecycles), "code": len(ITEM_HEAD.findall(blk.sections.get("Code in Lomem", "")))}
+        if b in stories:
+            (out / b / "index.html").write_text(story_page.story_page(blk, stories[b], blocks, order, stories, counts, ASSET_VERSION))
+        else:
+            (out / b / "index.html").write_text(ref.replace('href="../../', 'href="../').replace('src="../../', 'src="../'))
     (out / ".nojekyll").write_text("")
     print(f"built {out}")
     return 0

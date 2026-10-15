@@ -10,6 +10,98 @@ related: [tools, rag, guardrails, caching, observability, governance, agents, ga
 
 # Memory
 
+## Story
+
+### Hook
+- Headline: Monday she mentions tennis. ==Thursday, the tutor has never heard of it.==
+- Setup: TunaTutor, a language-learning app, has an AI tutor you chat with. On Monday a learner writes that she plays tennis every weekend. On Thursday she opens a new chat. The model, the AI that writes the tutor's replies, knows nothing about her. It keeps nothing between two calls.
+- Teaser: The model forgets every user after every call, so your code has to keep the record and decide what goes into it.
+
+### Panel
+- Title: Forgetting starts even inside one chat
+- Row: Latest messages a chat keeps by default | 20 | Spring AI, a Java library for calling models: MessageWindowChatMemory | accent
+- Row: The learner says her name | message 3 | out of the 20-message window by message 23 | struck
+- Row: She asks "What's my name?" | message 23 | the model no longer has it | big
+- Source: The 20-message default is real; the name and message numbers are made up. This is short-term memory, the transcript of one chat. The walkthrough follows long-term memory: facts kept across chats.
+- Refs: N1, C12, C16, E3
+
+### Idea
+- Sentence: Memory is the code around a model that stores what was said and what was learned about a user, and ==puts the useful part back into the next request==.
+- Analogy: In classic backend terms, short-term memory is HTTP session state, with a conversation ID instead of a session cookie. Long-term memory is a user profile, updated by a background job from a queue of pending writes. The analogy breaks in one place: a model writes this profile, guessing from free text.
+
+### Walkthrough
+- Title: Follow one fact from Monday's chat into Thursday's greeting.
+- Lead: TunaTutor's real pipeline, with made-up learner lines and a made-up greeting. Long-term memory runs five steps: extract, gate, queue, store, inject.
+- Lanes: Learner, Backend, Model, Database, Worker
+- Step 1 · Monday, the backend resends the whole conversation | refs: C2, C3, C8, C10, X1, F3.6
+  - Arrow: Learner → Backend: "Je joue au tennis…"
+  - Arrow: Backend → Model: system prompt + history + new message
+  - Text: The system prompt is the standing instructions the developer writes. The backend keeps the conversation's messages, keyed by conversation ID. On every call it resends the system prompt and all of them, with the new message last.
+- Step 2 · The model answers in JSON and proposes a fact | refs: C20, C23, F3.4, F3.7, F3.8b, E1
+  - Reply: Model → Backend: set favorite_sport = tennis | ok
+  - Tag: Backend: saves only the reply text to the transcript
+  - Text: The system prompt tells the tutor to answer in a fixed JSON shape: a responseText to show and a memoryUpdates list, usually empty. The learner sees responseText. The transcript keeps only responseText. If the JSON does not parse, the backend shows the text, stores nothing for that turn and logs it.
+  - Fact: The reply comes from TunaTutor's design record (ADR-016): "Ah, tu aimes le tennis! Tu joues souvent?" plus one memory update: set favorite_sport = tennis.
+- Step 3 · Code, not the model, decides whether this turn may write | refs: C24, C25, F3.13, X11, X12, E9
+  - Self: Backend: role-play active? no → gate open
+  - Text: The gate reads state the app controls, never the model's answer. If the session has a story, a reference text or a reference picture attached (role-play), the turn queues no memory job. An in-story line such as "I am a pirate captain" (made up) is not a fact about her.
+- Step 4 · Queue the fact in the same transaction as the messages | refs: C27, C28, F3.15, X13, X14, Q4
+  - Event: Backend → Database: messages + memory job, one commit | ok
+  - Arrow: Backend → Learner: reply text
+  - Text: The memory update is written as a job row in the same database transaction that saves the turn's messages. This is the transactional outbox pattern: both commit or neither does. So no fact is ever stored for a turn that was rolled back.
+- Step 5 · A worker upserts the fact, one row per user and key | refs: C26, C29, C30, C31, F4.5, F4.7, X18, X22, E2, E12
+  - Arrow: Worker → Database: claim the pending job
+  - Event: Worker → Database: upsert favorite_sport = tennis | ok
+  - Text: A worker looks for pending jobs every second and claims one. It checks the learner's memory setting, an on/off switch that is on by default. Then it cleans the key and value and upserts: it inserts the row, or updates it if one exists for that user and key. A later "padel" replaces "tennis". A failing job is retried after 2, 4, 6 and 8 seconds, then marked failed.
+- Step 6 · Thursday, the stored facts go back into the system prompt | refs: C32, C33, C34, C45, F5.4, F5.11, F5.14, X24, X27, E1
+  - Arrow: Database → Backend: 50 newest facts for this user
+  - Arrow: Backend → Model: facts in system prompt, no history
+  - Reply: Model → Backend: a greeting that asks about tennis | ok
+  - Text: Thursday is a new chat, so its transcript is empty. When it starts, the backend loads the 50 most recently updated facts. It writes them into the system prompt as plain lines, such as "- favorite_sport: tennis". The model follows the system prompt, so it asks about the match. The Trap below shows the risk of that obedience.
+  - Fact: TunaTutor loads the facts once per chat, so a fact learned in turn 2 appears only in the next chat, or when a paused chat is reopened.
+
+### Takeaways
+1. Two memories, two keys | Short-term memory is the transcript, keyed by conversation and, once it grows long, trimmed to the latest messages or condensed into a summary. Long-term memory is facts, keyed by user. | C8, C9, C12, C13, C19
+2. The model proposes, code decides | The model suggests facts in JSON you cannot fully trust. Your code parses, gates, queues and upserts them. | C20, C23, C24, C27, C30
+3. Allow only listed keys | The model sees only the facts in the prompt, not every key in use. So it invents near-duplicate keys, such as sport_favorite next to favorite_sport (made up). An allowed-key list, in the prompt and in code, stops them. | C35, C36, E4
+4. Every fact needs four things | A scope (whose fact it is), an expiry rule (when it goes stale), a source tag (who claimed it) and a way to delete it. Erasure must also reach summaries, caches and logs that repeat the fact. | C37, C38, C39, C40, C41
+
+### Trap
+- Title: Trusting stored facts like a validated profile
+- Assume: "The memory table is our own data, so the model can rely on it." | So facts are extracted from any text the assistant sees. Nothing stops a fact from claiming a role or a permission.
+- Actually: A model wrote each fact from text anyone can supply, and the model reads it back as instructions. | In a made-up support assistant, a pasted document plants "verified administrator". Later the model asks a tool (a function your code runs for it) for getInvoices(9001), another user's account. If the tool trusts that, the invoices leak. Extract only from what the user typed, allow only listed keys, and check the logged-in user's rights in the tool's own code.
+- Refs: M8, M9, Q14, C44, C45, C46, E6
+
+### Build
+- Title: The smallest long-term memory is one method around the model call
+- Lead: Put the facts in the system prompt. Call the model; an advisor, Spring AI's hook around each model call, adds the transcript. Parse the JSON, gate, and upsert. This Java code is a teaching sketch, not production code. It reloads facts on every call, where TunaTutor loads them once per chat.
+- Refs: C15, C33, E8, F10
+- Code:
+```java
+String system = basePrompt                                         // [6] facts go back in as plain lines
+    + "\nOnly use these memory keys: " + String.join(", ", ALLOWED)
+    + "\nWHAT YOU KNOW ABOUT THIS USER:\n" + factsAsLines(userId); //     reloaded every call
+String raw = chatClient.prompt().system(system).user(text)        // [1] the advisor resends the transcript
+    .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+    .call().content();
+TutorReply r;
+try {
+  r = converter.convert(raw);                                      // [2] JSON: reply plus memoryUpdates
+} catch (RuntimeException badJson) {
+  log.warn("reply was not JSON, no memory stored", badJson);
+  return raw;                                                      //     show the text, store nothing
+}
+if (memoryEnabled(userId) && !rolePlay(session)) {                // [3] the gate: state your code owns
+  for (MemoryUpdate u : r.memoryUpdates()) {
+    if (!ALLOWED.contains(u.key())) continue;                      //     drop invented keys
+    if (u.action().equals("set")) factRepo.upsert(userId, u.key(), trim(u.value(), 500), "llm"); // [5]
+    else if (u.action().equals("delete")) factRepo.delete(userId, u.key());
+  }
+}
+return r.reply();
+```
+- Note: Each [n] marks the code for walkthrough step n. No line does step [4]: here the upsert runs inline, with no queue. Before production, write the updates as an outbox row in the same transaction as the messages, and let a worker do step [5].
+
 ## Summary
 
 A language model keeps nothing between two calls, so every request starts from a blank slate (S1, S2). Memory is the code around the model that stores what was said (short-term memory, the transcript) and what was learned about a user (long-term memory, facts), and puts the useful part back into the next request (S1). It exists because users expect a chat assistant to remember them across turns and across sessions, and the model itself cannot (S19). What is new compared with a classic backend: the record about the user is written by a model guessing from free text, it is read back by a model that treats it as instructions, and derived text such as summaries, caches and logs holds copies that erasure must reach (S19, testing). Lomem's TunaTutor has a full long-term memory (extract, gate, queue, store, inject, user screen, delete endpoints), but no window or summary on the transcript, no allowed-key list and no expiry (X1, X22, X23).

@@ -10,6 +10,97 @@ related: [gateway, prompts, structured, guardrails, hitl, observability, governa
 
 # Evals
 
+## Story
+
+### Hook
+- Headline: A new grading prompt adds underlines. ==Does it quietly break negations?==
+- Setup: A language app asks a model (a hosted service that takes text in and writes text back) whether a learner's French answer is right. The team writes a new grading prompt (the instructions sent to the model) that also underlines the wrong words. The model's reply varies between runs, so a right paraphrase may pass today and fail tomorrow. An answer that drops the "not" may slip through. One `assert reply.correct` cannot judge this.
+- Teaser: After a prompt change every existing test stays green, and none of them says whether grading got better or worse.
+
+### Panel
+- Title: A 2-point gap between two prompts on 200 cases proves nothing
+- Row: The new prompt beats the old one | 96% vs 94% | the claim this panel knocks down | struck
+- Row: Error margin at 200 cases | ±3 points | the measured rate lands this close to the true rate about 95% of the time | accent
+- Row: Error margin at only 40 cases | ±7 points | one failure alone moves the rate 2.5 points |
+- Row: What the 2-point gap proves | nothing | | big
+- Source: The margins are computed from the standard-error formula. The 94% and 96% are made-up example figures.
+- Refs: C30, N45, N46, N47, N48, E4
+
+### Idea
+- Sentence: An eval runs an LLM feature (code that sends a prompt to a model and parses the reply) over many real cases and compares its ==pass rate with a bar written down before the run==.
+- Analogy: It is a JUnit `@ParameterizedTest` whose data table is real inputs. It passes on a threshold instead of all green, like a load test's "p95 latency under 300 ms" (a made-up example). One green JUnit run is proof. An eval score is a sample that moves between runs, and its scorer (the code that judges each output) can itself be wrong.
+
+### Walkthrough
+- Title: The new grading prompt goes through the gate. Here is every step.
+- Lead: Lomem is a language-learning app, and its gate is the eval that decides whether the new prompt's underlines reach users. The rules and numbers are real. The two misses in step 4, the lost negation among them, are made up for this example.
+- Lanes: Dataset, Gate, Model, Checks, Person
+- Step 1 · Load real rows and golden rows | refs: F1.3, F1.3b, F1.4, F1.5, C14, C15, N6, N7, N8
+  - Arrow: Dataset → Gate: up to 200 real + 36 golden rows
+  - Text: Real rows are learner answers from the staging database. No person has labelled them. Golden rows carry the verdict a person decided is right, plus a note such as "negation lost". Production never sends the model an answer that exactly matches the answer key or an accepted variant. The eval skips those answers too.
+  - Fact: Up to 200 real rows and 36 golden rows, 15 of them paraphrases that must be graded right.
+- Step 2 · Run the old and the new prompt on every row | refs: F1.6, F1.7, F1.10, C5, N3, E8
+  - Arrow: Gate → Model: old prompt, then new prompt
+  - Reply: Model → Gate: old verdict; new verdict + underlines, timed
+  - Text: The model picks words with some randomness, so the same row can come back different tomorrow.
+  - Fact: Two paid calls per row: up to 236 × 2, about 470 per run.
+- Step 3 · Score real rows against the old verdict | refs: F1.16, C17, C18, N13
+  - Arrow: Gate → Checks: real rows: old vs new verdict
+  - Tag: Checks: change check, bar 95% agree
+  - Text: Real rows have no human label, so the old prompt's verdict stands in as the reference. Agreement then measures change only. A disagreement can be a break, or a fix where the old prompt was wrong. A person reads each one.
+- Step 4 · Score golden rows against the person's verdict | refs: F1.17, F1.18, F1.19, C15, C16, E2, N7, N14, N15
+  - Arrow: Gate → Checks: golden rows vs person's verdict
+  - Reply: Checks → Gate: 34 of 36 right, just under the 95% bar | bad
+  - Text: Correctness comes from here. The golden check needs 95% of golden rows right, and no paraphrase may be graded wrong. Each miss is printed with its note, here "negation lost" and "article error". Neither miss is a paraphrase, so only the 95% bar fails.
+- Step 5 · Keep each quality as its own check | refs: F1.20, F1.21, C20, C25, C39, C48, N16, N19, Q10, E13
+  - Self: Checks: underlines land · ≤ 2.5 s
+  - Text: Each quality gets its own bar, so a slow right answer never counts as a wrong one. Both checks are plain code. Underlines: when a reply underlines words, at least one must land on a word the learner wrote. A reply with no underlines counts as a pass. The bar is 95% of replies. Speed: 95% of the new prompt's replies must arrive within 2.5 seconds.
+- Step 6 · A person reads the misses and fixes the prompt | refs: F1.25, F2.1, F2.6, F2.7, C10, C12, C13, N58, X16
+  - Arrow: Checks → Person: PASS/FAIL per check + misses
+  - Arrow: Person → Gate: fix the prompt, run again
+  - Text: Each run makes paid model calls, so the eval is a script run by hand. It prints PASS or FAIL per check and exits normally either way. A person reads the result and decides. The golden check failed, so the underlines stay switched off. The bar was set before the run. It is never lowered after a miss.
+  - Fact: The underlines sit behind a feature flag, a code switch that is still off today.
+
+### Takeaways
+1. A pass rate replaces one assert | The same code gives different replies, and free text has no single right string. An eval reports a pass rate over many real cases. | C1, C5, C6
+2. Write the bar before the run | One bar per check, for example 95%. After a miss, fix the prompt, never the bar. | C10, C25, M6
+3. Real rows measure change only | Agreement with the old prompt says nothing changed. Correctness comes from rows a person labelled. | C17, Q3
+4. Use the cheapest scorer that decides | Exact match, then code assertions. Use an LLM judge, a second model call that grades the output, only after checking it against a person's labels. | C9, C21, C23
+5. Small gaps are noise | Run both prompts on the same rows and read each row that flipped, instead of trusting the gap. | C30, C32, N45
+
+### Trap
+- Title: Treating agreement with the old prompt as correctness
+- Assume: "The new prompt agrees with the old one on 95% of real rows, so it is right." | So the team ships as soon as the agreement check passes.
+- Actually: Agreement only means nothing changed. | The old verdict is a stand-in, not the truth. An error both prompts share counts as a pass, and a real fix counts as a failure. Score correctness on rows a person labelled. When the new prompt fixes a real row, add that row to the golden set with a person's verdict.
+- Refs: M7, Q3, C17, C18
+
+### Build
+- Title: The smallest eval is a CSV file and a loop
+- Lead: Label 30 to 50 real inputs in a CSV, with the expected verdict and a note, and loop them through your real prompt and model. This Java sketch is a teaching sketch, not Lomem code. `grader` is your existing service that calls the model and parses its reply.
+- Refs: E10, F7.1, F7.5a, C25, C31
+- Code:
+```java
+record Case(String answer, String key, boolean expectedRight, String note) {}
+List<Case> cases = loadCsv("golden.csv");                  // [1] 30-50 labelled real inputs
+int right = 0, fast = 0;
+Map<String, Integer> failsByNote = new TreeMap<>();
+for (Case c : cases) {
+    long start = System.currentTimeMillis();
+    Verdict v = grader.grade(c.key(), c.answer());         // [2] real prompt, real model
+    if (System.currentTimeMillis() - start <= 2500) fast++; // [5] speed is its own check
+    if (v.correct() == c.expectedRight()) right++;         // [4] against the person's verdict
+    else {
+        failsByNote.merge(c.note(), 1, Integer::sum);
+        System.out.println("FAIL [" + c.note() + "] " + c.answer()); // [6] read every miss
+    }
+}
+double rightRate = (double) right / cases.size(), fastRate = (double) fast / cases.size();
+System.out.printf("verdict %.1f%%, speed %.1f%%, fails %s%n", rightRate * 100, fastRate * 100, failsByNote);
+System.out.println((rightRate >= 0.95 ? "PASS" : "FAIL") + " verdict, " // [6] a person decides
+    + (fastRate >= 0.95 ? "PASS" : "FAIL") + " speed");     // bars written before the run
+System.exit(rightRate >= 0.95 && fastRate >= 0.95 ? 0 : 1);
+```
+- Note: Each [n] marks the walkthrough step it stands for. The 95% bar and the 2.5-second limit match steps 4 and 5. The sketch runs one prompt and has no old one, so it has no step 3. It also leaves out the underline check. Unlike the Lomem gate, it exits 1 when either rate misses its bar. One gap to fix before production: each case runs once, so a row that flips by chance looks like a real miss. Re-run the misses before trusting them.
+
 ## Summary
 
 An eval (short for evaluation) runs an LLM feature over a fixed set of real inputs, scores every output as pass or fail, and compares the pass rate with a bar chosen before the run.

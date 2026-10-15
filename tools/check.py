@@ -13,13 +13,14 @@ Checks:
 - every transition table has the columns from|trigger|guard|to|effect|ref
 - every state named in a transition is declared in that lifecycle's States list
 - every cross-block reference "<block>.<item>" points at an item that exists
+- the Story section (the reader-facing layer) is complete and its refs resolve
 """
 from __future__ import annotations
 
 import re
 import sys
 
-from store import HEADINGS, load_all
+from store import HEADINGS, load_all, parse_story
 
 FRONT_KEYS = ["id", "number", "title", "summary", "lomem_status", "depends_on", "related"]
 
@@ -47,6 +48,11 @@ def main() -> int:
         found = [h for h in b.sections if h in HEADINGS]
         if found != HEADINGS:
             probs.append(f"headings: {found}")
+        story = parse_story(b)
+        if story is None:
+            probs.append("Story: no '## Story' section")
+        else:
+            probs += story.problems
         steps = {s.id for f in b.flows for s in f.steps} | {f.id for f in b.flows}
         for f in b.flows:
             if not f.steps:

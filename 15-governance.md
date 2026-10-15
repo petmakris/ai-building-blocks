@@ -10,6 +10,88 @@ related: [hitl, guardrails, structured, tools, memory, rag, agents, caching, san
 
 # Governance and model risk
 
+## Story
+
+### Hook
+- Headline: Fourteen months on, audit asks what the AI draft said. ==Nobody kept it.==
+- Setup: A made-up Swiss bank lets an adviser press "draft note" after a client call. A model from OpenAI (an LLM: a service that takes text and writes text back) turns the call transcript into a meeting note, and the adviser saves an edited version over it. Fourteen months later a client complains that a risky product was sold against their wishes. Internal audit asks which model and which instructions wrote the draft, and what the draft said. Git does not hold the model, a rerun may not give the same text, and the draft is gone.
+- Teaser: You can contain what the model does, but can you prove a year later what it did and who signed it off?
+
+### Panel
+- Title: OpenAI will not keep the draft for the bank
+- Row: Default terms | up to 30 days | a copy sits in logs OpenAI keeps to catch misuse, then is gone | struck
+- Row: Europe region | no copy | only with a control OpenAI has approved, such as Modified Abuse Monitoring, which keeps content out of those logs | accent
+- Row: Zero Data Retention | no copy | only after OpenAI approves the firm's request | big
+- Source: These are all real OpenAI terms. Even the default copy is gone long before a 14-month audit. So the bank must store the draft itself.
+- Refs: N4, N5, N9, C38, C39, C40, E6
+
+### Idea
+- Sentence: Send every model call through a gateway, one service that sits between your code and the model. It refuses any use case (one business purpose for calling a model) that has no approved row in an inventory. It stores the prompt (the text sent to the model) and the draft before it returns, because a rerun may not produce the same text. It ==records each call in a row that is never updated==, and anything that happens later is a new row.
+- Analogy: With your own code you can rebuild an old result from git and the inputs. With a model someone else runs, the model is not in git and a rerun may not match, so the row must point at the output itself.
+
+### Walkthrough
+- Title: One meeting-note draft, from the button press to the audit fourteen months later
+- Lead: Every id, time and rule of the bank is made up. The OpenAI names are real. The bank's rule puts each use case in a risk class. High means the output reaches a client, or decides something about one, with no person rewriting it. Medium means client data is sent but an employee reads and corrects every output before it is used. Low means no client data is sent and the output only helps employees. The meeting note is Medium.
+- Lanes: Notes app, Gateway, Inventory, OpenAI, Audit log
+- Step 1 · The notes service checks the transcript and names its use case | refs: F1.2, F1.3, C28, C27, C57
+  - Arrow: Notes app → Gateway: meeting-note-draft · v7 · rm.jmuster
+  - Text: The notes service refuses an empty or cut-off transcript before any call. Then it sends the prompt (fixed instructions plus the transcript) with its own service credential. Three headers name the use case, the prompt version and the logged-in user.
+- Step 2 · The gateway finds the inventory row or refuses the call | refs: F1.4, F1.4b, F1.5, C13, C23, C26, C35, N7, M10
+  - Arrow: Gateway → Inventory: row for this use case and caller?
+  - Reply: Inventory → Gateway: Medium · gpt-4o-2024-08-06 · Europe | ok
+  - Text: The inventory holds one approved row per use case, and the row lists the caller credentials allowed to use it. If no row has that use case with that credential, the call is refused and nothing reaches the provider (OpenAI). The row gives the risk class, the model and OpenAI's Europe region (EEA + Switzerland), so the caller cannot choose them.
+- Step 3 · The gateway calls a pinned snapshot and checks what answered | refs: F1.6, F1.7, F1.7b, F1.7c, C7, C8, C9, C34, N8, N20
+  - Arrow: Gateway → OpenAI: gpt-4o-2024-08-06 at eu.api.openai.com
+  - Reply: OpenAI → Gateway: draft · model: gpt-4o-2024-08-06 | ok
+  - Text: A snapshot is a fixed model build with a dated name. An alias such as `gpt-4o` is a name the provider moves to newer builds. The gateway calls the snapshot and records the version the provider reports. A mismatch alerts the row's owner. On a High row it also refuses the call.
+  - Fact: The snapshot name and the Europe endpoint are real. That the reply names the version in a field called `model` is not verified.
+- Step 4 · The gateway stores the draft itself, because a rerun will not bring it back | refs: F1.8, F1.9, F1.10, C3, C29, C30, C33, E1
+  - Event: Gateway → Audit log: in/c-81f2 · out/c-81f2 · call row
+  - Arrow: Gateway → Notes app: draft + call_id c-81f2
+  - Text: The model picks each word with some randomness, so the same transcript may give a different draft next time. The prompt as sent and the draft go into an encrypted content store, and a call row points at them. The call row is inserted and never updated. The draft goes back with a `call_id`.
+- Step 5 · The adviser's edit becomes a new row, never an overwrite | refs: F1.12, F1.13, F1.14, C31, C32, M3, N41
+  - Event: Notes app → Audit log: c-81f2 · edited · note/44120
+  - Text: The adviser saves the edited note. The notes service stores the final text in its own store. It also inserts an event row keyed by the `call_id`. The draft in the content store stays as the model wrote it.
+- Step 6 · Fourteen months later, audit reads the answers from rows | refs: F2.2, F2.3, F2.5, F2.6, F2.7, E8
+  - Self: Audit log: model · prompt v7 · draft · edit · region
+  - Text: Audit follows the note to `c-81f2`. The call row names the snapshot, the prompt version and the region. The content store holds the draft before the edit, and the event row shows who changed it.
+
+### Takeaways
+1. No inventory row, no call | The gateway alone holds the provider keys. It refuses any use case and credential with no approved row, and that keeps the inventory complete. | C23, C26, C27, M1
+2. Pin a snapshot, record what answered | Call a dated snapshot, never a moving alias, and store the version the provider reports. An eval (a scored test over a fixed set of cases) is evidence only for the build it ran on. | C9, C34, C47, C53, M4
+3. Store the output, insert-only | A rerun may not give the same text, so keep the prompt and the draft. Edits, approvals and deletions are new rows keyed by the call id. | C3, C30, C31, C32, C33
+4. The risk class picks the controls | In the bank's made-up rule every class writes the audit record. Medium, like the meeting note, adds the Europe region, an eval before each release and weekly monitoring. High adds zero retention at OpenAI, a named person who approves each output and a monthly monitoring report. | C24, C25, C39, E2, M5
+
+### Trap
+- Title: Saving the edited note over the model's draft
+- Assume: "The final text is what counts, so that is what we keep." | The edited note is saved over the draft, an ordinary upsert like any form save.
+- Actually: The draft is the only evidence of what the model said. | Overwriting it leaves audit no answer to "what did the draft say?". Keep the draft and insert the edit as a new event row.
+- Refs: M3, C31, C71
+
+### Build
+- Title: The smallest governed gateway checks a row, pins a model and only inserts
+- Lead: Refuse unregistered use cases, take the model and region from the row, check what answered, and store the prompt and draft before returning. This Java sketch covers all four. It is a teaching sketch, not production code.
+- Refs: C26, C30, C33, E1
+- Code:
+```java
+public Draft call(Credential caller, String useCase, String promptVersion, String user, String prompt) {
+  InventoryRow row = inventory.find(useCase, caller)                 // [2] no row, no call
+      .orElseThrow(() -> new UnregisteredUseCaseException(useCase, caller));
+  ProviderReply r = provider.complete(row.snapshot(), row.region(), prompt); // [3] call the snapshot the row names
+  if (!r.reportedModel().equals(row.snapshot())) {
+    alerts.notify(row.owner(), r.reportedModel());                  // [3] a different build answered
+    if (row.riskClass() == RiskClass.HIGH) throw new VersionMismatchException();
+  }
+  String callId = ids.next();
+  content.put("in/" + callId, prompt);                              // [4] the prompt as sent
+  content.put("out/" + callId, r.text());                           // [4] the draft itself
+  callRows.insert(new CallRow(callId, useCase, caller, user, row.snapshot(),
+      r.reportedModel(), row.region(), promptVersion, Instant.now())); // [4] INSERT, never UPDATE
+  return new Draft(callId, r.text());                               // [4] the draft goes back with its call_id
+}
+```
+- Note: The `[n]` markers match walkthrough steps 2 to 4. Steps 1, 5 and 6 run outside the gateway. This sketch keeps content forever. The content store holds client data, so before production it must be deleted with the client file. Each deletion is recorded as an event row.
+
 ## Summary
 
 Governance is the set of records and controls that let a bank or insurer answer its supervisor's questions about each AI feature: where it is used, how risky it is, what it produced on a given day, who approved it and how it was tested. It exists because the model is a third-party component that nobody in the firm can inspect, that can change without a code release, that may not give the same answer twice and that receives client data on every call. A classic Spring backend answers an auditor from git, the change ticket and the database; with a model, git does not hold the model, the provider may have moved the alias, a rerun gives a different output, and the output is lost unless it is stored on purpose. The engineering answer is an inventory with one row per use case and a risk class, a gateway that refuses unregistered calls, insert-only audit records that store the output, provider terms recorded per risk class, eval reports as validation evidence, monitoring, independent sign-off, and human approval for high-risk outputs. Lomem shows only the first step: it stamps lesson notes with a configured model name and a prompt version, and it refuses calls with no cost attribution.

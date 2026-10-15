@@ -10,6 +10,96 @@ related: [gateway, structured, tools, memory, agents, guardrails, evals, observa
 
 # Retrieval (RAG)
 
+## Story
+
+### Hook
+- Headline: Your assistant explains error PAY-4012 fluently. ==It made up every word.==
+- Setup: An operator asks the new assistant what error PAY-4012 means. The model has never seen your runbooks or tickets. So it writes a confident, invented answer. The real fix sits in one runbook and one ticket from last March, among 240,000 documents (a made-up case).
+- Teaser: The model sees your data only through the one request you send, so how do the right passages of your wiki get into it?
+
+### Panel
+- Title: How often the right passage misses the top 20
+- Row: Plain vector search | 5.7% | failure rate, the baseline | struck
+- Row: + a context line on each chunk | 3.7% | written by an LLM at indexing: which document and part · 35% fewer |
+- Row: + keyword search (BM25) | 2.9% | 49% fewer failures | accent
+- Row: + a reranker | 1.9% | a second model rescores the shortlist · 67% fewer | big
+- Source: Real figures from Anthropic's own test questions. A chunk is a passage cut from a document. Vector search matches chunks by meaning. Keyword search matches exact words. The failure rate is the share of test questions whose answering document is not among the top 20 chunks returned (1 minus recall@20). "Fewer" is relative to the first row.
+- Refs: E15, N39, N40, N41, N42, C50, C31, C38
+
+### Idea
+- Sentence: Before the model call, your code ==searches your own data==. It pastes the few best passages, numbered, into the prompt (the text sent to the model). The model then answers from them instead of guessing.
+- Analogy: In a classic backend: it is a search index kept in sync with your database, queried by a service that filters by the user's rights. The difference is the reader. A person skips a bad hit, while the model may build a confident answer on it.
+
+### Walkthrough
+- Title: An operator asks about PAY-4012. Here is every step of the search before the model call.
+- Lead: A made-up question with the real rules of the query path. The index is a Postgres table that already holds every chunk with its text, its vector and its access groups.
+- Lanes: Operator, Retrieval, Embedder, Postgres, Model
+- Step 1 · Carry the caller's access groups with the question | refs: F3.1, C40
+  - Arrow: Operator → Retrieval: PAY-4012 question + callerGroups
+  - Text: Your normal authentication resolves who is asking and which groups they belong to. The model will quote anything retrieved. No prompt instruction reliably stops that. So the groups travel with the question, and every search below filters by them.
+- Step 2 · Turn the question into an embedding | refs: F3.3, C16, C17, C19, C20, N6, M2
+  - Arrow: Retrieval → Embedder: question · input_type "query"
+  - Reply: Embedder → Retrieval: 1,024 numbers (voyage-3)
+  - Text: An embedding is the vector: a list of numbers where similar meaning gives similar numbers. A separate, cheap embedding model computes it over HTTP. The question must use the same model as the chunks, or the results look random.
+  - Fact: Chunks are sent as `input_type "document"`, the question as `"query"`. For a query, Voyage AI puts a search instruction in front of the text before embedding it. That improves matching somewhat. Sending the question as `"document"` still runs, but matches somewhat worse.
+- Step 3 · Run two searches, each filtered inside the SQL | refs: F3.5, F3.6, C35, C36, C40, E3, E13
+  - Arrow: Retrieval → Postgres: vector query · filtered · LIMIT 50
+  - Arrow: Retrieval → Postgres: keyword query · filtered · LIMIT 50
+  - Reply: Postgres → Retrieval: two ranked lists of ids | ok
+  - Text: Vector search finds the operator's question by meaning, but may miss the exact code. Keyword search finds the rare token PAY-4012, but misses paraphrases. So run both, with `access_groups && :callerGroups` (shares a group with the caller) in each `WHERE`.
+  - Fact: Keyword search here is Postgres's built-in full-text search, a simpler relative of BM25. It uses a generated `tsv` column, matched with `@@` and scored with `ts_rank`. With the `'simple'` setting, `PAY-4012` still matches only that exact code.
+- Step 4 · Merge the two lists by rank and keep 5 | refs: F3.7, F3.8, C37, E4, N31, N13
+  - Self: Retrieval: runbook: 1/61 (kw #1) + 1/63 (vec #3)
+  - Tag: Retrieval: keep top 5 ids
+  - Text: Keyword and vector scores are on unrelated scales. So reciprocal rank fusion (RRF) uses positions only: rank r scores 1/(60 + r) in each list. The constant 60 keeps neighbouring ranks scoring almost the same. The runbook, rank 1 by keyword and 3 by vector (made-up ranks), scores 0.0323. It beats a page that is rank 1 by vector alone (0.0164).
+- Step 5 · Number the sources in the prompt | refs: F3.9, F3.10, C43, C44, E10, M20
+  - Self: Retrieval: [1] runbook · [2] ticket OPS-8812
+  - Text: The prompt holds the instructions, then the numbered sources in the order of the top 5, then the question. It tells the model to cite sources as [1], [2], and to say "I don't know" and stop when the sources do not hold the answer.
+- Step 6 · Call the model and check its citations | refs: F3.11, F3.12, F3.13, F3.14, C45, C46, E10, N37
+  - Arrow: Retrieval → Model: one user message, max_tokens 1024
+  - Reply: Model → Retrieval: end_turn · cites [1] and [2] | ok
+  - Arrow: Retrieval → Operator: answer, each [n] a link
+  - Text: A stop reason of `max_tokens` instead of `end_turn` means the answer was cut off. Your code turns each [n] into the link of source n, so the operator can check before acting. An answer with no citation that is not "I don't know" gets a visible warning.
+
+### Takeaways
+1. The model never searches anything | Your code searches and hands the model a short reading list. The model knows only its training text. It keeps nothing between requests. | C1, C9, Q1
+2. Run keyword and vector search | Vector search may miss exact codes. Keyword search misses paraphrases. Merge the two ranked lists with RRF from day one if users type codes. | C36, C37, E3, M8
+3. Filter access inside the query | Filter in both searches, before the top-K cut (keeping only the K best rows). Each chunk holds a copy of its document's access groups. So re-index a document when its permissions change. | C40, C41, C30, M4, M6
+4. Without a reranker, put five chunks in the prompt | Each extra chunk is another near-miss, like last year's runbook, that can end up in the answer. A reranker is a second model that scores each candidate against the question. With one, the reranker's top 20 go in. Anthropic reranked its top 150 chunks down to 20. | N13, N14, N15, C38, C39, M10
+5. Measure search without the model | Recall@k is the share of labelled real questions whose document lands in the top k chunks. Start with 30 questions. | C50, C51, F5, M7
+
+### Trap
+- Title: Filtering access after the search
+- Assume: "Fetch the top 50 by similarity, then drop what the caller may not read." | It looks like filtering a list in any backend service.
+- Actually: The top 50 may all be forbidden. Then nothing is left. | pgvector's `hnsw` index (its fast, approximate vector index) does the same inside the database. It scans `hnsw.ef_search` candidates, 40 by default, then applies `WHERE`. A filter that keeps 10% of rows then returns about 4 of those 40, whatever the `LIMIT`. Filter inside the SQL. Run `SET hnsw.iterative_scan = strict_order` (pgvector 0.8.0+). Then check the filtered query still returns K rows.
+- Refs: M4, M5, E6, E7, N32, N33, C27, C28, F3.4, Q5
+
+### Build
+- Title: The smallest retrieval is one method in front of the model call
+- Lead: Embed the question, run both filtered searches, merge by rank, number the sources and check the citations. This Java sketch covers the question path only, not indexing. It is a teaching sketch, not production code.
+- Refs: E5, E10, E12, E13, F3, C47
+- Code:
+```java
+public Answer ask(String question, List<String> callerGroups) {   // [1] groups come from auth
+  float[] qv = embedder.embed(question, "query");                   // [2] same model as the chunks
+  List<Long> vectorIds = chunks.vectorSearch(qv, callerGroups, 50);  // [3] access filter in the SQL
+  List<Long> keywordIds = chunks.keywordSearch(question, callerGroups, 50); // [3]
+  Map<Long, Double> score = new HashMap<>();
+  for (List<Long> ranked : List.of(keywordIds, vectorIds))
+    for (int i = 0; i < ranked.size(); i++)
+      score.merge(ranked.get(i), 1.0 / (60 + i + 1), Double::sum); // [4] RRF by position
+  List<Long> top = score.entrySet().stream()
+      .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
+      .limit(5).map(Map.Entry::getKey).toList();                    // [4] 5 without a reranker
+  List<Chunk> sources = chunks.bodiesInOrder(top);                  // [5] source numbers follow the order of top
+  ModelReply r = model.send(Prompts.numbered(sources, question), 1024); // [6] one user message
+  if (r.stopReason().equals("max_tokens")) throw new CutOffAnswerException(); // [6] cut off
+  boolean cited = Pattern.compile("\\[\\d+\\]").matcher(r.text()).find();
+  return new Answer(r.text(), sources, !cited && !r.text().startsWith("I don't know")); // [6] warn
+}
+```
+- Note: Each comment marker [n] points at walkthrough step n. One gap before production: a retrieved ticket may say "ignore the instructions above", and the model may obey it (prompt injection). So never let an answer trigger an action without a human or a rule-based check.
+
 ## Summary
 
 A language model only knows the public text it was trained on and has never seen your company's documents, tickets or database [S1].

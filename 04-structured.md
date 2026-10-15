@@ -10,6 +10,99 @@ related: [gateway, prompts, context, tools, guardrails, hitl, observability, eva
 
 # Structured output
 
+## Story
+
+### Hook
+- Headline: Ask a model for an invoice record. ==It answers with a friendly sentence.==
+- Setup: An invoice reader needs typed fields it can store: payee, amount, currency, due date, IBAN, reference. A model (a large language model, an LLM) only writes text. It writes one token (a chunk of a word) at a time, partly at random. So the reply can come wrapped in a sentence or cut off halfway. It can be a refusal sent with HTTP 200. It can be perfect JSON that holds an invented value.
+- Teaser: Your code needs a typed record it can trust, and the model only writes text.
+
+### Panel
+- Title: The model returned 8 fields. Each is checked on its own, and a field that fails is dropped.
+- Row: dueDate | "2026-02-30" | not a real date · dropped | struck
+- Row: issueDate | "30.10.26" | not YYYY-MM-DD · dropped | struck
+- Row: direction | "outgoing" | not one of the three allowed values · dropped | struck
+- Row: iban | "ch93 0076 2011 6238 5295 7" | spaces removed, upper-cased, checksum passes · kept | accent
+- Row: Data fields kept | 5 of 8 | the model returned the six invoice fields plus issue date and direction. Payee, amount, currency, IBAN and reference survive. The answer as a whole is not rejected. | big
+- Source: Real outputs of Billpod's `sanitizeExtraction`, run on 2026-10-15 on made-up input values.
+- Refs: E5, X1, C29
+
+### Idea
+- Sentence: Make the model answer in ==a typed shape you define==, then check that answer like a request body from a client you do not trust.
+- Analogy: It is like validating `req.body` from an external partner's API, with Zod in TypeScript or with Jackson and Bean Validation in Java. But this partner is partly random. It can answer HTTP 200 with a refusal, and it can send a well-formed value it invented.
+
+### Walkthrough
+- Title: Billpod reads one invoice. Here is every check the answer passes.
+- Lead: Billpod is the bills app in Lomem, the codebase of small apps this guide quotes from. The Reader is Billpod's own code that reads a bill. The Gateway is the one module every model call passes through. Gemini is the model. A made-up Swisscom invoice for CHF 79.90 runs through Billpod's real rules. Values are made up unless a step says otherwise.
+- Lanes: Reader, Gateway, Gemini, Person
+- Step 1 · Send the shape with the request, not in the prompt | refs: C12, C39, F1.13, F2.3, C22, X9
+  - Arrow: Reader → Gateway: callJson · schema · 4096 tokens
+  - Arrow: Gateway → Gemini: PDF + responseSchema
+  - Text: The reader defines the record once, in Zod, a TypeScript validation library. The gateway turns it into Gemini's response schema and sends it in the request settings. The prompt text says what to read; the shape travels in the settings.
+  - Fact: The 4096-token output limit is Billpod's real setting. It leaves room for the answer plus the model's thinking. Thinking is hidden reasoning that is billed as output.
+- Step 2 · The provider lets the model write only tokens that fit | refs: C16, C17, F3.3, F3.5, Q4
+  - Self: Gemini: keeps only tokens that fit the schema
+  - Text: This is constrained decoding. Before each token, the provider (the company that runs the model) removes every candidate that would break the schema. So a reply that finishes normally parses and has every required field. It guarantees the shape, never the truth of the values.
+- Step 3 · Layer one reads how the call ended | refs: C19, C27, F2.9, F2.9a, M8
+  - Reply: Gemini → Gateway: 200 · finishReason STOP | ok
+  - Tag: Gateway: SAFETY → blocked, no retry
+  - Text: The finish reason says why the model stopped. STOP is a normal finish. MAX_TOKENS is a reply cut off at the limit. SAFETY is a filter's refusal, still sent with HTTP 200. The gateway throws on a refusal before it parses a single character.
+- Step 4 · Layer two parses and checks the whole answer once | refs: C28, F2.10, F2.11, F2.11a, X14, X6, Q2, Q3
+  - Self: Gateway: parse, then the same Zod schema
+  - Reply: Gateway → Reader: { data }, typed | ok
+  - Text: The gateway parses the text and checks it against the same Zod schema the request was built from. That schema is loose on purpose, so one bad field does not reject the whole answer. Every data field is optional, and almost all are plain strings. So "2026-02-30" passes here. A failure here means the whole answer is unusable. The gateway throws `LlmOutputError`, and Billpod does not retry.
+- Step 5 · Layer three checks each value and drops what fails | refs: C29, C30, F1.15, E5, X1, M5
+  - Self: Reader: dueDate 2026-02-30 → dropped
+  - Self: Reader: IBAN checksum passes → kept
+  - Text: Each field meets domain rules. A date must exist. A currency is three letters. An IBAN must pass its mod-97 checksum. A field that fails is dropped, not guessed. The other fields survive.
+- Step 6 · Let the exact QR code win over the model | refs: C33, C32, F1.18, F5.1, F5.6, F5.6a, X3, E6, M10
+  - Self: Reader: iban = qr?.iban ?? ai?.iban
+  - Text: Swiss bills carry a QR code, a payment slip that code decodes exactly. For every field the QR code has, its value beats the model's. An attacker can hide white-on-white text in a bill that tells the model "the bank details have changed". That text cannot change an IBAN the QR code carries.
+- Step 7 · Hand a person a draft, never a bill | refs: C34, C35, F1.25, F5.7, X55, Q1
+  - Arrow: Reader → Person: draft · every field with its source
+  - Reply: Person → Reader: confirm or correct | ok
+  - Text: The reading becomes a draft that shows where each field came from: `qr`, `ai`, `recurring` (a matched recurring payment of the household) or `none`. Nothing is filed or paid from a reading on its own. A person confirms it. On a bill without a QR code, only the person can catch a changed IBAN.
+
+### Takeaways
+1. Schema in settings, not prose | The provider enforces a schema only when it arrives as a request setting. | C12, C16, M1, Q20
+2. HTTP 200 is not success | Never retry a refusal: same input, same refusal. For a cut-off, raise the limit once, then fall back. | C27, M7, M8, Q8
+3. Reject the whole answer rarely | One bad IBAN should not throw away five good fields. | C28, M5, Q3
+4. Valid is not true | An attacker's real IBAN passes its checksum, so only an exact source or a person catches it. | C29, M10, E13
+5. A failed call still ends in a draft | When the model gives nothing usable, the draft is built from the QR code and the household's recurring payments. | C35, Q1
+
+### Trap
+- Title: Trusting the schema to guarantee the answer
+- Assume: "With a schema, the provider guarantees what comes back." | So the reply is cast straight into a record and saved.
+- Actually: The guarantee covers only the shape of a reply that finished normally. | A refused or cut-off reply can ignore the schema, and a well-formed value can still be invented. Read the finish reason, validate in your own code, and let a person confirm.
+- Refs: C16, F3.5a, F3.5b, M8, M10, Q4
+
+### Build
+- Title: The smallest reader is one loop with three layers
+- Lead: Send the schema, read the finish reason, parse, then keep only the valid fields. It is a teaching sketch in Java, not production code. `client`, `SCHEMA` and `keepValidFields` stand for your own code. Every field of `InvoiceReading` is a plain `String`, as all but one of Billpod's loose schema are, so a bad date reaches layer 3. Unlike Billpod, it asks once more when the JSON does not parse. Each call starts fresh and the model never sees its earlier answer, so the error goes into the next prompt.
+- Refs: E10, E9, F4, C36
+- Code:
+```java
+Optional<InvoiceReading> read(byte[] pdf) {
+  String lastError = null;
+  int maxTokens = 4096;
+  for (int attempt = 1; attempt <= 2; attempt++) {
+    String prompt = INSTRUCTIONS + (lastError == null ? "" : "\nYour previous answer was rejected: " + lastError);
+    ModelReply reply = client.generate(prompt, pdf, SCHEMA, maxTokens);          // [1] schema in the request, [2] enforced by the provider
+    switch (reply.stop()) {                                                       // [3] layer 1
+      case REFUSED    -> { return Optional.empty(); }                             // same input, same refusal
+      case MAX_TOKENS -> { maxTokens *= 2; continue; }
+      case END        -> { }
+    }
+    try {
+      InvoiceReading r = mapper.readValue(reply.text(), InvoiceReading.class);  // [4] layer 2: parse, types
+      return Optional.of(keepValidFields(r));                                   // [5] layer 3: per field
+    } catch (JsonProcessingException e) { lastError = "not valid JSON: " + e.getOriginalMessage(); }
+  }
+  return Optional.empty();   // fallback
+}
+```
+- Note: Each [n] marker is the walkthrough step that line implements. Step 2 runs at the provider, so it shares step 1's line. Steps 6 and 7 have no code: there is no QR code and no draft, so a reading goes straight to the caller. Before production, every result, success included, should become a draft a person confirms.
+
 ## Summary
 
 Structured output is the set of techniques that make a language model answer in a JSON shape you define, and then check that answer as strictly as a request from an unknown client [S15].

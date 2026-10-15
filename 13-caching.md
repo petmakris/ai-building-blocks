@@ -10,6 +10,94 @@ related: [observability, tools, rag, memory, guardrails, evals, governance, roll
 
 # Caching
 
+## Story
+
+### Hook
+- Headline: A timestamp tops the prompt. ==Every call pays to cache it, and none reuses it.==
+- Setup: A model keeps no state between calls. So every request resends the same tools and instructions, often thousands of tokens (pieces of words, about four characters each), and pays for them again. The model works through its input token by token, and each token's work depends on every token before it. Prompt caching lets the provider keep that work for an identical opening and charge a tenth of the input price to reuse it, on most models. It keeps work, not answers: the model still runs on the rest. One changing value near the top makes every request new from the first token. Then nothing is reused, and every call pays extra to store a copy nobody reads.
+- Teaser: Your prompt is long and well built. Why pay for the same 6,000 tokens on every call?
+
+### Panel
+- Title: A 6,000-token prompt opening, 10,000 calls a day
+- Row: No cache | $180 a day | $3 per 1M input tokens | struck
+- Row: Prompt cache, reads at 0.1× | about $18 a day | the few writes add little | accent
+- Row: Timestamp at the top | about $225 a day | every call pays 1.25× to store the opening, none reuses it: worse than no cache | big
+- Source: The 1.25× write and 0.1× read rates are Anthropic's real prices; the read rate holds on most models. The $3 price, the 6,000 tokens and the traffic are made up. $225 is $180 × 1.25.
+- Refs: N2, N4, N13, N17, N18, N19, E4, M1, C18
+
+### Idea
+- Sentence: Put the text that never changes ==first, byte for byte==, mark where it ends, and the provider reuses the model's computation over it for a tenth of the input price on most models.
+- Analogy: It is like a database's plan cache for prepared statements: the server reuses its work for identical query text, and one changed character defeats it. Where it breaks: a plan cache is free and invisible. A prompt cache is billed, with writes dearer than a plain call and reads far cheaper. It lives 5 minutes (or 1 hour on request) after its last hit.
+
+### Walkthrough
+- Title: Two users call within five minutes. Here is what the provider reuses.
+- Lead: A made-up app scores videos against each user's goal, with the real rules of Anthropic's prompt caching. A 6,000-token system prompt holds the scoring instructions. A marker at its end tells the provider what to cache. Each user adds a 900-token tail: their goal and the videos to score.
+- Lanes: Service, Provider, Prefix cache, Usage log
+- Step 1 · Put the fixed text first and mark its end | refs: C4, C26, C13, C14, E6
+  - Self: Service: fixed rules ▸ marker · goal + videos
+  - Text: A request has a fixed order: tool definitions (functions the model may ask you to call), then the system prompt (standing instructions), then the messages. The 6,000 tokens of scoring rules and output format go first, with a `cache_control` marker at their end. The user's goal and videos go last, with no marker.
+  - Fact: `"type": "ephemeral"` means a 5-minute lifetime. Adding `"ttl": "1h"` asks for one hour.
+- Step 2 · User A misses, so the provider stores the prefix | refs: F1.1, F1.4, F1.5, C10, C17, E1
+  - Arrow: Service → Provider: user A · 6,000 + 900 tokens
+  - Arrow: Provider → Prefix cache: miss · store 6,000 at 1.25×
+  - Reply: Provider → Service: write 6,000 · read 0 · input 900
+  - Text: Nothing is cached yet, so the provider processes all 6,900 tokens. It keeps the model's work over the 6,000-token prefix (the opening shared with later calls) for the next caller. Storing it makes this one call cost more than it would without a cache.
+- Step 3 · User B hits and pays a tenth for the prefix | refs: F1.6, F1.7, F1.8, C10, C18, C19, E1, E3
+  - Arrow: Service → Provider: user B · same 6,000 + new 900
+  - Event: Prefix cache → Provider: hit · lifetime renewed | ok
+  - Reply: Provider → Service: write 0 · read 6,000 · input 900 | ok
+  - Text: Within 5 minutes, user B's request starts with exactly the same 6,000 tokens. The provider skips recomputing them and bills them at 0.1 times the input price on most models. It also replies sooner. Every hit restarts the 5-minute clock.
+  - Fact: One reuse already pays for the write. One write plus one read costs 1.25 + 0.1 = 1.35 times the input price, against 2 for two uncached calls.
+- Step 4 · Log three counts to prove it works | refs: C23, C24, F3, E2
+  - Event: Service → Usage log: read 6,000 · write 0 · input 900
+  - Self: Usage log: share 6,000 / 6,900 ≈ 87%
+  - Text: The response's usage object splits input into tokens read from the cache, tokens written to it, and uncached input. The read share is the part of the input read from the cache. It can never reach 100% while an uncached tail exists. Here its ceiling is about 87%, and that is healthy.
+- Step 5 · A timestamp at the top breaks every hit | refs: C11, F1.6c, M1, M2
+  - Arrow: Service → Provider: "Now 14:02" + same 6,000 tokens
+  - Reply: Provider → Service: write 6,000 · read 0, every call | bad
+  - Text: The match must be exact from the first token. One value near the top that changes, such as a timestamp, request id or user name, makes every prefix new. Every call then pays the 1.25× write and nothing is ever read.
+  - Fact: The time "14:02" is made up. Tools listed in a different order on each call, for example from a Java `HashMap`, break the cache the same way.
+
+### Takeaways
+1. The cache keeps computation, not answers | The model still runs and you still pay for its output. Only the work over the prefix is reused. | C10, C11
+2. Stable text first, variable text last | Each token's work depends on every token before it, so the match must be exact from the first token. A timestamp or an unstable tool order near the top makes the hit rate zero. | C11, C26, M1, M2
+3. Writes cost more, reads far less | A write is 1.25× the input price (2× for one hour), a read 0.1× on most models. One reuse within 5 minutes pays for the write. | C17, C18, E3
+4. Prove it from three token counts | If the read and write counts are both 0, nothing was cached: the prefix may be under the model's minimum. | C20, C23, F3
+
+### Trap
+- Title: Adding the marker and assuming the cache works
+- Assume: "The marker is there, so the prompt is cached." | A prefix that is too short would surely raise an error.
+- Actually: Each model has a minimum prefix length (on Anthropic, between 512 and 4,096 tokens depending on the model). Below it nothing is cached, and no error says so. | Both cache counts stay at 0. Log the three counts on every call and chart the read share against its ceiling.
+- Refs: M4, M20, Q20, C20, N10, C24
+
+### Build
+- Title: The smallest prompt cache is a stable prefix, one marker and three logged counts
+- Lead: Fixed text first with a marker at its end, variable text last, and the three counts logged on every call. This Java sketch uses a made-up client class. It is a teaching sketch, not production code.
+- Refs: E6, C13, C23, C26, C11, C3, C16, C15, F2.3, F2.5
+- Code:
+```java
+// Same bytes on every call: no timestamp, request id or user name.  [5]
+static final List<Map<String, Object>> SYSTEM = List.of(Map.of(
+    "type", "text",
+    "text", INSTRUCTIONS_RUBRIC_AND_FORMAT,                 // [1] stable text first
+    "cache_control", Map.of("type", "ephemeral")));         // [1] the prefix ends here
+
+public String score(String goalAndItems) {
+  Map<String, Object> body = new LinkedHashMap<>();
+  body.put("model", MODEL);
+  body.put("max_tokens", MAX_TOKENS);
+  body.put("system", SYSTEM);
+  body.put("messages", List.of(Map.of(
+      "role", "user", "content", goalAndItems)));           // [1] variable text last, no marker
+  MessageResponse r = client.messages(body);                // [2] first call writes, [3] later calls read
+  Usage u = r.usage();
+  usageLog.record(u.cacheReadInputTokens(),                 // [4] read, write, uncached input
+      u.cacheCreationInputTokens(), u.inputTokens());
+  return r.text();
+}
+```
+- Note: Each bracketed number names the walkthrough step that line belongs to. This sketch covers one-shot calls only. In a chat the whole history is resent each turn, so the marker goes on the newest message and moves forward every turn. Each turn then reads the earlier turns from the cache and writes only the new turn.
+
 ## Summary
 
 Caching in an LLM application avoids paying twice for the same model work. There are three kinds: provider prompt caching reuses the provider's computation on an exact shared opening of the prompt (the prefix); an exact response cache stores the finished answer under a key and skips the model call on a hit; a semantic cache reuses an answer for a question that only means the same thing, and can return a wrong answer. Prompt caching is new compared with a classic backend, because a classic backend never paid per byte of request, while every LLM call resends and repays the same long opening. The response cache is familiar (Spring `@Cacheable` on Redis or a table), but the cached value is one sample from a non-deterministic model, so validation, eviction by report, version stamps and keeping personal data out of shared rows become part of the design.

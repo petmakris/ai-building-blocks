@@ -10,6 +10,102 @@ related: [hitl, guardrails, observability, evals, memory, sandbox, caching, gove
 
 # Workflows and agent loops
 
+## Story
+
+### Hook
+- Headline: The model picks each next step. ==Left alone, it may never stop.==
+- Setup: A person asks a bills assistant to mark the electricity bill paid and say what is still due. The model, the AI that writes the replies, searches, asks to mark the bill paid, lists what is due, then answers. That takes four paid model calls, in an order no line of code wrote. Each call resends the whole conversation, so each costs more than the last. A confused model would simply keep going.
+- Teaser: In one call, the model can ask your code to run one of your functions, called a tool. Who makes the second call, the third, and decides it is done?
+
+### Panel
+- Title: Tokens (the chunks of text a model reads and writes) used per task, compared with a plain chat
+- Row: Chat interaction | 1× | the baseline | struck
+- Row: Agent | about 4× | a loop where the model picks each step; every step resends the whole conversation | accent
+- Row: Multi-agent system | about 15× | one agent hands subtasks to other agents, each with its own conversation | big
+- Source: Real figures from Anthropic's multi-agent research write-up (June 2025). The 1× is the baseline they compare against.
+- Refs: N1, N2, E11, C38, C2
+
+### Idea
+- Sentence: An agent is ==a loop in which the model picks the next tool call==, and your code owns its exits, its checks and its saved state.
+- Analogy: An agent is like a queue consumer whose commands come from the model. The comparison breaks in three places. No code knows which command comes next, so your code must save where the loop stopped, or a crash loses it. Every command must be checked before it runs. Every command costs money.
+
+### Walkthrough
+- Title: "Mark the electricity bill paid and tell me what is still due." Here is every step of the loop.
+- Lead: The words, the bill id, its version and the amount are made up. The rules are the real ones of Billpod, a household-bills app. The step cap is 6 model calls, and the count carries across the approval. Nothing changes existing data without the person's yes.
+- Lanes: Person, Loop, Model, Tools
+- Step 1 · Check the cap, then ask the model | refs: F2.2, F2.3, F2.4, F1.2, X9, N6, C5, C6, C9
+  - Self: Loop: model call 1 of 6
+  - Arrow: Loop → Model: system prompt, conversation, tool list
+  - Reply: Model → Loop: call find_bills "electricity"
+  - Text: The system prompt is the standing instructions your code writes. The tool list names each of your functions, says what it does and gives a JSON Schema for its arguments. The model cannot run anything. It replies with a tool call: a structured field naming a function and its arguments.
+- Step 2 · Run the read at once and send everything back | refs: F2.5, F2.6, F3.5, C2, C7, X8, E3
+  - Arrow: Loop → Tools: find_bills
+  - Reply: Tools → Loop: bill b42 · version 3 | ok
+  - Arrow: Loop → Model: call 2: whole transcript + result
+  - Text: A read-only tool runs straight away. The model remembers nothing between calls. So call 2 resends call 1, its reply and the result. Each call costs more than the one before.
+  - Fact: Each tool call carries an id, and Billpod answers every id with a result. The provider, the company that runs the model, rejects a request that leaves an id without one.
+- Step 3 · Check the write against stored data before showing it | refs: F2.7, F2.8, F3.6, C26, C27, C28, C29, X14
+  - Reply: Model → Loop: call mark_paid b42 · version 3
+  - Self: Loop: allow-listed · bill exists · version 3 ✓
+  - Text: Text the model reads can carry instructions it may follow. This is called prompt injection. So a tool call is only a proposal. It must be on the allow-list of tools this loop may run, and match its schema. It must name a bill in this household. It must also carry the bill's version number that the model read, which proves nobody changed the bill meanwhile.
+- Step 4 · Save the paused loop and end the request | refs: F2.9, F3.8, C30, C33, C47, X16, N15
+  - Event: Loop → Person: confirmation card
+  - Self: Loop: encrypt state into a 10-min resume token
+  - Text: Marking a bill paid changes existing data, so it needs the person's yes. The loop puts the transcript, the results, the call count and the checked arguments into a resume token. That is a string encrypted with AES-256-GCM, which the browser holds but can neither read nor change. The loop shows a card, and the HTTP request ends. Nothing has been written yet.
+- Step 5 · Resume once and run exactly what was checked | refs: F2.10, F2.11, F2.12, F4.3, F4.4, F4.6, C20, C34, N7, N17
+  - Arrow: Person → Loop: Approve + token, second request
+  - Arrow: Loop → Tools: mark_paid, sealed arguments only
+  - Text: The second request opens the resume token. The token works once, so a second click gets 409. The loop runs the sealed arguments, never new ones from the browser. The count comes from the token, so 2 of the 6 model calls are already used.
+- Step 6 · Stop when a reply has no tool call | refs: F2.13, F2.14, F2.15, F2.16, F2.17, F1.4, E1
+  - Arrow: Loop → Model: model calls 3 and 4
+  - Reply: Model → Loop: plain text, no tool call | ok
+  - Event: Loop → Person: "Done. Still due: water, 48.20"
+  - Text: Call 3 asks for list_due. Call 4 answers in plain text, and the loop ends. That is 4 of the 6 model calls, across two HTTP requests, and no code wrote "search, then mark paid, then list".
+
+### Takeaways
+1. A workflow keeps the order in code | A workflow is your code calling the model in an order you wrote. Your code owns every exit. Use one whenever you can write the steps down. | C12, M1
+2. An agent stops on a reply with no tool call | That is its only built-in exit. Everything else is yours to add. | C13, F1.4, P3
+3. Every loop needs caps it reads | A step cap, a timeout per call, and the model tokens used so far, priced into money before each step. Prove them with a fake model that never stops. | C20, C21, C24, E8, M7
+4. Tool calls are proposals | Allow-list them, check them against stored data and version, and have a person confirm each change to existing data. | C26, C27, C28, C30, M3
+5. Save a paused or long run | A restart from step 1 pays every call again and repeats every email or payment. | C33, C35, F12, E12, M6
+
+### Trap
+- Title: Resetting the step count when the person approves
+- Assume: "The approval is a new HTTP request, so the loop starts again with 6 model calls." | Each request gets its own fresh budget, as with a rate limit per request.
+- Actually: A loop that pauses can then make more calls than its budget. | Save the count in the paused state and carry it on. Billpod keeps it in the resume token. Billpod makes one exception to the cap: a resumed request at 6 of 6 gets one extra call, so the model can say what happened. It never gets a fresh 6.
+- Refs: M10, Q4, C20, F4.8, X3, X9, N7
+
+### Build
+- Title: The smallest agent is a while loop with three exits and one pause
+- Lead: Cap the steps, the cost and the request's time, ask the model, run reads, check writes, pause for a person, and stop on plain text. This Java sketch shows the loop. It is a teaching sketch, not production code.
+- Refs: F13, E14, C7, C21, C24, C40, N7
+- Code:
+```java
+Instant deadline = Instant.now().plus(REQUEST_TIME);         // [1] this HTTP request only
+while (true) {
+  if (usage.steps() >= MAX_STEPS) throw new LoopLimitException("steps"); // [1] e.g. 6
+  if (usage.cost() >= MAX_COST || Instant.now().isAfter(deadline))
+    throw new LoopLimitException("budget");                   // [1] model tokens priced into money
+  Reply reply = model.call(SYSTEM_PROMPT, messages, TOOLS, Duration.ofSeconds(60)); // [1] per-call timeout
+  usage.add(reply.usage());                                   // [1] one step + priced tokens
+  if (reply.toolCalls().isEmpty()) return Result.answer(reply.text()); // [6]
+  messages.add(Message.assistant(reply.text(), reply.toolCalls()));
+  Map<String, Object> results = new LinkedHashMap<>();        // call id → result
+  ToolCall pending = null;
+  for (ToolCall c : reply.toolCalls()) {
+    Tool t = ALLOWED.get(c.name());                           // [3] allow-list
+    if (t == null) results.put(c.id(), UNKNOWN_TOOL);         // [3] error result, nothing runs
+    else if (t.readOnly()) results.put(c.id(), execute(t, c)); // [2]
+    else if (pending != null) results.put(c.id(), NOT_RUN);   // [4] a second write in one reply: one card at a time
+    else { Object problem = check(t, c);                      // [3] schema, record, version
+      if (problem != null) results.put(c.id(), problem); else pending = c; }
+  }
+  if (pending != null) return Result.card(store.save(messages, results, pending, usage)); // [4]
+  messages.add(Message.toolResults(results));                 // [2] one result per call id
+}
+```
+- Note: Each [n] marks the code for walkthrough step n. Step [5], the resume, is a second method, not shown. It takes the saved state once and runs the checked call. Then it calls the loop again with a new deadline, carrying over the steps and cost. Unlike Billpod, this sketch gives a resume no extra call at 6 of 6. One gap before production: there is no stored trace of each step, so a bad answer cannot be replayed.
+
 ## Summary
 
 Most features built on a language model need more than one model call. A workflow fixes the order of those calls in your own code; an agent lets the model choose the next call each time round a loop, until a reply contains no tool call (S1, S16). The agent hands control flow to a component that is slow (seconds per call), paid per call, and can choose differently on each run with the same input. That is new compared with a classic backend, where control flow is code you can read (S16). An agent loop therefore needs its own exits (step cap, timeouts, cost limit), checks on every tool call it proposes, a person's approval for changes, and saved state when it pauses or outlives one process (S16, S15, X1).
