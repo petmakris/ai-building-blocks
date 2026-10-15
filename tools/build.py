@@ -61,8 +61,8 @@ def md(text: str) -> str:
 def link_ids(fragment: str, block: Block, blocks: dict[str, Block], titles: dict[str, str], up: str = "../") -> str:
     """Turn item ids into links, outside <pre>, <code> and existing <a>."""
     parts = re.split(r"(<pre.*?</pre>|<a\b.*?</a>|<code>.*?</code>|<[^>]+>)", fragment, flags=re.S)
-    cross = re.compile(r"\b(?P<blk>[a-z]+)\.(?P<item>[A-Z]\d+(?:\.\d+[a-z]?)?)\b")
-    local = re.compile(r"(?<![\w.#/-])(?P<item>[A-Z]\d+(?:\.\d+[a-z]?)?)(?![\w-])")
+    cross = re.compile(r"\b(?P<blk>[a-z]+)\.(?P<item>[A-Z]\d+(?:[a-z]|\.\d+[a-z]?)?)\b")
+    local = re.compile(r"(?<![\w.#/-])(?P<item>[A-Z]\d+(?:[a-z]|\.\d+[a-z]?)?)(?![\w-])")
 
     def cross_sub(m: re.Match) -> str:
         blk, item = m.group("blk"), m.group("item")
@@ -92,12 +92,12 @@ def link_ids(fragment: str, block: Block, blocks: dict[str, Block], titles: dict
 
 def anchor_rows(fragment: str) -> str:
     """Give a table row whose first cell is an id that id as its anchor."""
-    return re.sub(r"<tr>\s*<td>(?P<id>[A-Z]\d+)</td>", r'<tr id="\g<id>"><td class="rid"><a href="#\g<id>">\g<id></a></td>', fragment)
+    return re.sub(r"<tr>\s*<td>(?P<id>[A-Z]\d+[a-z]?)</td>", r'<tr id="\g<id>"><td class="rid"><a href="#\g<id>">\g<id></a></td>', fragment)
 
 
 def anchor_list_items(fragment: str) -> str:
     """Give a list item that starts with a step id (F1.3 · ...) that id."""
-    return re.sub(r"<li>(\s*<p>)?(?P<id>[A-Z]\d+(?:\.\d+[a-z]?)?)\s*·",
+    return re.sub(r"<li>(\s*<p>)?(?P<id>[A-Z]\d+(?:[a-z]|\.\d+[a-z]?)?)\s*·",
                   lambda m: f'<li id="{m.group("id")}">{m.group(1) or ""}<a class="sid" href="#{m.group("id")}">{m.group("id")}</a> ·',
                   fragment)
 
@@ -245,7 +245,7 @@ def state_diagram(lc: Lifecycle) -> str:
 
 # ---------------------------------------------------------------- page parts
 
-ITEM_HEAD = re.compile(r"^### (?P<id>[A-Z]\d+)\s*·\s*(?P<title>.+)$", re.M)
+ITEM_HEAD = re.compile(r"^### (?P<id>[A-Z]\d+[a-z]?)\s*·\s*(?P<title>.+)$", re.M)
 
 
 def split_items(text: str) -> tuple[str, list[tuple[str, str, str]]]:
@@ -454,7 +454,7 @@ def home_page(blocks: dict[str, Block], titles, order) -> str:
     nav = "".join(f'<a href="{b}/"><span class="num">{blocks[b].number:02d}</span> {html.escape(blocks[b].front.get("title", b))}</a>' for b in order)
     main = f"""
 <header class="hero"><p class="eyebrow">A knowledge store, rendered</p>
-<h1>Sixteen building blocks turn one unreliable model call into software you can depend on</h1>
+<h1>{len(blocks)} building blocks turn one unreliable model call into software you can depend on</h1>
 <p class="lede">Each block is stored as items with stable ids: concepts, flows, lifecycles, worked examples, numbers with sources, verbatim code from a real codebase, pitfalls and misconceptions. Every flow and lifecycle below is drawn from those items. The <a href="{REPO}">markdown files</a> are the source.</p></header>
 <section class="sec" id="blocks"><h2>The blocks, in learning order</h2><div class="bgrid">{''.join(cards)}</div></section>
 <section class="sec" id="request-path"><h2>One request passes through the blocks in this order</h2>

@@ -48,6 +48,9 @@ def main() -> int:
         found = [h for h in b.sections if h in HEADINGS]
         if found != HEADINGS:
             probs.append(f"headings: {found}")
+        for h in b.sections:
+            if h not in HEADINGS:
+                probs.append(f"section '## {h}' is not one of the store's headings (an unclosed code fence can cause this)")
         story = parse_story(b)
         if story is None:
             probs.append("Story: no '## Story' section")
@@ -78,7 +81,7 @@ def main() -> int:
                         if k and k not in declared and k not in ("any", "*", "(any)", "any state", "start", "end", "—", "-"):
                             probs.append(f"line {t.line}: {lc.id} state '{name.strip()}' not declared")
         text = b.path.read_text(encoding="utf-8")
-        for m in re.finditer(r"\b(?P<blk>[a-z]+)\.(?P<item>(?:[A-Z]\d+)(?:\.\d+[a-z]?)?)\b", text):
+        for m in re.finditer(r"\b(?P<blk>[a-z]+)\.(?P<item>(?:[A-Z]\d+)(?:[a-z]|\.\d+[a-z]?)?)\b", text):
             blk, item = m.group("blk"), m.group("item")
             if blk in by_id and item not in by_id[blk].ids:
                 line = text.count("\n", 0, m.start()) + 1

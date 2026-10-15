@@ -25,7 +25,7 @@ STEP_ID = r"F\d+\.\d+[a-z]?"
 STEP_RE = re.compile(rf"^(?P<indent>\s*)(?:\d+\.|[-*])?\s*\**(?P<id>{STEP_ID})\**\s*·\s*(?P<rest>.+)$")
 FLOW_RE = re.compile(r"^### (?P<id>F\d+)\s*·\s*(?P<title>.+)$")
 LIFE_RE = re.compile(r"^### (?P<id>L\d+)\s*·\s*(?P<title>.+)$")
-ITEM_RE = re.compile(r"^### (?P<id>[A-Z]\d+)\s*·\s*(?P<title>.+)$")
+ITEM_RE = re.compile(r"^### (?P<id>[A-Z]\d+[a-z]?)\s*·\s*(?P<title>.+)$")
 JUMP_RE = re.compile(rf"(?:continues at|runs|→ goes to|returns to|rejoins)\s+(?P<to>(?:[a-z]+\.)?F\d+(?:\.\d+[a-z]?)?)")
 ENDS_RE = re.compile(r"(?:→|\b)\s*ends\b")
 ARROW = "→"
@@ -170,8 +170,15 @@ def load(path: Path) -> Block:
     section_lines: dict[str, int] = {}
     cur = None
     buf: list[str] = []
+    fence = None   # the opening fence while inside a code block, so a "## " line in quoted code is not a section
     for i, l in enumerate(lines):
-        m = re.match(r"^## (.+)$", l)
+        fm = re.match(r"^\s*(`{3,}|~{3,})", l)
+        if fm:
+            if fence is None:
+                fence = fm.group(1)
+            elif fm.group(1).startswith(fence):
+                fence = None
+        m = re.match(r"^## (.+)$", l) if fence is None else None
         if m:
             if cur:
                 sections[cur] = "\n".join(buf)
@@ -242,7 +249,7 @@ def load(path: Path) -> Block:
         im = ITEM_RE.match(l)
         if im:
             ids.add(im.group("id"))
-        for tm in re.finditer(r"^\|\s*(?P<id>[A-Z]\d+)\s*\|", l):
+        for tm in re.finditer(r"^\|\s*(?P<id>[A-Z]\d+[a-z]?)\s*\|", l):
             ids.add(tm.group("id"))
         for pm in re.finditer(r"^\s*[-*]\s+(?P<id>P\d+)\s*·", l):
             ids.add(pm.group("id"))

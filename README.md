@@ -1,7 +1,7 @@
 ---
 id: index
 title: "AI building blocks: index of the knowledge store"
-blocks: 16
+blocks: 17
 built: 2026-10-15
 lomem_code_read: 2026-10-15
 ---
@@ -10,7 +10,7 @@ lomem_code_read: 2026-10-15
 
 ## 1. Purpose
 
-This folder stores what is known about the 16 building blocks of software built around large language models, as structured records with stable ids, so that any tool (a voice tutor, a diagram generator, a terminal assistant) can read, cross-reference and render it.
+This folder stores what is known about the 17 building blocks of software built around large language models, as structured records with stable ids, so that any tool (a voice tutor, a diagram generator, a terminal assistant) can read, cross-reference and render it.
 This README is the entry point: it stores the file format, the block list, the dependencies, the request path across blocks, a glossary of every concept and Lomem's coverage, and holds no teaching prose.
 
 ### How the files are organised
@@ -80,26 +80,28 @@ Lomem is the author's private monorepo, read at `~/projects/lomem` (gateway.C53)
 
 | number | id | file | title | summary | lomem_status | depends_on |
 |---|---|---|---|---|---|---|
-| 1 | gateway | [02-gateway.md](02-gateway.md) | The model gateway | The model gateway is the one module or proxy every model call must pass through, so the key, retries, time budget, fallback and per-call spend record live in one place. | yes | (none) |
-| 2 | prompts | [03-prompts.md](03-prompts.md) | Prompts as versioned configuration | A prompt is the plain-language text that steers a model feature on every call, so it is configuration that changes behaviour and must be kept in one copy, tested as exact text, stamped on every result and rolled back like code. | partly | gateway |
-| 3 | context | [04-context.md](04-context.md) | Context engineering | Context engineering is the server code that chooses, orders and trims the text sent to a stateless model on every call, because the window is a hard token limit and a fuller window gives worse answers as well as costing more. | partly | gateway, prompts |
-| 4 | structured | [05-structured.md](05-structured.md) | Structured output | Structured output makes a model answer in a typed JSON shape you define and then checks that answer like an untrusted request body, because services need typed records and a model only writes text. | yes | gateway, prompts |
-| 5 | tools | [06-tools.md](06-tools.md) | Tool calling and MCP | Tool calling lets a model reply with a structured request to run one of your functions, which your code validates, authorises and may run, and MCP is the standard protocol that lets outside assistants list and call the same functions. | yes | gateway, prompts, structured |
-| 6 | rag | [07-rag.md](07-rag.md) | Retrieval (RAG) | Retrieval-augmented generation is a search step your code runs before the model call, so the model answers from the few passages of your own data that it needs instead of guessing. | no | prompts, context |
-| 7 | memory | [08-memory.md](08-memory.md) | Memory | Memory is the code around a stateless model that stores what was said and what was learned about a user, and puts the useful part back into the next request, because users expect the assistant to remember them and the model cannot. | partly | prompts, context, structured |
-| 8 | agents | [09-agents.md](09-agents.md) | Workflows and agent loops | A workflow is your own code calling the model in an order you wrote; an agent is a loop in which the model picks the next tool call each time round, and it exists because some tasks have steps that cannot be written down in advance. | partly | gateway, prompts, context, structured, tools |
-| 9 | hitl | [10-hitl.md](10-hitl.md) | Human in the loop | Human in the loop stops a risky action the model asked for, shows a person exactly what it will do, and runs it only after that person approves, because a model can be confidently wrong and can be steered by text it reads. | yes | tools, agents |
-| 10 | guardrails | [11-guardrails.md](11-guardrails.md) | Guardrails and prompt injection | Guardrails are the checks around a language model, and above all the design choices in your own code, that keep a model fooled by an attacker's text from leaking data or changing records on its own. | yes | prompts, structured, tools, agents |
-| 11 | evals | [12-evals.md](12-evals.md) | Evals | An eval runs an LLM feature over a fixed set of real inputs, scores each output pass or fail and compares the pass rate with a bar set before the run, because assertEquals cannot test output that varies and is open-ended. | by hand | prompts, structured |
-| 12 | observability | [13-observability.md](13-observability.md) | Observability for LLM calls | Observability for LLM calls keeps one record per model call (exact text in and out, model and prompt version, tokens, cost, latency) and scores a sample of live traffic, because a wrong model answer returns HTTP 200 with no exception and quality can change when nobody deployed anything. | partly | gateway, prompts |
-| 13 | caching | [14-caching.md](14-caching.md) | Caching | Caching avoids paying twice for the same model work, by letting the provider reuse its computation on an identical prompt opening and by storing whole answers to repeated questions, with new risks because a model answer is neither free nor deterministic. | partly | gateway, prompts, context, structured |
-| 14 | sandbox | [15-sandbox.md](15-sandbox.md) | Sandboxes for agents that run code | A sandbox is the isolated place where code that a model wrote at request time runs, seeing only a scratch folder, reaching only listed hosts, holding no secrets and killed at its limits, because anyone who can put text in front of the model can steer what code it writes. | no | tools, agents, guardrails, context |
-| 15 | governance | [16-governance.md](16-governance.md) | Governance and model risk | Governance is the set of records and controls that let a regulated firm prove what its AI did, on whose authority and on what evidence, and it exists because the model is a third-party component nobody in the firm can inspect or reproduce, that can change without a release and that receives client data on every call. | partly | gateway, prompts, evals, observability |
-| 16 | rollout | [17-rollout.md](17-rollout.md) | Shadow mode, flags and the feedback loop | New AI behaviour reaches users in stages (shadow mode, log mode, an eval-gated flag, a canary) and confirmed production failures become new eval cases, because a wrong model answer looks exactly like a right one to ordinary monitoring. | partly | evals, prompts, observability |
+| 1 | toollayer | [01-toollayer.md](01-toollayer.md) | One tool layer behind every front door | The tool layer is the one place where an app's operations are defined as typed tools over its services, so the app's screens, its in-app assistant and outside assistants connected over MCP all reach the same rules, and each front door adds only its own policy on top. | yes | (none) |
+| 2 | gateway | [02-gateway.md](02-gateway.md) | The model gateway | The model gateway is the one module or proxy every model call must pass through, so the key, retries, time budget, fallback and per-call spend record live in one place. | yes | (none) |
+| 3 | prompts | [03-prompts.md](03-prompts.md) | Prompts as versioned configuration | A prompt is the plain-language text that steers a model feature on every call, so it is configuration that changes behaviour and must be kept in one copy, tested as exact text, stamped on every result and rolled back like code. | partly | gateway |
+| 4 | context | [04-context.md](04-context.md) | Context engineering | Context engineering is the server code that chooses, orders and trims the text sent to a stateless model on every call, because the window is a hard token limit and a fuller window gives worse answers as well as costing more. | partly | gateway, prompts |
+| 5 | structured | [05-structured.md](05-structured.md) | Structured output | Structured output makes a model answer in a typed JSON shape you define and then checks that answer like an untrusted request body, because services need typed records and a model only writes text. | yes | gateway, prompts |
+| 6 | tools | [06-tools.md](06-tools.md) | Tool calling and MCP | Tool calling lets a model reply with a structured request to run one of your functions, which your code validates, authorises and may run, and MCP is the standard protocol that lets outside assistants list and call the same functions. | yes | gateway, prompts, structured |
+| 7 | rag | [07-rag.md](07-rag.md) | Retrieval (RAG) | Retrieval-augmented generation is a search step your code runs before the model call, so the model answers from the few passages of your own data that it needs instead of guessing. | no | prompts, context |
+| 8 | memory | [08-memory.md](08-memory.md) | Memory | Memory is the code around a stateless model that stores what was said and what was learned about a user, and puts the useful part back into the next request, because users expect the assistant to remember them and the model cannot. | partly | prompts, context, structured |
+| 9 | agents | [09-agents.md](09-agents.md) | Workflows and agent loops | A workflow is your own code calling the model in an order you wrote; an agent is a loop in which the model picks the next tool call each time round, and it exists because some tasks have steps that cannot be written down in advance. | partly | gateway, prompts, context, structured, tools |
+| 10 | hitl | [10-hitl.md](10-hitl.md) | Human in the loop | Human in the loop stops a risky action the model asked for, shows a person exactly what it will do, and runs it only after that person approves, because a model can be confidently wrong and can be steered by text it reads. | yes | tools, agents |
+| 11 | guardrails | [11-guardrails.md](11-guardrails.md) | Guardrails and prompt injection | Guardrails are the checks around a language model, and above all the design choices in your own code, that keep a model fooled by an attacker's text from leaking data or changing records on its own. | yes | prompts, structured, tools, agents |
+| 12 | evals | [12-evals.md](12-evals.md) | Evals | An eval runs an LLM feature over a fixed set of real inputs, scores each output pass or fail and compares the pass rate with a bar set before the run, because assertEquals cannot test output that varies and is open-ended. | by hand | prompts, structured |
+| 13 | observability | [13-observability.md](13-observability.md) | Observability for LLM calls | Observability for LLM calls keeps one record per model call (exact text in and out, model and prompt version, tokens, cost, latency) and scores a sample of live traffic, because a wrong model answer returns HTTP 200 with no exception and quality can change when nobody deployed anything. | partly | gateway, prompts |
+| 14 | caching | [14-caching.md](14-caching.md) | Caching | Caching avoids paying twice for the same model work, by letting the provider reuse its computation on an identical prompt opening and by storing whole answers to repeated questions, with new risks because a model answer is neither free nor deterministic. | partly | gateway, prompts, context, structured |
+| 15 | sandbox | [15-sandbox.md](15-sandbox.md) | Sandboxes for agents that run code | A sandbox is the isolated place where code that a model wrote at request time runs, seeing only a scratch folder, reaching only listed hosts, holding no secrets and killed at its limits, because anyone who can put text in front of the model can steer what code it writes. | no | tools, agents, guardrails, context |
+| 16 | governance | [16-governance.md](16-governance.md) | Governance and model risk | Governance is the set of records and controls that let a regulated firm prove what its AI did, on whose authority and on what evidence, and it exists because the model is a third-party component nobody in the firm can inspect or reproduce, that can change without a release and that receives client data on every call. | partly | gateway, prompts, evals, observability |
+| 17 | rollout | [17-rollout.md](17-rollout.md) | Shadow mode, flags and the feedback loop | New AI behaviour reaches users in stages (shadow mode, log mode, an eval-gated flag, a canary) and confirmed production failures become new eval cases, because a wrong model answer looks exactly like a right one to ordinary monitoring. | partly | evals, prompts, observability |
 
 ## 3. Dependency graph
 
 Edges read "a → b": block a must be understood before block b (from each file's `depends_on`).
+toollayer has an empty `depends_on`, and no block lists it in its own, so it has no edges.
 
 - gateway → prompts
 - gateway → context
@@ -145,15 +147,16 @@ Edges read "a → b": block a must be understood before block b (from each file'
 - prompts → rollout
 - observability → rollout
 
-Suggested order (respects every edge): gateway, prompts, context, structured, tools, rag, memory, agents, hitl, guardrails, evals, observability, caching, sandbox, governance, rollout.
-Roots: gateway. Leaves (nothing depends on them): rag, memory, hitl, caching, sandbox, governance, rollout.
+Suggested order (respects every edge): toollayer, gateway, prompts, context, structured, tools, rag, memory, agents, hitl, guardrails, evals, observability, caching, sandbox, governance, rollout.
+Roots: toollayer, gateway. Leaves (nothing depends on them): toollayer, rag, memory, hitl, caching, sandbox, governance, rollout.
 
 ## 4. Request path across blocks
 
-One user request, from the controller to the model and back, in the order of Chip Huyen's platform (gateway.F11, context.F12, guardrails.F8, sandbox.F10). Each step names the blocks it belongs to and the flow or step ids that describe it. Steps R14-R20 are cross-cutting: they run beside every request or between releases, not in its sequence.
+One user request, from the front door to the model and back, in the order of Chip Huyen's platform (gateway.F11, context.F12, guardrails.F8, sandbox.F10). Each step names the blocks it belongs to and the flow or step ids that describe it. Steps R14-R20 are cross-cutting: they run beside every request or between releases, not in its sequence.
 
 | id | step | blocks | flow and step ids |
 |---|---|---|---|
+| R0 | Front door: the request arrives through one of the front doors (the app's screens over REST, the in-app assistant, or an outside assistant over MCP); each door authenticates and builds its own context, and all of them reach the same tool layer and services | toollayer, tools | toollayer.F7.1, toollayer.F7.2, toollayer.F1, toollayer.F2.1-toollayer.F2.2, toollayer.F3.1-toollayer.F3.2, toollayer.F4.1-toollayer.F4.4, toollayer.F6.1, toollayer.F6.3 |
 | R1 | Edge and controller: authenticate; resolve tenant and entitlements and carry them downstream; the request carries the client-held history | guardrails, tools, context, agents | gateway.F11.1, guardrails.F8.1, guardrails.F7, tools.F6, context.F3, agents.F5 |
 | R2 | Admission and input guardrails: spend cap at the activity door; PII redaction, injection or moderation classifier, topical scope; may short-circuit to a canned reply | gateway, guardrails | gateway.F9, gateway.F11.2, guardrails.F8.2, guardrails.F8.2b, guardrails.F6 |
 | R3 | Cache check: exact or semantic response cache, scoped per tenant; a hit returns at once | caching | caching.F18.2, caching.F18.2b, caching.F4, caching.F5, caching.F6, caching.F8, caching.F13 |
@@ -177,7 +180,7 @@ One user request, from the controller to the model and back, in the order of Chi
 
 ## 5. Glossary
 
-Every concept heading in every block file (883 headings, 798 distinct terms), alphabetical. Where one term is defined in several blocks, the definition shown is the first block's, and every id is listed.
+Every concept heading in every block file (907 headings, 820 distinct terms), alphabetical. Where one term is defined in several blocks, the definition shown is the first block's, and every id is listed.
 
 | term | definition | ids |
 |---|---|---|
@@ -186,6 +189,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Access control in retrieval | Access control in retrieval filters chunks by the caller's access groups inside the search query, before the model sees anything. | rag.C40 |
 | Access token (credential sense) | a credential such as a GitHub access token, unrelated to the word-piece sense of token (C2). | guardrails.C20 |
 | Activity, event history and replay (Temporal) | In Temporal each model call and tool call is wrapped as an activity whose result is stored in a log (event history); after a crash Temporal re-runs your loop code from the top and hands back logged results instead of calling again. | agents.C36 |
+| Adapter | An adapter turns the one tool list into the shape a particular caller needs, such as MCP `tools/list` entries or Gemini function declarations. | toollayer.C10 |
 | Admin actor | An admin actor marks an admin's own tooling call under their user id. | gateway.C19 |
 | Admin error stream (Lomem) | The admin error stream pushes each failed provider attempt to the admin page live over server-sent events (SSE). | observability.C39 |
 | ADR | An ADR (architecture decision record) is a short document that records one design decision and its reasons. | gateway.C54, memory.C55, caching.C54 |
@@ -207,6 +211,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Allowed-key list | A code-side list of permitted memory keys, also listed in the system prompt, with any update outside it dropped. | memory.C36 |
 | Allowlist | An allowlist is a list of permitted domains; the egress proxy forwards a request only if its host is on it (S14). | sandbox.C12 |
 | Analyst session sandbox | An analyst sandbox is one long-lived sandbox per analyst session that keeps variables between questions, with read-only data, an allowlist holding only the package mirror, reviewed file exports and deletion at the end (S14). | sandbox.C44 |
+| Annotations as the only policy that crosses to outside doors | Annotations are the hints a tool carries (`readOnlyHint`, `destructiveHint`, `idempotentHint`) that an outside MCP client may use to decide whether to ask the person first (tools.C22). | toollayer.C17 |
 | Anthropic output_config.format | Anthropic's API takes standard JSON Schema in `output_config.format` and returns the JSON text in `content[0].text` [S1, S15]. | structured.C13 |
 | API key | An API key is the secret string a provider gives the account owner; every request carries it, and the provider bills the account that owns it. | gateway.C4 |
 | APM | APM (application performance monitoring) is the classic tooling that times calls and tracks errors, such as Datadog or New Relic. | observability.C42 |
@@ -260,6 +265,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Caller abort (the person goes away) | A caller abort is the person's Stop button or a dropped request, carried into the loop as an abort signal. | agents.C44 |
 | Canary | Showing the new behaviour to a small share of users, comparing their outcomes with everyone else's, and widening the share only if nothing got worse. | rollout.C24 |
 | Candidate list (fallback list) | The candidate list is the lead model followed by every other enabled model in priority order. | gateway.C26 |
+| Capabilities, not endpoints | The guidance that tools for agents should be task-shaped capabilities rather than one wrapper per API endpoint. | toollayer.C23 |
 | Capability eval | A capability eval uses the same loop and scorers on cases the feature does not handle well yet, to measure progress. | evals.C27 |
 | Certificate authority and trust store | A certificate authority is the issuer a program trusts to vouch for a server, and the trust store is the list of issuers it trusts (in Java, the truststore) (S14). | sandbox.C19 |
 | Change events (webhooks, polling, CDC) | A change event tells the indexer a source document was edited, deleted or had its permissions changed. | rag.C42 |
@@ -304,6 +310,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Content filter | The content filter is the provider's own safety check that can cut off or block an answer. | observability.C18 |
 | Content redaction | Content redaction scrubs personal data out of the text itself, rather than removing fields by key name. | observability.C21 |
 | Context engineering | Context engineering is the code that decides what goes into the window on each call: it chooses, orders and trims the text. | context.C7 |
+| Context factory per door | A context factory is the function each front door calls to turn "who is calling" into a tool context, resolving the app's tenant exactly as the REST routes do. | toollayer.C9 |
 | Context layers | Ask Billpod fills five layers, fresh for every message, into three content fields of the request. | context.C16 |
 | Context rot | Context rot is the effect that as the window fills, the model finds and uses the right facts less reliably. | context.C26 |
 | Context window | The context window is the most tokens one request can hold, counting the input sent and the answer the model writes. | context.C5, tools.C16, rag.C6, memory.C6 |
@@ -353,6 +360,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Domain checks (date, currency, IBAN, amount, length) | Domain checks are the per-field rules from the business domain that a schema cannot express [S15]. | structured.C30 |
 | Domain terms of the running example | tunatutor vocabulary the examples use (S6, testing). | prompts.C37 |
 | Domain-expert editing | letting a non-engineer such as a linguist tune a prompt without a deployment (S6, S5). | prompts.C39 |
+| Door policy | A door policy is a rule that belongs to one front door, such as which calls need the person's yes, a step cap or Undo, and that therefore lives in that door's code, not in the tool. | toollayer.C16 |
 | Dot product and magnitude | The dot product multiplies two vectors position by position and adds the products; the magnitude is the length of one vector. | rag.C22 |
 | Draft confirmed by a person | A draft is a reading stored for a person to confirm; nothing is filed or paid from a reading on its own [S15, X11]. | structured.C35 |
 | Draft with field sources (AI marker) | a captured bill that is not filed until a person checks and confirms it, with each field marked by where it came from. | guardrails.C44 |
@@ -395,6 +403,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Exact-source precedence (Swiss QR-bill) | Exact-source precedence means a value read exactly by code wins over the model's reading for the same field [S15]. | structured.C33 |
 | Example domain terms (payments) | The running example uses three payment terms: clearing, IBAN check digits and the clearing adapter. | rag.C65 |
 | Excessive agency (OWASP LLM06) | The OWASP 2025 risk that an LLM application has more functionality, permissions or autonomy than it needs. | tools.C49 |
+| Excluded route with a reason | An excluded route is a screen action that deliberately has no tool, listed with a written reason. | toollayer.C15 |
 | Exit code and reason line sent back to the model | The runner tells the model the exit code and a readable reason, so the model can fix its code and try again (S14). | sandbox.C32 |
 | Exit plan | The exit plan is a second provider or snapshot the feature can switch to, with its own passing eval. | governance.C45 |
 | Expiry | A rule that stops stale facts being loaded. | memory.C38 |
@@ -427,6 +436,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Four-eyes rule (maker-checker), second reviewer, escalation, timeout | a rule that a different person approves what one person (or the model) proposed, with routing when nobody answers. | hitl.C36 |
 | Free text versus typed object | Free text is a reply for a person to read; a typed object is a record with named, typed fields a program can store and act on [S15]. | structured.C9 |
 | Freshness SLA | A freshness SLA is a target for how soon a source change is reflected in the index. | rag.C53 |
+| Front door | A front door is one way a person or a program reaches an app's operations. | toollayer.C1 |
 | Function call part (`functionCall`) | The part of a model reply that names a function and its arguments. | tools.C8 |
 | Function response part (`functionResponse`) | The part the backend sends back to the model carrying one tool's result. | tools.C9 |
 | Gate | Code that decides whether a turn may write memory, from state the code controls, never from the model's answer. | memory.C24, rollout.C19 |
@@ -475,6 +485,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Idempotency key | A unique key on a job so the same turn cannot enqueue the same job twice. | memory.C28 |
 | Image with packages preinstalled | With no network the container cannot download libraries, so the image must already contain every package the code may import (S14). | sandbox.C37 |
 | Implicit feedback | Feedback read from what users do (send, edit, discard, retry, accept). | rollout.C30 |
+| In-app assistant | The in-app assistant is the AI door the app runs itself, with its own model, its own loop and its own screen. | toollayer.C11 |
 | In-memory template cache | the per-process Map that holds each prompt's row text so a request does not query the table (S6, X11). | prompts.C44 |
 | Independent review (release sign-off) | Independent review is sign-off by someone outside the building team before release. | governance.C60 |
 | Independent runs | Runs are independent when each call is a fresh request, so one result does not affect the next. | evals.C35 |
@@ -551,7 +562,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Log mode versus enforce mode | In enforce mode a check refuses the item; in log mode it writes the refusal it would have made and lets the item through. | rollout.C17 |
 | Log of commands and blocked connections | A mature sandbox keeps a log of every command and every blocked connection (S14). | sandbox.C42 |
 | Lomem | Lomem is a set of personal apps by the author of this guide; its tutoring app is tunatutor. | governance.C73 |
-| Lomem and its apps | Lomem is one repository that holds several small apps sharing packages. | gateway.C53, agents.C50 |
+| Lomem and its apps | Lomem is the author's private monorepo; its apps are tunatutor, Billpod, Mealy and MyTube (gateway.C53). | toollayer.C24, gateway.C53, agents.C50 |
 | Lomem and TunaTutor | Lomem is a monorepo (`~/projects/lomem`) holding several apps; TunaTutor is its language-learning app with an AI tutor. | memory.C56, rollout.C45 |
 | Lomem, Billpod and ADR | Lomem is the author's own monorepo of apps; Billpod is its household bills app; an ADR is an architecture decision record. | hitl.C50 |
 | Lomem, Billpod and their names | the names the excerpts use. | guardrails.C70 |
@@ -567,6 +578,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | MCP (Model Context Protocol) | A standard protocol that lets any assistant list and call tools on any server. | tools.C33 |
 | MCP (Model Context Protocol) and MCP server | a standard way to offer a set of tools to any agent; an MCP server serves those tools. | guardrails.C19 |
 | MCP roles and features | MCP has hosts, clients and servers; servers expose Tools, Resources and Prompts; clients offer Elicitation. | tools.C35 |
+| MCP server as a front door | The MCP server is the door through which an outside assistant, running its own model and loop, lists and calls the app's tools. | toollayer.C12 |
 | Memory | The code around the model that stores what was said and what was learned about a user, and puts the useful part back into the next request. | memory.C7 |
 | Memory injection without search (Lomem) | Memory injection pastes every stored fact about a user into the system prompt, loaded by user id, with no relevance search. | rag.C62 |
 | Memory poisoning | Getting a false or malicious fact into the memory store so that it is injected into future prompts. | memory.C44 |
@@ -583,6 +595,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Micrometer observation | A Micrometer observation is one instrumented operation that Micrometer turns into a timer metric and, when tracing is on, into a span. | observability.C14 |
 | MicroVM | A microVM is a small virtual machine with its own kernel, kept apart from the host by the CPU's virtualisation feature (S14). | sandbox.C24 |
 | Minimum cacheable length | A prefix shorter than a per-model minimum is not cached, and no error says so. | caching.C20 |
+| Mirrored limit | A mirrored limit is a limit a route enforces with its own middleware that the tool must enforce again, because tools run outside the route. | toollayer.C19 |
 | Model alias, preview model and pinning | A model alias is a moving name that the provider points at its newest model; pinning means requesting a fixed version name instead. | observability.C16 |
 | Model card | A model card is a one-page summary of one use case: purpose, model, prompt version, eval result, known limits and fallback. | governance.C58 |
 | Model gateway | A model gateway is one module, or one proxy service, that every part of a system must use to call a language model. | gateway.C15 |
@@ -597,6 +610,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Model step | one reply of the model, which is text, or one or more tool calls, or both. | hitl.C7 |
 | Model validation | Model validation is the bank discipline in which a team that did not build a model inspects it, re-runs it on test data and signs a report before it is used. | governance.C16 |
 | Model version | The model version is the exact build that answered a call. | governance.C6 |
+| Model vocabulary at the tool layer | The tool layer speaks the model's units and names, and translates to and from the service's, so the screens and the database keep their own. | toollayer.C18 |
 | Model-invented keys | The model chooses the key of every fact it proposes. | memory.C35 |
 | Modified Abuse Monitoring and other approved controls | Modified Abuse Monitoring is an approved OpenAI control that, like ZDR, keeps customer content out of the abuse logs. | governance.C40 |
 | Monitoring (ongoing) | Monitoring scores a sample of live calls on a schedule against the same bar as release. | governance.C54 |
@@ -627,6 +641,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | One card at a time | the rule that at most one confirmation card is open per step. | hitl.C30 |
 | One card at a time (NOT_RUN) | Only one change waits for approval per step; any later write in the same reply is not run and gets a "not run" result. | agents.C31 |
 | One Pod per run on Kubernetes | On Kubernetes the runner creates one Pod per run through the Kubernetes API, with an account allowed to create Pods in one namespace only, and the same limits set in the Pod spec (S14). | sandbox.C39 |
+| One runner | The runner is the one function, `runTool`, that every AI front door hands a tool call to; it checks scopes, validates input, runs the handler and turns every failure into a result. | toollayer.C7 |
 | One schema definition for request and validator | One definition generates both the provider's JSON Schema and the local validator [S15]. | structured.C39 |
 | Online eval | An online eval scores a sample of live production replies, asynchronously, and alerts when their failure rate rises. | evals.C37 |
 | Open harm by design: a false sentence | the model can still write a false sentence in its chat answer, which Billpod accepts. | guardrails.C68 |
@@ -677,6 +692,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Pipeline (CI) placement | Pipeline placement decides whether an eval runs automatically on every change in the build pipeline or by hand. | evals.C49 |
 | PKCE and S256 | PKCE proves the party exchanging the code is the one that started the flow; S256 is its SHA-256 method. | tools.C44 |
 | Placement chat and level D | Lomem's chat in which a tutor model asks the learner a few questions, each aimed at one level, and rules in code turn extracted facts into a level called D that the learner sees. | rollout.C40 |
+| Ports and adapters (hexagonal architecture) | Hexagonal architecture is Alistair Cockburn's pattern in which an application exposes ports and every outside driver reaches it through an adapter. | toollayer.C22 |
 | Positive/negative pairing | Pairing puts a good case next to each bad case, so a "fix" that rejects everything also fails. | evals.C28 |
 | PostgreSQL full-text search | PostgreSQL full-text search is the built-in keyword search, a simpler relative of BM25 that is enough to catch exact codes. | rag.C35 |
 | Postmortem mirror (Lomem) | The postmortem mirror is Lomem's in-memory ring buffer that captures each external API request and response for debugging. | observability.C38 |
@@ -803,6 +819,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Semantic caching | Semantic caching is a cache keyed by embedding similarity. | rag.C58 |
 | Separate checks | Separate checks keep each quality (correctness, mark placement, speed) as its own pass/fail with its own bar. | evals.C25 |
 | Service credential | A service credential is how a calling service proves who it is to the gateway, such as an OAuth client or an mTLS certificate. | governance.C27 |
+| Service layer as the one home of the rules | The services are the app's existing business functions; both REST routes and tool handlers call them, so the rules they enforce bind every front door (tools.C27). | toollayer.C6 |
 | Service layer rule | "A tool never bypasses a service": every handler calls the same service functions the REST routes call. | tools.C27 |
 | Settle point and meter (Lomem) | The settle point is the one place per provider attempt where Lomem's gateway hands spend and errors to the meter. | observability.C45 |
 | Settle point and spend event | The settle point is the one place where the gateway records each provider attempt exactly once, as a spend event. | gateway.C21 |
@@ -810,6 +827,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Shadow mode and log mode (measure before enforcing) | Shadow mode runs a new judge or guard and stores what it would have done, without changing what the user sees, until its rate is measured. | evals.C43 |
 | Shadow readout and human reading | After enough shadow runs, counting how often the new behaviour would have changed the result and having a person read those cases against a bar written beforehand. | rollout.C15 |
 | Shared layer and personal layer | A shared cache row holds content that fits every user and no personal data, and each user's own data is added to the response after the lookup and never stored in the shared row. | caching.C33 |
+| Shared spec package | The shared spec package is the app's package used by both backend and frontend, which holds the tool specs so both tiers read the same names and confirmations. | toollayer.C5 |
 | Short-term memory (the transcript) | The message history of one conversation, keyed by conversation ID, replayed on every call. | memory.C8 |
 | Side effects (of a shadow call) | Anything a call changes outside its own stored result: sending an email, writing business data, calling a tool that changes data. | rollout.C13 |
 | Silent, plausible failure | a wrong prompt still produces fluent replies, so no check fails and only a close human reader notices (S6). | prompts.C12 |
@@ -826,6 +844,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Snapshots for long-running agents | Snapshots save a sandbox's state so a long-running agent can resume (S16). | sandbox.C51 |
 | Source tag | A column saying who claimed a fact. | memory.C39 |
 | Span and client span | A span is one timed operation inside a trace, such as one outgoing HTTP call; a client span is a span for a call your service makes. | observability.C13 |
+| Spec and handler | A tool has two halves: the spec, which is data (name, description, scopes, schemas, hints), and the handler, which is code that calls the services. | toollayer.C4 |
 | Spend cap as a door (LLM10) | Tunatutor's daily spend cap is checked once when an activity starts, never while it runs. | guardrails.C69 |
 | Spend settled before validation | The gateway records what a call cost before it checks the answer, so a wrong answer is still recorded [X42]. | structured.C42 |
 | Spring AI `ChatClient`, `ChatModel` and starter | `ChatClient` is Spring AI's fluent client for calling a model, built on a `ChatModel` bean that a provider's Spring Boot starter creates. | memory.C14 |
@@ -884,7 +903,9 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Template variable (placeholder) | a {{name}} token in a template that code replaces with a computed value per request (S6). | prompts.C6 |
 | Tenant | A tenant is one customer organisation in a service shared by many. | caching.C32 |
 | Tenant from the session (ctx) | the server, not the model, decides whose data a tool touches: each handler gets `input` (the model's arguments) and `ctx` (built from the signed-in session), and the tenant id comes only from `ctx`. | guardrails.C39 |
+| The app's screens | The app's screens are the human front door; in Lomem they call REST routes, and the routes call the services directly, not the tools. | toollayer.C13 |
 | The five failure modes of prompt-only JSON | The five failure modes are the ways a reply fails when JSON is asked for in the prompt alone: wrapping, broken syntax, cut-off, refusal, and a valid shape with a wrong value [S15, S16]. | structured.C52 |
+| The unused caller kind "app" | `"app"` is the third caller kind the runtime declares for the app's own screens, which nothing passes today. | toollayer.C20 |
 | Thinking (hidden reasoning tokens) | Thinking is hidden reasoning a model generates before the answer; you do not see it in the reply, but it is billed as output and counts against `maxOutputTokens` [S4, S15]. | structured.C22 |
 | Thinking tokens | Thinking tokens are tokens a model spends reasoning before it answers; the provider bills them as output. | gateway.C9 |
 | Third-party risk process | The third-party risk process is the firm's existing process, run by its third-party risk team, for managing vendors. | governance.C44 |
@@ -898,7 +919,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Token (three meanings) | The word "token" has three meanings in this block: an LLM billing unit, Billpod's sealed confirmation token, and an OAuth access or refresh token. | tools.C15 |
 | Tokens, context window and output cap | Models read and bill text in tokens, chunks of about four characters, and each call holds at most a fixed number of them, its context window; so code output sent back to the model needs a size cap (S14). | sandbox.C31 |
 | Tolerant parsing and repair | Tolerant parsing accepts common malformations instead of failing: it strips fences, cuts the JSON object out of surrounding text, or repairs syntax [X31, X32]. | structured.C43 |
-| Tool | A named, typed operation that a model, the app's assistant or an MCP client can call the same way. | tools.C3, agents.C4, hitl.C4, guardrails.C13 |
+| Tool | A tool is a named, typed operation that a model can ask to run (block tools, tools.C3). | toollayer.C3, tools.C3, agents.C4, hitl.C4, guardrails.C13 |
 | Tool adapter and toGeminiSchemaNode | The tool adapter converts a Zod schema to JSON Schema and then to Gemini's OpenAPI subset; structured output reuses it [X14, X15]. | structured.C47 |
 | Tool allow-list (least privilege) | the fixed list of tool names declared to the model; any other name is refused. | guardrails.C27 |
 | Tool and tool description | A tool is a capability described to the model in plain text, such as "run_python: runs a Python script", which the model may ask to use with a structured request (S14). | sandbox.C3 |
@@ -907,14 +928,17 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | Tool calling | Your code lists functions in the request; the model may answer "call this function with these arguments" instead of text; your code runs it and sends the result back in the next request. | memory.C46 |
 | Tool calling (function calling) | A model answers with a structured request to run a named function with arguments, instead of or beside text. | tools.C2 |
 | Tool context (`ctx`) | What every handler receives about the caller: user, granted scopes, caller kind, plus an app extension. | tools.C20 |
+| Tool context and caller kind | The tool context is what every handler receives: the person's id, the scopes granted to this call, the caller kind, and the app's own extension such as Billpod's household id. | toollayer.C8 |
 | Tool definition | A tool definition describes a function the model may ask the server to run: a name, a plain-words description and a JSON Schema for the arguments. | context.C11 |
 | Tool definition (tool spec) | The data a model reads about a tool: a name, a prose description and a JSON Schema for the arguments, plus title, scopes and annotations in Lomem. | tools.C4 |
 | Tool definitions | Tool definitions are descriptions of functions in the calling service that the model may ask the service to call, sent as JSON schemas in text. | caching.C5 |
 | Tool error sanitization | turning a thrown error into a model-readable error that never carries internals. | guardrails.C66 |
+| Tool layer | The tool layer is the set of an app's tools, defined once, plus the one runner and the adapters that every AI front door uses to reach them. | toollayer.C2 |
 | Tool list (tool declarations, JSON Schema) | The tool list is the set of tool declarations sent with every request: each has a name, a description the model reads, and a parameter schema written as JSON Schema. | agents.C5 |
 | Tool loop | The tool loop calls the model, runs whatever tools it asks for, appends the calls and results, calls it again, and stops when the reply has no tool calls. | context.C14 |
 | Tool output as injection vector | Text that tool results bring into the window can carry instructions an attacker wrote. | context.C45 |
 | Tool parity | Every action a person can take in the app's screens is also a tool, unless excluded with a reason. | tools.C53 |
+| Tool parity and the parity test | Tool parity means every action a person can take in the app's screens is also a tool, unless excluded with a reason; a test enforces it (tools.C53). | toollayer.C14 |
 | Tool result | A tool result is the data or error the server sends back for one tool call, matched to that call. | context.C13, agents.C7 |
 | Tool result envelope and error codes | The object the runner returns, `{ ok: true, data }` or `{ ok: false, error: { code, message, fields? } }`. | tools.C23 |
 | Tool search | Tool search loads tool definitions on demand instead of sending all of them on every call. | context.C34, tools.C51 |
@@ -971,6 +995,7 @@ Every concept heading in every block file (883 headings, 798 distinct terms), al
 | WAF, DLP, bean validation and output encoding (classic analogues) | the four classic controls the research maps guardrails onto. | guardrails.C56 |
 | Well formed versus true | a check can tell you a value is well formed; it cannot tell you the value is true. | guardrails.C47 |
 | What the sandbox does not stop | The sandbox does not stop the model from quoting the data in its answer to the user; it stops the code from sending the data anywhere else (S14). | sandbox.C54 |
+| Who pays, per door | Each AI door has a different payer for its model calls: the app pays for its in-app assistant, while an outside assistant pays for its own model. | toollayer.C21 |
 | Who runs the loop | The party that keeps the conversation, calls the model and sends tool calls. | tools.C39 |
 | Why the model obeys a stored fact | A stored fact sits in the system prompt with nothing marking it as data, so the model treats it as trusted instruction. | memory.C45 |
 | Workflow | A workflow is a system where model calls and tools are orchestrated through predefined code paths: your code decides every step. | agents.C12 |
@@ -986,6 +1011,7 @@ What Lomem has is cited by X ids of that block's file. What it lacks is taken fr
 
 | block | lomem_status | what Lomem has (X ids) | what Lomem lacks |
 |---|---|---|---|
+| toollayer | yes | Billpod and Mealy: ADR-057, three front doors over the same operations (X1-X4, X30, X33), spec/handler split, caller kinds and tool context (X5, X35), one runner (X6), one tool list for both AI doors (X7), context factory resolving the household as REST does (X8-X9), screens and tools calling the same service (X10-X12), in-app door with 46 of 50 tools, its own context and confirm list (X13-X17, X34), MCP door with context from the token (X18-X20), MCP and Gemini adapters (X21-X22), parity tests with exclusions and count pins (X23-X25), mirrored rate limit (X26), model vocabulary (X27), Mealy doors with and without Undo and held tools (X28-X31), who pays per door (X32) | Screens on the runner (caller `"app"` declared but unused, X5); per-call audit log of tool calls on any door (MCP calls leave no usage row, X32); eval of tool choice; per-tool limiters shared across replicas (X26) |
 | gateway | yes | Shared gateway every app except MyTube uses: refuses unattributed calls (X3-X7), lead model and candidate list (X8-X10), registry and sticky switch (X11-X15), run loop and one settle point (X16-X18), Gemini retries inside a time budget (X19-X23), metering, ledger and prices (X26-X36), admin model config (X37-X38), level-chat degrade paths (X39-X45), callJson and finish classification (X46-X47), streaming fallback rule (X48-X49), one-model gateway for Billpod and Mealy (X50-X51), ADR-057 §5 (X56-X57) | Proxy service, virtual keys per team, a router, fallback across providers or regions (Gemini only), data-residency control; the daily spend cap is checked at the activity door, not per call (X28-X29) |
 | prompts | partly | Layered template with registered variables (X1-X10), database registry with archive, rollback and startup heal (X11-X18), drift tests and golden tests (X22-X29), admin routes and page (X30-X31), lesson-note version stamp (X32-X35), eval-gated judge prompt (X38-X39) | Version stamp on any result except lesson notes; eval runs store no prompt version (X41); no label-based registry or eval-gated promotion |
 | context | partly | Billpod assembler: client-held conversation (X1, X29-X33), request limits (X2), system prompt with facts the model cannot know (X6), history trim by character budget (X8, X31), sealed ticket and compactTurn (X10-X11, X18), step cap (X15), Gemini mapping (X23-X28); tunatutor layered prompt and re-injection (X35, X39-X41); MyTube static-first prompt (X37) | Compaction, clearing old tool results, notes outside the window, sub-agents; no log of the assembled request; no real token count before a call |

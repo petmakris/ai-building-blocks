@@ -38,12 +38,19 @@ def headline(text: str) -> str:
 CHAR = {"lbl": 8.6, "tag": 8.7}   # average glyph width at the stylesheet's sizes (16px Inter, 14px mono)
 
 
+GUTTER = 44   # the step numbers live left of this line; no label may enter it
+
+
+def text_width(cls: str, label: str) -> float:
+    return len(label) * CHAR.get(cls.split()[0], 8.6)
+
+
 def fit_text(cls: str, x: float, y: float, label: str, anchor: str, W: float) -> str:
-    """Place a label so it stays inside 0..W, moving it inward when it would spill."""
-    w = len(label) * CHAR.get(cls.split()[0], 8.6)
+    """Place a label so it stays inside GUTTER..W, moving it inward when it would spill."""
+    w = text_width(cls, label)
     left = x - w / 2 if anchor == "middle" else x - w if anchor == "end" else x
-    if left < 6:
-        x, anchor = 6, "start"
+    if left < GUTTER:
+        x, anchor = GUTTER, "start"
     elif left + w > W - 6:
         x, anchor = W - 6, "end"
     return f'<text class="{cls}" x="{x:.0f}" y="{y}" text-anchor="{anchor}">{E(label)}</text>'
@@ -74,21 +81,28 @@ def diagram(story: Story) -> str:
                 lx = (x1 + x2) / 2
                 if mk.kind == "reply":
                     g.append(fit_text(f"tag{tone}", lx, y + 19, mk.label, "middle", W))
-                    y += 14
+                    y += 26
                 else:
                     g.append(fit_text(f"lbl{tone}", lx, y - 9, mk.label, "middle", W))
             elif mk.kind == "self":
                 y += 20
                 xs = x[mk.src]
-                right = lanes.index(mk.src) >= n / 2
-                d = -1 if right else 1
+                w = text_width("lbl", mk.label)
+                fits_right = xs + 44 + w <= W - 6
+                fits_left = xs - 44 - w >= GUTTER
+                d = 1 if (fits_right or not fits_left) else -1
                 g.append(f'<path d="M{xs:.0f} {y} h{34 * d} v24 h{-30 * d}" marker-end="url(#ah)"/>')
-                g.append(fit_text(f"lbl{tone}", xs + 44 * d, y + 16, mk.label, "end" if right else "start", W))
-                y += 28
+                if fits_right or fits_left:
+                    g.append(fit_text(f"lbl{tone}", xs + 44 * d, y + 16, mk.label, "start" if d > 0 else "end", W))
+                    y += 28
+                else:   # no room beside the loop: the label gets its own line below it
+                    g.append(fit_text(f"lbl{tone}", GUTTER + 4, y + 46, mk.label, "start", W))
+                    y += 52
             elif mk.kind == "tag":
-                y += 22
+                y += 24
                 xs = x[mk.src]
                 g.append(fit_text(f"tag{tone}", xs + 10, y, mk.label, "start", W))
+                y += 8
         cx = 20
         cy = (top + y) / 2 + 4
         g.append(f'<circle cx="{cx:.0f}" cy="{cy:.0f}" r="11"/><text class="num" x="{cx:.0f}" y="{cy + 4:.0f}" text-anchor="middle">{s.n}</text>')
@@ -168,7 +182,7 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
         nxt_card = (f'<a class="go primary" href="../{nxt.id}/"><span class="lbl">Next · Block {nxt.number:02d}</span>'
                     f'<h3>{E(nxt.front.get("title", ""))}</h3><p>{inline(teaser)}</p></a>')
     else:
-        nxt_card = '<a class="go primary" href="../"><span class="lbl">The end</span><h3>Back to all blocks</h3><p>See how one request passes through all sixteen.</p></a>'
+        nxt_card = '<a class="go primary" href="../"><span class="lbl">The end</span><h3>Back to all blocks</h3><p>See how one request passes through every block.</p></a>'
     c = counts
     deeper = (f'<a class="go" href="reference/"><span class="lbl">Go deeper</span><h3>{E(f.get("title", ""))}: reference</h3>'
               f'<p>{c["concepts"]} concepts, {c["flows"]} flows, {c["lifecycles"]} lifecycles, {c["code"]} excerpts of real code, every number with its source.</p></a>')
@@ -205,7 +219,12 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
 </body></html>"""
 
 
+WORDS = {n: w for n, w in enumerate("zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split())}
+
+
 def home(blocks: dict[str, Block], order: list[str], stories: dict, path_rows: list[tuple[str, str, str]], version: str, repo: str) -> str:
+    word = WORDS.get(len(order), str(len(order)))
+    Word = word.capitalize()
     cards = []
     for b in order:
         blk, st = blocks[b], stories.get(b)
@@ -225,7 +244,7 @@ def home(blocks: dict[str, Block], order: list[str], stories: dict, path_rows: l
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Building Blocks</title>
-<meta name="description" content="The sixteen building blocks of software built around language models, each taught from a real failure.">
+<meta name="description" content="The {word} building blocks of software built around language models, each taught from a real failure.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="assets/story.css?v={version}">
@@ -235,9 +254,9 @@ def home(blocks: dict[str, Block], order: list[str], stories: dict, path_rows: l
 <div class="wrap">
 <header class="hook solo home-hero"><div><p class="kicker">For engineers putting AI into real software</p>
 <h1>One model call is easy. <em>Depending on it is engineering.</em></h1>
-<p class="sub">Sixteen building blocks turn an unreliable, paid, non-deterministic model call into software you can run. Each one starts from a real failure, shows the mechanism step by step, and ends with the smallest version you can build today.</p>
-<p class="cta"><a class="btn" href="{first}/">Start with block 01 →</a><a class="btn ghost" href="#journey">See one request pass through all sixteen</a></p></div></header>
-<section class="hooks"><p class="kicker">Sixteen ways an AI feature goes wrong</p><h2>Pick the failure you recognise</h2><div class="hgrid">{"".join(cards)}</div></section>
+<p class="sub">{Word} building blocks turn an unreliable, paid, non-deterministic model call into software you can run. Each one starts from a real failure, shows the mechanism step by step, and ends with the smallest version you can build today.</p>
+<p class="cta"><a class="btn" href="{first}/">Start with block 01 →</a><a class="btn ghost" href="#journey">See one request pass through all {word}</a></p></div></header>
+<section class="hooks"><p class="kicker">{Word} ways an AI feature goes wrong</p><h2>Pick the failure you recognise</h2><div class="hgrid">{"".join(cards)}</div></section>
 <section class="journey" id="journey"><p class="kicker">The whole picture</p><h2>One request passes through the blocks in this order</h2>
 <p class="lead">Steps R1 to R13 run on every request. The rest run across requests or between releases.</p><ol class="path">{"".join(stops)}</ol></section>
 <footer class="foot"><p>Built as a <a href="{repo}">knowledge store</a> of plain markdown: every concept, flow and number has an id and a source. Licensed CC BY 4.0.</p></footer>
