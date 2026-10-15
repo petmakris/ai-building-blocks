@@ -53,3 +53,11 @@ def sequence_figure(block_id: str) -> str:
     if not s:
         return ""
     return player.figure(seq_svg_of(block_id), {"route": s.get("captions")})
+
+
+def home_figure() -> str:
+    """The home page's request path, diagrams/home.map.json, with its route (R0 to R13) to step through."""
+    s = spec("home", "map")
+    if not s:
+        return ""
+    return player.figure(map_svg_of("home"), {"route": (s.get("captions") or {}).get("route")})

@@ -123,6 +123,9 @@ dialog.full::backdrop { background: rgb(0 0 0 / .55) }
 .full-body { flex: 1; overflow: auto; padding: 20px }
 .full-body svg { max-width: none !important; margin: 0 auto; display: block }
 .diagram figcaption { font-size: 12.5px; color: var(--dim); margin-top: 8px }
+/* flows: lane sequences drawn by the shared library (vz.css, vz-reveal.js); site.js sizes the svg like any diagram */
+.vzflow .vz-player { margin: 0 }
+.vzflow .vz-stage svg.vz { min-width: 0 }
 .steps > summary { cursor: pointer; color: var(--dim); font-weight: 500; font-size: 14px }
 .steps[open] > summary { margin-bottom: 8px }
 .steps ol, .steps ul { font-size: 14px; padding-left: 2.4em }

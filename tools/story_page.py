@@ -267,6 +267,7 @@ def home(blocks: dict[str, Block], order: list[str], stories: dict, path_rows: l
         stops.append(f'<li class="{"cross" if cross else ""}"><span class="rid">{rid}</span><div><h3>{E(name.strip())}</h3>'
                      f'<p>{E(rest.strip())}</p><p class="chips">{chips}</p></div></li>')
     first = order[0]
+    journey = vzlib.home_figure()
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI Building Blocks</title>
@@ -274,6 +275,7 @@ def home(blocks: dict[str, Block], order: list[str], stories: dict, path_rows: l
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="assets/story.css?v={version}">
+<link rel="stylesheet" href="assets/vz.css?v={version}">
 </head><body>
 <div class="bar"><div class="bar-in"><a class="brand" href="./">AI Building Blocks</a><a class="ref" href="slides/">Slides</a><a class="ref" href="glossary/">Glossary</a>
 <a class="ref2" href="{repo}">GitHub</a><button id="theme" type="button" aria-label="Switch light or dark">Theme</button></div></div>
@@ -284,10 +286,12 @@ def home(blocks: dict[str, Block], order: list[str], stories: dict, path_rows: l
 <p class="cta"><a class="btn" href="{first}/">Start with block 01 →</a><a class="btn ghost" href="#journey">See one request pass through all {word}</a></p></div></header>
 <section class="hooks"><p class="kicker">{Word} building blocks of a modern AI application</p><h2>Pick the one you need</h2><div class="hgrid">{"".join(cards)}</div></section>
 <section class="journey" id="journey"><p class="kicker">The whole picture</p><h2>One request passes through the blocks in this order</h2>
-<p class="lead">Steps R1 to R13 run on every request. The rest run across requests or between releases.</p><ol class="path">{"".join(stops)}</ol></section>
+<p class="lead">Steps R0 to R13 run on every request. The rest run across requests or between releases.</p>
+{f'<figure class="seq-fig">{journey}</figure><details class="walk-detail"><summary>Every step, with the blocks it belongs to</summary><ol class="path">{"".join(stops)}</ol></details>' if journey else f'<ol class="path">{"".join(stops)}</ol>'}</section>
 <footer class="foot"><p>Built as a <a href="{repo}">knowledge store</a> of plain markdown: every concept, flow and number has an id and a source. Licensed CC BY 4.0.</p></footer>
 </div>
 <script src="assets/story.js?v={version}"></script>
+<script src="assets/vz-reveal.js?v={version}"></script>
 </body></html>"""
 
 

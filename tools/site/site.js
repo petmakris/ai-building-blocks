@@ -121,6 +121,7 @@
   }
   addEventListener("resize", () => { clearTimeout(fit.t); fit.t = setTimeout(fit, 150); });
 
+  fit();   // the flows are drawn already (vz lane sequences); Mermaid lifecycles fit again once drawn
   if (window.__mermaid) draw(); else window.addEventListener("mermaid-ready", draw, { once: true });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (!root.dataset.theme) draw(); });
 

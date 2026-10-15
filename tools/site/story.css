@@ -334,3 +334,4 @@ body.deck { padding: 0; height: 100vh; overflow: hidden; background: var(--card)
 .slide .sl-fig .vz-player { height: 100%; grid-template-rows: minmax(0, 1fr) auto auto; width: 100% }
 .slide .sl-fig .vz-stage { min-height: 0; display: flex; justify-content: center; overflow: hidden }
 .slide .sl-fig .vz-stage svg.vz { height: 100%; width: auto; max-width: 100%; min-width: 0 }
+.journey .walk-detail { margin-top: 18px }

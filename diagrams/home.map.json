@@ -1,0 +1,557 @@
+{
+ "title": "One request passes through R0 to R13 in order; R14 to R20 run beside every request or between releases",
+ "aria": "The request path across the blocks: R0 front door, R1 edge and controller, R2 admission and input guardrails, R3 cache check, R4 router, R5 context assembly, R6 gateway call, R7 settle and meter, R8 classify the reply, R9 agent or workflow loop, R10 per-call policy, R11 human in the loop, R12 output handling, R13 response and memory write-back. Cross-cutting: R14 tracing, R15 online evals, R16 drift detection, R17 feedback and triage. Between releases: R18 offline eval gate, R19 staged rollout, R20 governance.",
+ "columns": [
+  "Front door, edge",
+  "Admission, cache, router",
+  "Context, gateway call, meter, classify",
+  "Agent loop, tool policy, human",
+  "Output, write-back"
+ ],
+ "boxes": [
+  {
+   "id": "r0",
+   "col": 0,
+   "row": 0,
+   "name": "R0 · Front door",
+   "lines": [
+    "each door authenticates and builds its own context",
+    {
+     "text": "`toollayer` `tools`",
+     "gap": true
+    }
+   ],
+   "r": 1
+  },
+  {
+   "id": "r1",
+   "col": 0,
+   "row": 1,
+   "name": "R1 · Edge and controller",
+   "lines": [
+    "resolve tenant and entitlements",
+    {
+     "text": "`guardrails` `tools` `context`",
+     "gap": true
+    },
+    {
+     "text": "`agents`",
+     "gap": false
+    }
+   ],
+   "r": 2
+  },
+  {
+   "id": "r2",
+   "col": 1,
+   "row": 0,
+   "name": "R2 · Admission and input guardrails",
+   "lines": [
+    "may short-circuit to a canned reply",
+    {
+     "text": "`gateway` `guardrails`",
+     "gap": true
+    }
+   ],
+   "r": 3
+  },
+  {
+   "id": "r3",
+   "col": 1,
+   "row": 1,
+   "name": "R3 · Cache check",
+   "lines": [
+    "a hit returns at once",
+    {
+     "text": "`caching`",
+     "gap": true
+    }
+   ],
+   "r": 4
+  },
+  {
+   "id": "r4",
+   "col": 1,
+   "row": 2,
+   "name": "R4 · Router",
+   "lines": [
+    "picks the workflow and the model tier",
+    {
+     "text": "`gateway` `agents`",
+     "gap": true
+    }
+   ],
+   "r": 5
+  },
+  {
+   "id": "r5",
+   "col": 2,
+   "row": 0,
+   "name": "R5 · Context assembly",
+   "lines": [
+    "inside the token budget",
+    {
+     "text": "`prompts` `context` `memory`",
+     "gap": true
+    },
+    {
+     "text": "`rag` `tools` `caching`",
+     "gap": false
+    }
+   ],
+   "r": 6
+  },
+  {
+   "id": "r6",
+   "col": 2,
+   "row": 1,
+   "name": "R6 · Gateway call",
+   "lines": [
+    "retries inside the time budget, fallback",
+    {
+     "text": "`gateway` `structured` `context`",
+     "gap": true
+    }
+   ],
+   "tone": "blue",
+   "r": 7
+  },
+  {
+   "id": "r7",
+   "col": 2,
+   "row": 2,
+   "name": "R7 · Settle and meter every attempt",
+   "lines": [
+    "ledger rows priced at write time",
+    {
+     "text": "`gateway` `observability` `caching`",
+     "gap": true
+    }
+   ],
+   "r": 8
+  },
+  {
+   "id": "r8",
+   "col": 2,
+   "row": 3,
+   "name": "R8 · Classify the reply",
+   "lines": [
+    "text, tool calls, refused or malformed",
+    {
+     "text": "`gateway` `structured` `tools`",
+     "gap": true
+    }
+   ],
+   "r": 9
+  },
+  {
+   "id": "r9",
+   "col": 3,
+   "row": 0,
+   "name": "R9 · Agent or workflow loop",
+   "lines": [
+    "stop at a step, cost or time budget",
+    {
+     "text": "`agents` `tools` `context`",
+     "gap": true
+    }
+   ],
+   "r": 10
+  },
+  {
+   "id": "r10",
+   "col": 3,
+   "row": 1,
+   "name": "R10 · Per-call policy before a tool runs",
+   "lines": [
+    "scope to the caller's tenant",
+    {
+     "text": "`guardrails` `tools` `sandbox`",
+     "gap": true
+    }
+   ],
+   "r": 11
+  },
+  {
+   "id": "r11",
+   "col": 3,
+   "row": 2,
+   "name": "R11 · Human in the loop",
+   "lines": [
+    "the turn pauses, the person approves",
+    {
+     "text": "`hitl` `agents` `context`",
+     "gap": true
+    },
+    {
+     "text": "`tools` `guardrails`",
+     "gap": false
+    }
+   ],
+   "r": 12
+  },
+  {
+   "id": "r12",
+   "col": 4,
+   "row": 0,
+   "name": "R12 · Output handling",
+   "lines": [
+    "escape before rendering",
+    {
+     "text": "`structured` `guardrails`",
+     "gap": true
+    }
+   ],
+   "r": 13
+  },
+  {
+   "id": "r13",
+   "col": 4,
+   "row": 1,
+   "name": "R13 · Response and memory write-back",
+   "lines": [
+    "stored by a worker",
+    {
+     "text": "`memory`",
+     "gap": true
+    }
+   ],
+   "r": 14
+  },
+  {
+   "id": "r14",
+   "col": 0,
+   "row": 4,
+   "name": "R14 · Tracing and the call record",
+   "lines": [
+    "one record per model call",
+    {
+     "text": "`observability` `governance` `gateway`",
+     "gap": true
+    }
+   ]
+  },
+  {
+   "id": "r15",
+   "col": 1,
+   "row": 4,
+   "name": "R15 · Online evals",
+   "lines": [
+    "off the request path",
+    {
+     "text": "`observability` `evals`",
+     "gap": true
+    }
+   ]
+  },
+  {
+   "id": "r16",
+   "col": 2,
+   "row": 4,
+   "name": "R16 · Drift detection",
+   "lines": [
+    "daily scores against a band",
+    {
+     "text": "`observability` `rollout`",
+     "gap": true
+    }
+   ]
+  },
+  {
+   "id": "r17",
+   "col": 3,
+   "row": 4,
+   "name": "R17 · Feedback and triage",
+   "lines": [
+    "triaged into new eval cases",
+    {
+     "text": "`rollout` `evals`",
+     "gap": true
+    }
+   ]
+  },
+  {
+   "id": "r18",
+   "col": 0,
+   "row": 5,
+   "name": "R18 · Offline eval gate",
+   "lines": [
+    "bars fixed in advance",
+    {
+     "text": "`evals` `prompts` `rollout`",
+     "gap": true
+    }
+   ]
+  },
+  {
+   "id": "r19",
+   "col": 1,
+   "row": 5,
+   "name": "R19 · Staged rollout",
+   "lines": [
+    "shadow mode, log mode, eval-gated flag, canary",
+    {
+     "text": "`rollout`",
+     "gap": true
+    }
+   ]
+  },
+  {
+   "id": "r20",
+   "col": 2,
+   "row": 5,
+   "name": "R20 · Governance",
+   "lines": [
+    "named approver for high-risk output",
+    {
+     "text": "`governance`",
+     "gap": true
+    }
+   ]
+  }
+ ],
+ "zones": [
+  {
+   "label": "cross-cutting: they run beside every request",
+   "tone": "amber",
+   "boxes": [
+    "r14",
+    "r15",
+    "r16",
+    "r17"
+   ]
+  },
+  {
+   "label": "between releases",
+   "tone": "amber",
+   "boxes": [
+    "r18",
+    "r19",
+    "r20"
+   ]
+  }
+ ],
+ "arrows": [
+  {
+   "from": "r0",
+   "to": "r1"
+  },
+  {
+   "layer": "route",
+   "from": "r0",
+   "to": "r1",
+   "n": 1,
+   "r": 2
+  },
+  {
+   "from": "r1",
+   "to": "r2"
+  },
+  {
+   "layer": "route",
+   "from": "r1",
+   "to": "r2",
+   "n": 2,
+   "r": 3
+  },
+  {
+   "from": "r2",
+   "to": "r3"
+  },
+  {
+   "layer": "route",
+   "from": "r2",
+   "to": "r3",
+   "n": 3,
+   "r": 4
+  },
+  {
+   "from": "r3",
+   "to": "r4"
+  },
+  {
+   "layer": "route",
+   "from": "r3",
+   "to": "r4",
+   "n": 4,
+   "r": 5
+  },
+  {
+   "from": "r4",
+   "to": "r5"
+  },
+  {
+   "layer": "route",
+   "from": "r4",
+   "to": "r5",
+   "n": 5,
+   "r": 6
+  },
+  {
+   "from": "r5",
+   "to": "r6"
+  },
+  {
+   "layer": "route",
+   "from": "r5",
+   "to": "r6",
+   "n": 6,
+   "r": 7
+  },
+  {
+   "from": "r6",
+   "to": "r7"
+  },
+  {
+   "layer": "route",
+   "from": "r6",
+   "to": "r7",
+   "n": 7,
+   "r": 8
+  },
+  {
+   "from": "r7",
+   "to": "r8"
+  },
+  {
+   "layer": "route",
+   "from": "r7",
+   "to": "r8",
+   "n": 8,
+   "r": 9
+  },
+  {
+   "from": "r8",
+   "to": "r9"
+  },
+  {
+   "layer": "route",
+   "from": "r8",
+   "to": "r9",
+   "n": 9,
+   "r": 10
+  },
+  {
+   "from": "r9",
+   "to": "r10"
+  },
+  {
+   "layer": "route",
+   "from": "r9",
+   "to": "r10",
+   "n": 10,
+   "r": 11
+  },
+  {
+   "from": "r10",
+   "to": "r11"
+  },
+  {
+   "layer": "route",
+   "from": "r10",
+   "to": "r11",
+   "n": 11,
+   "r": 12
+  },
+  {
+   "from": "r11",
+   "to": "r12"
+  },
+  {
+   "layer": "route",
+   "from": "r11",
+   "to": "r12",
+   "n": 12,
+   "r": 13
+  },
+  {
+   "from": "r12",
+   "to": "r13"
+  },
+  {
+   "layer": "route",
+   "from": "r12",
+   "to": "r13",
+   "n": 13,
+   "r": 14
+  },
+  {
+   "layer": "route",
+   "from": "r9",
+   "to": "r6",
+   "label": "call the model again",
+   "r": 10,
+   "tone": "blue",
+   "offset": -20
+  }
+ ],
+ "legend": [
+  {
+   "label": "the request's next step"
+  },
+  {
+   "tone": "blue",
+   "label": "the model call, and R9 calling the model again"
+  }
+ ],
+ "captions": {
+  "route": [
+   {
+    "title": "R0 · Front door",
+    "text": "The request arrives through one of the front doors (the app's screens over REST, the in-app assistant, or an outside assistant over MCP); each door authenticates and builds its own context, and all of them reach the same tool layer and services."
+   },
+   {
+    "title": "R1 · Edge and controller",
+    "text": "Authenticate; resolve tenant and entitlements and carry them downstream; the request carries the client-held history."
+   },
+   {
+    "title": "R2 · Admission and input guardrails",
+    "text": "Spend cap at the activity door; PII redaction, injection or moderation classifier, topical scope; may short-circuit to a canned reply."
+   },
+   {
+    "title": "R3 · Cache check",
+    "text": "Exact or semantic response cache, scoped per tenant; a hit returns at once."
+   },
+   {
+    "title": "R4 · Router",
+    "text": "A cheap classifier picks the workflow and the model tier."
+   },
+   {
+    "title": "R5 · Context assembly",
+    "text": "System prompt from the registry with its version; trimmed history; memory facts; retrieved passages; tool definitions; stable layers first for the prompt cache; inside the token budget."
+   },
+   {
+    "title": "R6 · Gateway call",
+    "text": "Usage context check, candidate list, provider attempt with retries inside the time budget, fallback; structured output or strict tool schemas."
+   },
+   {
+    "title": "R7 · Settle and meter every attempt",
+    "text": "Ledger rows priced at write time, allowance debit, cached-input row."
+   },
+   {
+    "title": "R8 · Classify the reply",
+    "text": "Finish reason to stop reason; text, tool calls, refused or malformed."
+   },
+   {
+    "title": "R9 · Agent or workflow loop",
+    "text": "Run the tool calls, feed results back, call the model again; stop at a step, cost or time budget."
+   },
+   {
+    "title": "R10 · Per-call policy before a tool runs",
+    "text": "Validate arguments, scope to the caller's tenant, refuse unknown tools; model-written code goes to the sandbox."
+   },
+   {
+    "title": "R11 · Human in the loop",
+    "text": "A risky write becomes a sealed card, the turn pauses, the person approves, rejects or changes, the turn resumes."
+   },
+   {
+    "title": "R12 · Output handling",
+    "text": "Schema and business validation, output guardrails, escape before rendering, never auto-load URLs."
+   },
+   {
+    "title": "R13 · Response and memory write-back",
+    "text": "Facts proposed in the reply, queued in the same transaction, stored by a worker."
+   }
+  ]
+ }
+}

@@ -7,9 +7,9 @@
 Run: uv run tools/build.py [--out DIR] [--only BLOCK ...]
 The markdown files stay the single source. Never edit the generated site.
 
-Every flow (Fn) becomes a sequence diagram and every lifecycle (Ln) a state
-diagram, generated from the steps and transition tables that tools/check.py
-validates. Every item id is an anchor, and every reference becomes a link.
+Every flow (Fn) becomes a lane sequence drawn by the shared diagram library
+(tools/flowseq.py) and every lifecycle (Ln) a Mermaid state diagram, generated
+from the steps and transition tables that tools/check.py validates. Every item id is an anchor, and every reference becomes a link.
 """
 from __future__ import annotations
 
@@ -31,8 +31,9 @@ from pygments.util import ClassNotFound
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check import state_key  # noqa: E402
-from store import HEADINGS, ROOT, Block, Flow, Lifecycle, Step, load_all, parse_story  # noqa: E402
+from store import HEADINGS, ROOT, Block, Lifecycle, load_all, parse_story  # noqa: E402
 import story_page  # noqa: E402
+import flowseq  # noqa: E402
 
 ASSETS = Path(__file__).resolve().parent / "site"
 MERMAID = "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs"
@@ -114,96 +115,6 @@ def clean(text: str, limit: int) -> str:
     return t
 
 
-def branch_condition(step: Step) -> tuple[str, str]:
-    """Return (condition, effect) for a branch step."""
-    if not step.actors:
-        body = re.sub(r"^(if|when|on|else|otherwise|unless)\s+", "", step.action, flags=re.I)
-        cond, _, effect = body.partition("→")
-        return cond.strip(), effect.strip()
-    return step.fields.get("condition", "otherwise"), step.action
-
-
-def components(block: Block) -> dict[str, str]:
-    """K id -> short display name, from the Components table."""
-    out = {}
-    for m in re.finditer(r"^\|\s*(K\d+)\s*\|\s*([^|]+?)\s*\|", block.sections.get("Components", ""), re.M):
-        name = re.sub(r"\s*\(`[^)]*`\)", "", m.group(2)).strip().strip("`")
-        out[m.group(1)] = name or m.group(1)
-    return out
-
-
-def actor_name(raw: str, comps: dict[str, str]) -> str:
-    a = raw.strip()
-    m = re.match(r"^(K\d+)\b", a)
-    if m and m.group(1) in comps:
-        a = comps[m.group(1)]
-    a = re.sub(r"\s*\(`[^)]*`\)\s*$", "", a)
-    return clean(a, 30)
-
-
-def sequence(flow: Flow, comps: dict[str, str]) -> str:
-    actors: list[str] = []
-    for s in flow.steps:
-        for a in s.actors:
-            name = actor_name(a, comps)
-            if name not in actors:
-                actors.append(name)
-    if not actors:
-        return ""
-    ids = {a: f"p{i}" for i, a in enumerate(actors)}
-    lines = ["sequenceDiagram"]
-    for a in actors:
-        lines.append(f"    participant {ids[a]} as {a}")
-    last_actor = actors[0]
-
-    def arrows(s: Step, label: str) -> list[str]:
-        nonlocal last_actor
-        acts = [actor_name(a, comps) for a in s.actors]
-        out = []
-        if len(acts) == 1:
-            out.append(f"    {ids[acts[0]]}->>{ids[acts[0]]}: {label}")
-        else:
-            for x, y in zip(acts, acts[1:]):
-                out.append(f"    {ids[x]}->>{ids[y]}: {label}")
-        last_actor = acts[-1]
-        return out
-
-    def jump_text(s: Step) -> str:
-        if s.jumps:
-            return " → " + ", ".join(s.jumps)
-        return " → ends" if s.ends else ""
-
-    i = 0
-    steps = flow.steps
-    while i < len(steps):
-        s = steps[i]
-        if s.branch:  # a branch with no main step before it in this flow
-            group = [s]
-        else:
-            act = re.sub(r"\s*→?\s*(?:continues at|runs|rejoins|returns to)\s+\S+", "", s.action)
-            act = re.sub(r"\s*→\s*ends\b", "", act).strip(" →")
-            lines += arrows(s, clean(f"{s.id} {act}", 70) + clean(jump_text(s), 30))
-            group = []
-        j = i + 1
-        while j < len(steps) and steps[j].branch and steps[j].id.rstrip("abcdefghijklmnopqrstuvwxyz") == s.id.rstrip("abcdefghijklmnopqrstuvwxyz"):
-            group.append(steps[j])
-            j += 1
-        for b in group:
-            cond, effect = branch_condition(b)
-            effect = re.sub(r"\s*→?\s*(?:continues at|runs|rejoins|returns to)\s+\S+.*$", "", effect)
-            effect = re.sub(r"\s*→\s*ends\b.*$", "", effect).strip(" →")
-            lines.append(f"    opt {clean(b.id + ' · ' + cond, 48)}")
-            if b.actors:
-                lines += arrows(b, clean(effect, 70) + clean(jump_text(b), 30))
-            else:
-                k = actors.index(last_actor)
-                span = f"{ids[actors[k]]},{ids[actors[k + 1]]}" if k + 1 < len(actors) else f"{ids[actors[k - 1]]},{ids[actors[k]]}" if k > 0 else ids[actors[k]]
-                lines.append(f"    Note over {span}: {clean(effect, 110)}{clean(jump_text(b), 30)}")
-            lines.append("    end")
-        i = j
-    return "\n".join(lines)
-
-
 def state_diagram(lc: Lifecycle) -> str:
     if not lc.transitions:
         return ""
@@ -281,16 +192,17 @@ def render_flows(block: Block, ctx) -> str:
     flows = {f.id: f for f in block.flows}
     for fid, title, body in items:
         flow = flows.get(fid)
-        diagram = sequence(flow, components(block)) if flow else ""
+        figure, _ = flowseq.flow_figure(flow, block) if flow else ("", 0)
         head_re = re.compile(r"^\s*(?:[-*]\s*)?(?:\*\*)?(purpose|trigger)\b", re.I)
         lines = body.strip("\n").split("\n")
         purpose = "\n".join(l if l.lstrip().startswith(("-", "*")) else "- " + l for l in lines if head_re.match(l))
         steps = "\n".join(l for l in lines if not head_re.match(l))
         out.append(f'<article class="flow" id="{fid}"><h3><span class="iid">{fid}</span> {html.escape(title)}</h3>')
         out.append(f'<div class="purpose">{ctx.post(md(purpose))}</div>')
-        if diagram:
-            out.append(f'<figure class="diagram"><pre class="mermaid">{html.escape(diagram)}</pre>'
-                       f'<figcaption>Sequence of {fid}, generated from its {len(flow.steps)} steps. Each step id links to its full text below.</figcaption></figure>')
+        if figure:
+            out.append(f'<figure class="diagram vzflow">{figure}'
+                       f'<figcaption>Sequence of {fid}, drawn from its {len(flow.steps)} steps: badge n is step {fid}.n, '
+                       f'a lettered branch carries its own id. Step through it, or read each step in full below.</figcaption></figure>')
         out.append(f'<details class="steps" open><summary>All steps of {fid}</summary>{ctx.post(md(steps))}</details></article>')
     return "\n".join(out)
 
@@ -392,6 +304,7 @@ def page(title: str, main: str, nav: str, side: str, depth: int) -> str:
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="{up}assets/site.css{v}">
+<link rel="stylesheet" href="{up}assets/vz.css{v}">
 </head><body>
 <header class="top"><a class="brand" href="{up}">AI Building Blocks</a>
 <div class="search"><input id="q" type="search" placeholder="Search concepts, flows, ids…" autocomplete="off" aria-label="Search"><div id="results" hidden></div></div>
@@ -401,7 +314,8 @@ def page(title: str, main: str, nav: str, side: str, depth: int) -> str:
 <main>{main}</main><aside>{side}</aside></div>
 <script>window.SITE_ROOT = "{up}";</script>
 <script src="{up}assets/site.js{v}"></script>
-<script type="module">import mermaid from "{MERMAID}"; window.__mermaid = mermaid; window.dispatchEvent(new Event("mermaid-ready"));</script>
+{f'<script src="{up}assets/vz-reveal.js{v}"></script>' if 'data-vz-player' in main else ''}
+{f'<script type="module">import mermaid from "{MERMAID}"; window.__mermaid = mermaid; window.dispatchEvent(new Event("mermaid-ready"));</script>' if 'class="mermaid"' in main else ''}
 </body></html>"""
 
 
@@ -425,42 +339,6 @@ def readme_section(n: int) -> str:
     t = (ROOT / "README.md").read_text(encoding="utf-8")
     m = re.search(rf"^## {n}\. .*?$(.*?)(?=^## \d+\. |\Z)", t, re.S | re.M)
     return m.group(1) if m else ""
-
-
-def home_page(blocks: dict[str, Block], titles, order) -> str:
-    path_md = readme_section(4)
-    rows = re.findall(r"^\|\s*(R\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|", path_md, re.M)
-    fc = ["flowchart TD"]
-    prev = None
-    for rid, step, blks in rows:
-        name = clean(step.split(":")[0], 40)
-        fc.append(f'    {rid}["{rid} · {name}"]')
-        if prev and int(rid[1:]) <= 13:
-            fc.append(f"    {prev} --> {rid}")
-        prev = rid
-    fc.append("    classDef cross stroke-dasharray: 4 3")
-    fc.append("    class " + ",".join(r for r, _, _ in rows if int(r[1:]) > 13) + " cross")
-    cards = []
-    for b in order:
-        blk = blocks[b]
-        st = blk.front.get("lomem_status", "").strip("'\"")
-        nc = len(ITEM_HEAD.findall(blk.sections.get("Concepts", "")))
-        cards.append(f'''<a class="bcard" href="{b}/"><span class="num">{blk.number:02d}</span>
-<h3>{html.escape(blk.front.get("title", b))}</h3><p>{html.escape(blk.front.get("summary", ""))}</p>
-<p class="stats">{nc} concepts · {len(blk.flows)} flows · {len(blk.lifecycles)} lifecycles · <span class="status s-{st.replace(' ', '-')}">Lomem: {html.escape(st)}</span></p></a>''')
-    ctx = Ctx(next(iter(blocks.values())), blocks, titles)
-    table = ctx.post(md(path_md))
-    table = re.sub(r'href="\.\./', 'href="', table)
-    nav = "".join(f'<a href="{b}/"><span class="num">{blocks[b].number:02d}</span> {html.escape(blocks[b].front.get("title", b))}</a>' for b in order)
-    main = f"""
-<header class="hero"><p class="eyebrow">A knowledge store, rendered</p>
-<h1>{len(blocks)} building blocks turn one unreliable model call into software you can depend on</h1>
-<p class="lede">Each block is stored as items with stable ids: concepts, flows, lifecycles, worked examples, numbers with sources, verbatim code from a real codebase, pitfalls and misconceptions. Every flow and lifecycle below is drawn from those items. The <a href="{REPO}">markdown files</a> are the source.</p></header>
-<section class="sec" id="blocks"><h2>The blocks, in learning order</h2><div class="bgrid">{''.join(cards)}</div></section>
-<section class="sec" id="request-path"><h2>One request passes through the blocks in this order</h2>
-<figure class="diagram"><pre class="mermaid">{html.escape(chr(10).join(fc))}</pre><figcaption>R1–R13 run on every request. Dashed steps R14–R20 run across requests or between releases.</figcaption></figure>
-<details class="steps" open><summary>Every step, with the blocks and flows it maps to</summary>{table}</details></section>"""
-    return page("Home", main, nav, "", depth=0)
 
 
 def glossary_page(blocks, titles, order) -> str:
@@ -540,6 +418,8 @@ def main() -> int:
         for kind, svg in (("map", vzlib.map_svg_of(b)), ("seq", vzlib.seq_svg_of(b))):
             if svg:
                 (out / "diagrams" / f"{b}.{kind}.svg").write_text(svg)
+    if vzlib.map_svg_of("home"):
+        (out / "diagrams" / "home.map.svg").write_text(vzlib.map_svg_of("home"))
     (out / "slides").mkdir()
     (out / "slides" / "index.html").write_text(story_page.slides(blocks, order, ASSET_VERSION))
     (out / ".nojekyll").write_text("")
