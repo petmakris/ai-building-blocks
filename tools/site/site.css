@@ -84,13 +84,14 @@ main { display: flex; flex-direction: column; gap: 22px; min-width: 0 }
 .sec > h2 { font-size: 22px; font-weight: 700; padding-bottom: 8px; border-bottom: 1px solid var(--line) }
 .sec > p, .sec > ul, .sec > ol { max-width: 82ch }
 .iid { font: 500 12.5px var(--mono); color: var(--accent); margin-right: 4px }
-.sid { font: 500 12px var(--mono); color: var(--accent) }
+.sid { font: 500 12px var(--mono); color: var(--accent); text-decoration: none }
 
 /* tables: own scroll container */
 .sec table { display: block; overflow-x: auto; border-collapse: collapse; font-size: 14px; max-width: 100% }
 th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--line) }
 th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); font-weight: 600; white-space: nowrap }
-td.rid { font: 500 12.5px var(--mono); color: var(--accent); white-space: nowrap }
+td.rid { font: 500 12.5px var(--mono); white-space: nowrap }
+td.rid a { color: var(--accent); text-decoration: none }
 tr:target td { background: var(--accent-bg) }
 
 /* concept cards */

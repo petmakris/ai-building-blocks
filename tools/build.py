@@ -91,13 +91,13 @@ def link_ids(fragment: str, block: Block, blocks: dict[str, Block], titles: dict
 
 def anchor_rows(fragment: str) -> str:
     """Give a table row whose first cell is an id that id as its anchor."""
-    return re.sub(r"<tr>\s*<td>(?P<id>[A-Z]\d+)</td>", r'<tr id="\g<id>"><td class="rid">\g<id></td>', fragment)
+    return re.sub(r"<tr>\s*<td>(?P<id>[A-Z]\d+)</td>", r'<tr id="\g<id>"><td class="rid"><a href="#\g<id>">\g<id></a></td>', fragment)
 
 
 def anchor_list_items(fragment: str) -> str:
     """Give a list item that starts with a step id (F1.3 · ...) that id."""
-    return re.sub(r"<li>(\s*<p>)?(?P<id>F\d+\.\d+[a-z]?)\s*·",
-                  lambda m: f'<li id="{m.group("id")}">{m.group(1) or ""}<span class="sid">{m.group("id")}</span> ·',
+    return re.sub(r"<li>(\s*<p>)?(?P<id>[A-Z]\d+(?:\.\d+[a-z]?)?)\s*·",
+                  lambda m: f'<li id="{m.group("id")}">{m.group(1) or ""}<a class="sid" href="#{m.group("id")}">{m.group("id")}</a> ·',
                   fragment)
 
 
@@ -226,13 +226,14 @@ def state_diagram(lc: Lifecycle) -> str:
             chain = [x for x in re.split(r"\s*→\s*", t.dst) if x.strip()]
             prev = node(src)
             label = t.trigger
-            if t.guard and t.guard.strip().lower() not in ("none", "—", "-", ""):
+            if t.guard and t.guard.strip().lower() not in ("none", "—", "–", "-", ""):
                 label += f" [{t.guard}]"
             for k, d in enumerate(chain):
                 nxt = node(d)
                 if nxt == "[*]" and prev == "[*]":
                     continue
-                edges.append(f"    {prev} --> {nxt}: {clean(label, 46) if k == 0 else ''}".rstrip(": "))
+                text = clean(label, 46).replace(":", "\ua789") if k == 0 else ""
+                edges.append(f"    {prev} --> {nxt}: {text}".rstrip(": "))
                 prev = nxt
     lines = ["stateDiagram-v2"]
     for k, s in sid.items():
@@ -280,13 +281,16 @@ def render_flows(block: Block, ctx) -> str:
     for fid, title, body in items:
         flow = flows.get(fid)
         diagram = sequence(flow, components(block)) if flow else ""
-        purpose, _, steps = body.partition("\n\n")
+        head_re = re.compile(r"^\s*(?:[-*]\s*)?(?:\*\*)?(purpose|trigger)\b", re.I)
+        lines = body.strip("\n").split("\n")
+        purpose = "\n".join(l if l.lstrip().startswith(("-", "*")) else "- " + l for l in lines if head_re.match(l))
+        steps = "\n".join(l for l in lines if not head_re.match(l))
         out.append(f'<article class="flow" id="{fid}"><h3><span class="iid">{fid}</span> {html.escape(title)}</h3>')
         out.append(f'<div class="purpose">{ctx.post(md(purpose))}</div>')
         if diagram:
             out.append(f'<figure class="diagram"><pre class="mermaid">{html.escape(diagram)}</pre>'
                        f'<figcaption>Sequence of {fid}, generated from its {len(flow.steps)} steps. Each step id links to its full text below.</figcaption></figure>')
-        out.append(f'<details class="steps" open><summary>All steps of {fid}</summary>{anchor_list_items(ctx.post(md(steps)))}</details></article>')
+        out.append(f'<details class="steps" open><summary>All steps of {fid}</summary>{ctx.post(md(steps))}</details></article>')
     return "\n".join(out)
 
 
@@ -310,7 +314,7 @@ class Ctx:
         self.block, self.blocks, self.titles = block, blocks, titles
 
     def post(self, fragment: str) -> str:
-        return anchor_rows(link_ids(fragment, self.block, self.blocks, self.titles))
+        return link_ids(anchor_list_items(anchor_rows(fragment)), self.block, self.blocks, self.titles)
 
 
 SECTION_IDS = {h: re.sub(r"[^a-z]+", "-", h.lower()).strip("-") for h in HEADINGS}
@@ -460,7 +464,8 @@ def home_page(blocks: dict[str, Block], titles, order) -> str:
 
 def glossary_page(blocks, titles, order) -> str:
     g = readme_section(5)
-    ctx = Ctx(next(iter(blocks.values())), blocks, titles)
+    from types import SimpleNamespace
+    ctx = Ctx(SimpleNamespace(ids=set(), id=""), blocks, titles)
     nav = "".join(f'<a href="../{b}/"><span class="num">{blocks[b].number:02d}</span> {html.escape(blocks[b].front.get("title", b))}</a>' for b in order)
     main = f'<header class="hero"><p class="eyebrow">Glossary</p><h1>Every concept in the store, with the block that defines it</h1></header><section class="sec">{ctx.post(md(g))}</section>'
     return page("Glossary", main, nav, "", depth=1)
