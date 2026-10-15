@@ -1,0 +1,13 @@
+/* Direction "classic": a polished vertical sequence diagram. */
+.ov-svg .mk-classic-band { fill: var(--sunk); stroke: var(--line); stroke-width: 1 }
+.ov-svg .mk-classic-life { stroke: var(--line); stroke-width: 2; stroke-dasharray: 5 5 }
+.ov-svg .mk-classic-chip { fill: var(--card); stroke: var(--line); stroke-width: 1.2 }
+.ov-svg .mk-classic-chip.blue { fill: var(--blue-soft); stroke: var(--blue) }
+.ov-svg .mk-classic-chip.red { fill: var(--red-soft); stroke: var(--red) }
+.ov-svg .mk-classic-chip.green { fill: var(--green-soft); stroke: var(--green) }
+.ov-svg .mk-classic-num { fill: var(--fg) }
+.ov-svg .mk-classic-num-now { fill: var(--accent) }
+.ov-svg .mk-classic-numt { font-size: 12.5px; font-weight: 700; fill: var(--sunk) }
+/* reading state: steps already read at full ink, the step being read lit, steps ahead readable but quiet */
+.ov-svg .mk-classic-lit { fill: var(--accent); fill-opacity: .05; stroke: var(--accent); stroke-width: 2 }
+.ov-svg .mk-classic-next { opacity: .55 }

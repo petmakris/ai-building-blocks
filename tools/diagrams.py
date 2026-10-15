@@ -74,9 +74,14 @@ PROBE = r"""
 """
 
 
+EXTRA_CSS: str | None = None
+
+
 def page(svg: str, theme: str) -> str:
     return (f'<!doctype html><html data-theme="{theme}"><head><meta charset="utf-8">{FONTS}'
-            f'<link rel="stylesheet" href="{CSS.as_uri()}"><style>body{{padding:0;margin:0}} .ov-fig{{margin:0;border:0;border-radius:0}}'
+            f'<link rel="stylesheet" href="{CSS.as_uri()}">'
+            + (f'<link rel="stylesheet" href="{EXTRA_CSS}">' if EXTRA_CSS else "")
+            + f'<style>body{{padding:0;margin:0}} .ov-fig{{margin:0;border:0;border-radius:0}}'
             f' .ov-svg{{min-width:0}}</style></head><body><figure class="ov-fig">{svg}</figure></body></html>')
 
 
@@ -109,11 +114,17 @@ def main() -> int:
     c = sub.add_parser("check")
     c.add_argument("blocks", nargs="*")
     c.add_argument("--out", default=str(Path(tempfile.gettempdir()) / "ai-building-blocks-diagrams"))
+    c.add_argument("--file", action="append", default=[], help="check this SVG file instead of diagrams/ (repeatable)")
+    c.add_argument("--css", help="extra stylesheet to load after story.css, for a draft that needs more classes")
     e = sub.add_parser("export")
     e.add_argument("--out", required=True)
     a = ap.parse_args()
 
     files = sorted((ROOT / "diagrams").glob("*.svg"))
+    if a.cmd == "check" and a.file:
+        files = [Path(f).resolve() for f in a.file]
+    global EXTRA_CSS
+    EXTRA_CSS = Path(a.css).resolve().as_uri() if a.cmd == "check" and a.css else None
     if a.cmd == "check" and a.blocks:
         files = [f for f in files if f.stem in a.blocks]
     bad = 0
