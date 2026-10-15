@@ -25,6 +25,11 @@ related: [gateway, hitl, observability, evals, governance, rollout, caching]
 - Source: Real figures from Firecracker's docs.
 - Refs: N1, N2, C21, C23, C24, C28, C29
 
+### Overview
+- Title: Model-written code runs in a box with no secrets, no network and hard limits
+- Caption: A planted CSV cell makes the model write a command that uploads `~/.aws/credentials`. The agent service holds the API key and the database password, so it hands the code to a runner, the only service allowed to use the Docker socket. The runner starts a throwaway container with read-only `/data` and `/code`, `--network none`, user 65534 with every root power dropped, and limits of 60 s, 1 GB and 128 processes, then sends a short exit reason back to the model. With files locked only, `curl` sends the CSV out; with the network locked only, a key leaves later in an exported file; only both locks stop the command. A container shares the host kernel, so when strangers or many customers share hosts each session gets a Firecracker microVM, which boots in under 125 ms with under 5 MiB of overhead.
+- Refs: C5, C9, C10, C11, C15, C16, C17, C23, C24, C29, C30, C32, C33, C34, C35, C36, C45, E2, E3, E4, E5, E6, E7, F1, F2, F3, F4, N1, N2, N8, N9, N10, N12, N14
+
 ### Idea
 - Sentence: Treat every line the model writes as hostile, and run it in ==a throwaway box that cannot do damage==: one folder, only the hosts you list, no secrets, hard limits.
 - Analogy: It is like a CI runner that builds a pull request from a fork in a throwaway container with no deploy secrets. The comparison fails at one point. This code appears in the middle of a production request, and there is no pull request to read first.

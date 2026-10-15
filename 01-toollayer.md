@@ -27,7 +27,7 @@ related: [tools, agents, hitl, guardrails, gateway, evals, governance]
 - Refs: N1, N2, N3, N8, N9, N10, E2, X4, X24
 
 ### Overview
-- Title: Three kinds of caller reach the same services, and the two AI callers share one runner and one tool list
+- Title: Three kinds of caller, one set of rules: every path ends in the same services
 - Caption: The screens call REST routes, and the routes call the services directly. The in-app chat and outside assistants over MCP hand each tool call to `runTool`, which runs one of Billpod's 50 tools, and every tool calls the same services. So a rule in a service binds all three callers. A rule kept in one door binds only that door: the 30-a-minute upload limit sits on a REST route, so Billpod had to copy it into `capture_invoice` by hand. The parity test fails when a new route has neither a tool nor a written reason.
 - Refs: N2, N4, N7, N8, N9, N10, N16, K2, K9, K11, K13, K16
 

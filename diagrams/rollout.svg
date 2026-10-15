@@ -1,0 +1,133 @@
+<svg class="ov-svg" viewBox="0 0 1120 770" role="img" aria-label="New AI behaviour first runs in shadow mode on real chats while the user still sees the old result, then a person reads the disagreements against a bar written first, then a flag flips only when an eval clears four fixed bars, then a canary widens from 5 to 100 percent while quality is no worse. After release, feedback tied to the exact turn is triaged by a person and every confirmed failure becomes an eval case that every later gate run checks. New checks start in log mode and enforce only under a 15 percent refusal rate.">
+<defs>
+<marker id="rollout-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="rollout-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah green"/></marker>
+<marker id="rollout-m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah amber"/></marker>
+</defs>
+<text class="ttl" x="24" y="38">AI changes reach users in stages, and each confirmed failure becomes an eval case</text>
+<text class="sb" x="24" y="64">Real code from Lomem's language app. Boxes marked example use made-up numbers.</text>
+
+<text class="zl" x="24" y="108">BEFORE ANY USER DEPENDS ON IT</text>
+
+<!-- row 1: stages -->
+<rect class="bx red" x="24" y="122" width="235" height="232" rx="8"/>
+<text class="nm" x="42" y="152">Shadow mode</text>
+<text class="sb" x="42" y="176">a judge model grades each chat</text>
+<text class="sb" x="42" y="198">learner waits 0 s, judge 15 s</text>
+<text class="sb" x="42" y="220">never sees the rules' level</text>
+<text class="sb red" x="42" y="246">code checks its evidence:</text>
+<text class="sb" x="42" y="268">2+ levels off: rejected</text>
+<text class="sb" x="42" y="290">1 up: 2 cited turns must pass</text>
+<text class="sb green" x="42" y="314">stores <tspan class="mono">judge_would_change</tspan></text>
+<text class="sb green" x="42" y="336">learner sees the rules' level</text>
+
+<rect class="bx" x="303" y="122" width="235" height="232" rx="8"/>
+<text class="nm" x="321" y="152">Readout · example</text>
+<text class="sb amber" x="321" y="176">bar written first:</text>
+<text class="sb" x="321" y="198">judge right in ≥ 30 of 38</text>
+<text class="sb" x="321" y="220">38 of 412 chats disagree</text>
+<text class="sb" x="321" y="242">a person reads all 38</text>
+<text class="sb green" x="321" y="266">clears: a flag shows the judge</text>
+<text class="sb red" x="321" y="288">misses: the judge is dropped</text>
+<text class="sb" x="321" y="314">real Lomem: dropped same day</text>
+<text class="sb green" x="321" y="336">no learner saw a change</text>
+
+<rect class="bx green" x="582" y="122" width="235" height="232" rx="8"/>
+<text class="nm" x="600" y="152">Flag + eval gate</text>
+<text class="sb mono" x="600" y="176">TD_JUDGE_MARKS = false</text>
+<text class="sb" x="600" y="200">flips only if 4 bars pass:</text>
+<text class="sb" x="600" y="222">≥ 95% agree with old prompt</text>
+<text class="sb" x="600" y="244">≥ 95% marks placeable</text>
+<text class="sb" x="600" y="266">≥ 90% marks really wrong</text>
+<text class="sb" x="600" y="288">≥ 95% replies within 2.5 s</text>
+<text class="sb" x="600" y="314">≤ 200 real rows + 36 cases</text>
+<text class="sb amber" x="600" y="336">accidental flip fails a test</text>
+
+<rect class="bx" x="861" y="122" width="235" height="232" rx="8"/>
+<text class="nm" x="879" y="152">Canary · example</text>
+<text class="sb" x="879" y="176">prompt v7 → v8</text>
+<text class="sb" x="879" y="198">5% → 25% → 100% of customers</text>
+<text class="sb" x="879" y="220">group = hash of customer id</text>
+<text class="sb" x="879" y="242">wait for 1,500 v8 drafts</text>
+<text class="sb amber" x="879" y="266">judged on quality signals:</text>
+<text class="sb" x="879" y="288">discard rate, not errors</text>
+<text class="sb green" x="879" y="314">widen if ≤ 23% (v7: 20%)</text>
+<text class="sb red" x="879" y="336">worse: back to 0%</text>
+
+<line class="ar" x1="259" y1="200" x2="299" y2="200" marker-end="url(#rollout-a)"/>
+<line class="ar" x1="538" y1="200" x2="578" y2="200" marker-end="url(#rollout-a)"/>
+<line class="ar" x1="817" y1="200" x2="857" y2="200" marker-end="url(#rollout-a)"/>
+
+<!-- row 2 -->
+<text class="zl" x="24" y="412">WHY TESTS ARE NOT ENOUGH</text>
+<text class="zl" x="716" y="412">AFTER RELEASE</text>
+
+<rect class="bx amber" x="24" y="426" width="235" height="112" rx="8"/>
+<text class="nm" x="42" y="456">A wrong answer looks right</text>
+<text class="sb" x="42" y="480">HTTP 200, valid JSON, fast</text>
+<text class="sb" x="42" y="502">error rate, latency stay flat</text>
+<text class="sb" x="42" y="524">users send what tests missed</text>
+
+<rect class="bx" x="303" y="426" width="235" height="112" rx="8"/>
+<text class="nm" x="321" y="456">Weekly rerun · proposed</text>
+<text class="sb" x="321" y="480">provider can change the model</text>
+<text class="sb" x="321" y="502">Lomem: gate run by hand</text>
+<text class="sb amber" x="321" y="524">missed bar: flag back off</text>
+
+<rect class="bx green" x="582" y="426" width="235" height="112" rx="8"/>
+<text class="nm" x="600" y="456">Eval cases</text>
+<text class="sb" x="600" y="480">fixture file, 36 rows</text>
+<text class="sb mono" x="600" y="502">"J'ai vraiment faim."</text>
+<text class="sb green" x="600" y="524">every gate run checks it</text>
+
+<rect class="bx" x="861" y="426" width="235" height="112" rx="8"/>
+<text class="nm" x="879" y="456">Real users</text>
+<text class="sb" x="879" y="480">thumbs-down: rare</text>
+<text class="sb" x="879" y="502">edits, retries: nearly all</text>
+<text class="sb" x="879" y="524">the first to see a failure</text>
+
+<!-- row 3 -->
+<text class="zl" x="24" y="572">NEW CHECKS · LOG MODE FIRST</text>
+
+<rect class="bx" x="24" y="586" width="235" height="114" rx="8"/>
+<text class="nm" x="42" y="616">Guard in log mode</text>
+<text class="sb" x="42" y="640">logs the refusal it would make</text>
+<text class="sb" x="42" y="662">lets the exercise through</text>
+<text class="sb" x="42" y="684">6 Overheard guards today</text>
+
+<rect class="bx green" x="303" y="586" width="235" height="114" rx="8"/>
+<text class="nm" x="321" y="616">Enforced guard</text>
+<text class="sb" x="321" y="640">refusal rate &lt; 15% in every</text>
+<text class="sb" x="321" y="662">language and level, 12 today</text>
+<text class="sb amber" x="321" y="684">each refusal: a paid retry</text>
+
+<rect class="bx" x="582" y="586" width="235" height="114" rx="8"/>
+<text class="nm" x="600" y="616">Triage by a person</text>
+<text class="sb" x="600" y="640">was the model really wrong?</text>
+<text class="sb" x="600" y="662">no: <tspan class="mono">wont_fix</tspan></text>
+<text class="sb green" x="600" y="684">yes: resolved, add a case</text>
+
+<rect class="bx" x="861" y="586" width="235" height="114" rx="8"/>
+<text class="nm" x="879" y="616">Feedback row</text>
+<text class="sb mono" x="879" y="640">session_id + turn_index</text>
+<text class="sb" x="879" y="662"><tspan class="mono">server_context</tspan> snapshot</text>
+<text class="sb" x="879" y="684">status: open</text>
+
+<!-- loop arrows -->
+<line class="ar green" x1="978" y1="354" x2="978" y2="422" marker-end="url(#rollout-g)"/>
+<line class="ar green" x1="978" y1="538" x2="978" y2="582" marker-end="url(#rollout-g)"/>
+<line class="ar green" x1="861" y1="643" x2="821" y2="643" marker-end="url(#rollout-g)"/>
+<line class="ar green" x1="699" y1="586" x2="699" y2="542" marker-end="url(#rollout-g)"/>
+<line class="ar green" x1="699" y1="426" x2="699" y2="358" marker-end="url(#rollout-g)"/>
+<line class="ar" x1="538" y1="500" x2="578" y2="500" marker-end="url(#rollout-a)"/>
+<path class="ar amber dash" d="M538,446 H560 V330 H578" marker-end="url(#rollout-m)"/>
+<line class="ar" x1="259" y1="643" x2="299" y2="643" marker-end="url(#rollout-a)"/>
+
+<!-- legend -->
+<line class="ar" x1="24" y1="740" x2="60" y2="740" marker-end="url(#rollout-a)"/>
+<text class="sb" x="70" y="744">next stage</text>
+<line class="ar green" x1="190" y1="740" x2="226" y2="740" marker-end="url(#rollout-g)"/>
+<text class="sb" x="236" y="744">a failure comes back as a test</text>
+<line class="ar amber dash" x1="460" y1="740" x2="496" y2="740" marker-end="url(#rollout-m)"/>
+<text class="sb" x="506" y="744">missed bar: back to the old behaviour</text>
+</svg>

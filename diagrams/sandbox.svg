@@ -1,0 +1,136 @@
+<svg class="ov-svg" viewBox="0 0 1120 900" role="img" aria-label="A planted CSV cell makes the model write a command that uploads the cloud credentials. The agent service holds the secrets and never runs the code; a runner service starts a throwaway container with read-only mounts, no network, no root and hard limits, so the command finds nothing to read and nowhere to send it, and a short exit reason goes back to the model. Below, each lock alone leaks data while both together stop it, and a microVM replaces the container when strangers or many customers share hosts.">
+<defs>
+<marker id="sandbox-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="sandbox-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah blue"/></marker>
+<marker id="sandbox-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah red"/></marker>
+</defs>
+<text class="ttl" x="24" y="38">Model-written code runs in a box with no secrets, no network and hard limits</text>
+
+<!-- ZONE A: one tool call -->
+<rect class="zone" x="24" y="60" width="1072" height="510" rx="10"/>
+<text class="zl" x="44" y="86">ONE TOOL CALL · MADE-UP BANK ASSISTANT, REAL DOCKER FLAGS</text>
+
+<line class="ar" x1="560" y1="82" x2="590" y2="82" marker-end="url(#sandbox-a)"/>
+<text class="sb" x="598" y="86">calls</text>
+<line class="ar blue" x1="660" y1="82" x2="690" y2="82" marker-end="url(#sandbox-b)"/>
+<text class="sb" x="698" y="86">model traffic</text>
+<line class="ar red" x1="806" y1="82" x2="836" y2="82" marker-end="url(#sandbox-r)"/>
+<text class="sb" x="844" y="86">planted text</text>
+<line class="ar dash" x1="944" y1="82" x2="974" y2="82" marker-end="url(#sandbox-a)"/>
+<text class="sb" x="982" y="86">mature only</text>
+
+<!-- row 1 -->
+<rect class="bx red" x="44" y="102" width="190" height="128" rx="8"/>
+<text class="nm" x="62" y="134">Injected CSV cell</text>
+<text class="sb" x="62" y="158">from a client's sheet</text>
+<text class="sb" x="62" y="180">says: send this file out</text>
+<text class="sb mono red" x="62" y="202">~/.aws/credentials</text>
+
+<rect class="bx blue" x="274" y="102" width="200" height="128" rx="8"/>
+<text class="nm" x="292" y="134">Model</text>
+<text class="sb" x="292" y="158">obeys the planted text</text>
+<text class="sb" x="292" y="180">writes the command in</text>
+<text class="sb mono" x="292" y="202">tool_use run_python</text>
+
+<rect class="bx" x="514" y="102" width="260" height="128" rx="8"/>
+<text class="nm" x="532" y="134">Agent service</text>
+<text class="sb amber" x="532" y="158">holds API key, DB password</text>
+<text class="sb green" x="532" y="180">never runs model code</text>
+<text class="sb" x="532" y="202">sends the result back</text>
+
+<rect class="bx" x="814" y="102" width="262" height="128" rx="8"/>
+<text class="nm" x="832" y="134">Runner service</text>
+<text class="sb" x="832" y="158">only one allowed to start boxes</text>
+<text class="sb amber" x="832" y="180">Docker socket = root on host</text>
+<text class="sb" x="832" y="202">cuts output to a few KB</text>
+
+<line class="ar red" x1="234" y1="166" x2="270" y2="166" marker-end="url(#sandbox-r)"/>
+<line class="ar blue" x1="474" y1="166" x2="510" y2="166" marker-end="url(#sandbox-b)"/>
+<line class="ar" x1="774" y1="166" x2="810" y2="166" marker-end="url(#sandbox-a)"/>
+<line class="ar" x1="945" y1="230" x2="945" y2="258" marker-end="url(#sandbox-a)"/>
+<text class="lb" x="937" y="252" text-anchor="end">docker run, fresh run folder</text>
+
+<!-- sandbox -->
+<rect class="bx green" x="404" y="262" width="672" height="292" rx="8"/>
+<text class="nm" x="422" y="294">Sandbox: a throwaway container per run</text>
+
+<rect class="bx" x="422" y="310" width="309" height="108" rx="8"/>
+<text class="nm" x="440" y="340">Files: only what it needs</text>
+<text class="sb mono" x="440" y="362">/data /code read-only</text>
+<text class="sb" x="440" y="384">writes only /out and /tmp</text>
+<text class="sb green" x="440" y="406">no <tspan class="mono">~/.aws/credentials</tspan> here</text>
+
+<rect class="bx" x="749" y="310" width="309" height="108" rx="8"/>
+<text class="nm" x="767" y="340">Network: none</text>
+<text class="sb mono" x="767" y="362">--network none</text>
+<text class="sb green" x="767" y="384">curl: could not resolve host</text>
+<text class="sb" x="767" y="406">or only allowlisted hosts</text>
+
+<rect class="bx" x="422" y="430" width="309" height="108" rx="8"/>
+<text class="nm" x="440" y="460">Not root</text>
+<text class="sb mono" x="440" y="482">--user 65534:65534</text>
+<text class="sb mono" x="440" y="504">--cap-drop ALL</text>
+<text class="sb mono" x="440" y="526">no-new-privileges</text>
+
+<rect class="bx amber" x="749" y="430" width="309" height="108" rx="8"/>
+<text class="nm" x="767" y="460">Limits stop buggy code</text>
+<text class="sb mono" x="767" y="482">timeout 60, --memory 1g</text>
+<text class="sb mono" x="767" y="504">--cpus 1, --pids-limit 128</text>
+<text class="sb" x="767" y="526">runner kills it at 75 s</text>
+
+<!-- left column -->
+<rect class="bx" x="44" y="262" width="320" height="128" rx="8"/>
+<text class="nm" x="62" y="294">A short reason back</text>
+<text class="sb mono" x="62" y="318">exit 124: timed out after 60 s</text>
+<text class="sb mono" x="62" y="340">exit 137: killed, memory 1 GB</text>
+<text class="sb" x="62" y="364">the model fixes its code, retries</text>
+
+<rect class="bx" x="44" y="414" width="320" height="140" rx="8"/>
+<text class="nm" x="62" y="444">Mature: egress proxy</text>
+<text class="sb" x="62" y="468">the only way out, allowlist</text>
+<text class="sb" x="62" y="490">token in the box: a placeholder</text>
+<text class="sb" x="62" y="512">real token only on <tspan class="mono">api.github.com</tspan></text>
+<text class="sb" x="62" y="534">blocked hosts are logged</text>
+
+<line class="ar" x1="404" y1="326" x2="368" y2="326" marker-end="url(#sandbox-a)"/>
+<line class="ar blue" x1="320" y1="262" x2="320" y2="234" marker-end="url(#sandbox-b)"/>
+<text class="lb mono" x="328" y="252">tool_result</text>
+<line class="ar dash" x1="404" y1="484" x2="368" y2="484" marker-end="url(#sandbox-a)"/>
+
+<!-- ZONE B: both locks -->
+<rect class="zone red" x="24" y="588" width="1072" height="144" rx="10"/>
+<text class="zl" x="44" y="614">WHAT THE INJECTED COMMAND GETS</text>
+
+<rect class="bx red" x="44" y="628" width="246" height="92" rx="8"/>
+<text class="nm" x="62" y="658">No sandbox</text>
+<text class="sb" x="62" y="682">runs inside the agent service</text>
+<text class="sb red" x="62" y="704">keys and DB password leave</text>
+
+<rect class="bx amber" x="306" y="628" width="246" height="92" rx="8"/>
+<text class="nm" x="324" y="658">Files locked only</text>
+<text class="sb" x="324" y="682">curl sends the CSV out:</text>
+<text class="sb amber" x="324" y="704">every client's holdings leave</text>
+
+<rect class="bx amber" x="568" y="628" width="246" height="92" rx="8"/>
+<text class="nm" x="586" y="658">Network locked only</text>
+<text class="sb" x="586" y="682">key hidden in an exported file</text>
+<text class="sb amber" x="586" y="704">or in a line in <tspan class="mono">~/.bashrc</tspan></text>
+
+<rect class="bx green" x="830" y="628" width="246" height="92" rx="8"/>
+<text class="nm" x="848" y="658">Both locked</text>
+<text class="sb" x="848" y="682">no file to read, no way out</text>
+<text class="sb green" x="848" y="704">the injected command fails</text>
+
+<!-- ZONE C: which box -->
+<text class="zl" x="44" y="770">WHICH BOX · BY WHAT AN ESCAPE WOULD REACH</text>
+
+<rect class="bx amber" x="44" y="784" width="504" height="96" rx="8"/>
+<text class="nm" x="62" y="814">Container or OS sandbox</text>
+<text class="sb" x="62" y="838">shares the host kernel: one bug lets code out</text>
+<text class="sb" x="62" y="860">a fine start on a host for one team's staff</text>
+
+<rect class="bx green" x="572" y="784" width="504" height="96" rx="8"/>
+<text class="nm" x="590" y="814">Firecracker microVM per session</text>
+<text class="sb" x="590" y="838">own kernel, boots under 125 ms, under 5 MiB</text>
+<text class="sb green" x="590" y="860">for strangers, or many customers on a host</text>
+</svg>

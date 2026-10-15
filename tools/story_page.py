@@ -167,9 +167,13 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
     overview = ""
     svg = ROOT / "diagrams" / f"{block.id}.svg"
     if ov and svg.exists():
-        overview = (f'<section class="ov"><p class="kicker">The whole picture</p><h2>{inline(ov.get("title", ""))}</h2>'
+        n = order.index(block.id)
+        overview = (f'<section class="ov"><p class="kicker">The whole picture</p>'
                     f'<figure class="ov-fig"><div class="ov-scroll">{svg.read_text()}</div>'
-                    f'<figcaption>{inline(ov.get("caption", ""))}</figcaption></figure></section>')
+                    f'<figcaption>{inline(ov.get("caption", ""))}</figcaption>'
+                    f'<p class="ov-get">For slides: <a href="../diagrams/{block.id}.png" download>PNG light</a>'
+                    f' · <a href="../diagrams/{block.id}-dark.png" download>PNG dark</a>'
+                    f' · <a href="../slides/#{block.id}">present all</a></p></figure></section>')
 
     steps = []
     for s in story.steps:
@@ -259,7 +263,7 @@ def home(blocks: dict[str, Block], order: list[str], stories: dict, path_rows: l
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="assets/story.css?v={version}">
 </head><body>
-<div class="bar"><div class="bar-in"><a class="brand" href="./">AI Building Blocks</a><a class="ref" href="glossary/">Glossary</a>
+<div class="bar"><div class="bar-in"><a class="brand" href="./">AI Building Blocks</a><a class="ref" href="slides/">Slides</a><a class="ref" href="glossary/">Glossary</a>
 <a class="ref2" href="{repo}">GitHub</a><button id="theme" type="button" aria-label="Switch light or dark">Theme</button></div></div>
 <div class="wrap">
 <header class="hook solo home-hero"><div><p class="kicker">For engineers putting AI into real software</p>
@@ -272,4 +276,37 @@ def home(blocks: dict[str, Block], order: list[str], stories: dict, path_rows: l
 <footer class="foot"><p>Built as a <a href="{repo}">knowledge store</a> of plain markdown: every concept, flow and number has an id and a source. Licensed CC BY 4.0.</p></footer>
 </div>
 <script src="assets/story.js?v={version}"></script>
+</body></html>"""
+
+
+def slides(blocks: dict[str, Block], order: list[str], version: str) -> str:
+    """Every overview diagram, one per screen, for presenting. Arrow keys or the buttons move between them."""
+    out = []
+    for b in order:
+        svg = ROOT / "diagrams" / f"{b}.svg"
+        if svg.exists():
+            out.append(f'<section class="slide" id="{b}"><span class="sn">{blocks[b].number:02d} · {E(blocks[b].front.get("title", ""))}</span>'
+                       f'<div class="sl-fig">{svg.read_text()}</div></section>')
+    return f"""<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slides · AI Building Blocks</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="../assets/story.css?v={version}">
+</head><body class="deck">
+{"".join(out)}
+<nav class="deck-nav"><a href="../">Site</a><button type="button" id="prev">Previous</button><span id="pos"></span><button type="button" id="next">Next</button><button type="button" id="theme">Theme</button></nav>
+<script>
+(() => {{
+  const s = [...document.querySelectorAll('.slide')];
+  let i = Math.max(0, s.findIndex(x => '#' + x.id === location.hash));
+  const show = (k) => {{ i = Math.min(s.length - 1, Math.max(0, k)); s.forEach((x, j) => x.hidden = j !== i);
+    document.getElementById('pos').textContent = (i + 1) + ' / ' + s.length; history.replaceState(null, '', '#' + s[i].id); }};
+  addEventListener('keydown', (e) => {{ if (['ArrowRight', 'PageDown', ' '].includes(e.key)) {{ e.preventDefault(); show(i + 1); }}
+    if (['ArrowLeft', 'PageUp'].includes(e.key)) {{ e.preventDefault(); show(i - 1); }} }});
+  document.getElementById('next').onclick = () => show(i + 1);
+  document.getElementById('prev').onclick = () => show(i - 1);
+  document.getElementById('theme').onclick = () => {{ const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark'; }};
+  show(i);
+}})();
+</script>
 </body></html>"""

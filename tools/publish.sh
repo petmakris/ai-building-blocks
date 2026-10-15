@@ -5,6 +5,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT="${TMPDIR:-/tmp}/ai-building-blocks-site"
 uv run -q tools/build.py --out "$OUT" "$@"
+uv run -q tools/diagrams.py check
+uv run -q tools/diagrams.py export --out "$OUT"
 SRC=$(git rev-parse --short HEAD)
 REMOTE=$(git remote get-url origin)
 cd "$OUT"

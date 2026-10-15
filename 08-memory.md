@@ -25,6 +25,11 @@ related: [tools, rag, guardrails, caching, observability, governance, agents, ga
 - Source: The 20-message default is real; the name and message numbers are made up. This is short-term memory, the transcript of one chat. The walkthrough follows long-term memory: facts kept across chats.
 - Refs: N1, C12, C16, E3
 
+### Overview
+- Title: The model keeps nothing, so your code stores facts and puts them back in the prompt
+- Caption: On every call TunaTutor's backend resends the system prompt and the whole transcript, keyed by conversation ID, because Gemini keeps nothing between calls. The model only proposes a fact in the `memoryUpdates` field of its JSON answer. Code gates it on role-play, queues it in the same transaction as the messages, and a worker that polls every second upserts it into one row per user and key. A new chat loads the 50 most recently updated facts once, as plain lines in the system prompt, and the greeting uses the first 5. The model reads those lines as true, so a planted fact rides the same path into every later prompt; the bottom row shows the fix at each step.
+- Refs: C2, C8, C9, C10, C20, C23, C24, C25, C27, C29, C30, C31, C32, C33, C34, C36, C44, C45, N4, N5, N6, N7, N13, N14, N15, E1, E2, E6, F9
+
 ### Idea
 - Sentence: Memory is the code around a model that stores what was said and what was learned about a user, and ==puts the useful part back into the next request==.
 - Analogy: In classic backend terms, short-term memory is HTTP session state, with a conversation ID instead of a session cookie. Long-term memory is a user profile, updated by a background job from a queue of pending writes. The analogy breaks in one place: a model writes this profile, guessing from free text.

@@ -25,6 +25,11 @@ related: [structured, tools, observability, caching, guardrails, governance, eva
 - Source: Real list prices. The token counts are made up.
 - Refs: N2, N3, N5, N6, N21, N22, N23, E1
 
+### Overview
+- Title: One gateway checks who pays, retries, falls back and prices every model attempt
+- Caption: Every call must name a user and a feature, or a reason, or it is refused before any request leaves. The gateway tries the named model first, then every other enabled model, and retries only 429 and 500, 502, 503, 504, with waits of 3 s and 6 s that must fit the model's time budget. In the example the rater's 2 s budget cannot hold a 3 s wait, so a 503 from Flash Lite sends the call to Flash with a fresh budget. Every attempt is written to the spend log, failures as zero-token rows, and the rows show the same call cost about four times as much. When no model is left, the feature degrades instead of showing an error.
+- Refs: C16, C26, C27, C30, C32, C33, C36, C22, F1, F2, F3, E1, E3, E4, E6, N2, N3, N5, N6, N12, N13, N14, N16, N18, N22, N23, M2
+
 ### Idea
 - Sentence: Send every model call through ==one door== that knows who pays, which model to try next, how long to wait, and what each attempt cost.
 - Analogy: If you write Java: it is one outbound `RestClient` bean wrapped in a retry and a time limiter, plus a quota service, with every call required to carry a tenant id. Two things differ. Every call costs money, at its model's price. The backup is a different model, so it gives different answers.

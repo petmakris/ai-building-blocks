@@ -534,6 +534,8 @@ def main() -> int:
             (out / b / "index.html").write_text(story_page.story_page(blk, stories[b], blocks, order, stories, counts, ASSET_VERSION))
         else:
             (out / b / "index.html").write_text(ref.replace('href="../../', 'href="../').replace('src="../../', 'src="../'))
+    (out / "slides").mkdir()
+    (out / "slides" / "index.html").write_text(story_page.slides(blocks, order, ASSET_VERSION))
     (out / ".nojekyll").write_text("")
     print(f"built {out}")
     return 0

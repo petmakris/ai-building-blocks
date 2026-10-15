@@ -26,6 +26,11 @@ related: [context, structured, tools, memory, evals, observability, caching, gov
 - Source: All values are real, from tunatutor's code and the July 2026 incident record (E1).
 - Refs: N1, N2, N16, E1, X22, X27, C12
 
+### Overview
+- Title: Two copies of one prompt: a startup heal decides which one the model reads
+- Caption: Tunatutor's Layer 1 prompt lives as a constant in code, with 15 rules and 8 slots, and as a database row that the seed SQL and the admin screen can write. In July 2026 the seed wrote an old copy without rules 14 and 15, the app preferred the row, and the golden tests stayed green because they render only the code copy. Now a startup heal resets the row to the code copy unless the archive shows a person edited it, and it writes no archive row itself. Each process caches the text, and code fills the slots and sends the whole prompt on every call. Only lesson notes carry a prompt version and model id; tutor replies carry none.
+- Refs: C24, C26, C27, C44, C13, C15, C17, C19, F1, F2, F11, E1, E2, L1, N1, N2, N15, N16, N20, X17, X22, X27, X40, M3, M8, M9
+
 ### Idea
 - Sentence: A prompt is configuration that changes what the feature does, so keep ==one copy==, test the exact text the model reads, stamp its version on every result, and be able to roll it back.
 - Analogy: A prompt template is like a string in an i18n message file: text with named slots filled per request. The difference is that the model decides what the text means, not your code. So you learn what an edit did only by running many inputs.

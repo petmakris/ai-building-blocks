@@ -25,6 +25,11 @@ related: [evals, caching, guardrails, governance, structured, agents, tools, rol
 - Source: Real numbers from a 2023 study. The 33-point drop is the difference of the two.
 - Refs: E7, N9, N10, C23
 
+### Overview
+- Title: A wrong answer returns 200, so record every call and score a sample to catch it
+- Caption: In this made-up incident Google moves the alias `gemini-flash-latest` to a preview model, and the grading feature marks a correct answer wrong while the call returns 200 in 1.4 seconds. Latency and error monitoring see nothing. One wrapper writes a call record with the prompt version and the model that answered, keeps the redacted prompt and reply of every call for 14 days, and sends a random 2% to a queue, about 200 scored calls a day. A pinned checker model scores the sample, the nightly job sees Monday's agreement rate of 0.81 fall below its 0.92 alert line, and grouping by version shows the prompt stayed at v14 while the model changed. Pinning `gemini-2.5-flash` and replaying the 5 stored prompts 10 times each confirms the fix.
+- Refs: P2, P7, C10, C11, C15, C16, C20, C25, C28, C29, C30, K1, K7, K9, K11, K12, K13, F1, F2, F3, E1, E2, E3, E5, N16, N17, N18, N19, N20, N23, N24, N26, N27, M3, M5, M7
+
 ### Idea
 - Sentence: Write ==one record per model call== with the exact text, the prompt version (which revision of your instructions to the model was sent) and the model that actually answered. Then score a sample of live calls to catch quality drops that no deploy of yours explains.
 - Analogy: It is distributed tracing plus APM plus a billing meter. The model call is one more timed downstream call. It also carries tokens (the units of text the vendor bills by) and cost. The analogy breaks at correctness. APM counts a fast 200 as a success, but a model's reply can be fast, return 200 and still be wrong. So you keep the reply text and score it, which APM never does.

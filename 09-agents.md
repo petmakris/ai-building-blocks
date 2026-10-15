@@ -25,6 +25,11 @@ related: [hitl, guardrails, observability, evals, memory, sandbox, caching, gove
 - Source: Real figures from Anthropic's multi-agent research write-up (June 2025). The 1× is the baseline they compare against.
 - Refs: N1, N2, E11, C38, C2
 
+### Overview
+- Title: An agent is a loop where the model picks each step, and your code owns every exit
+- Caption: Billpod's assistant checks its limits before each model call: at most 6 calls per request, 60 s per step and 2048 output tokens, and each call resends the whole transcript. The model picks the next tool call, and a reply with no tool call is the only built-in exit. Every tool call is a proposal: an unknown name gets an UNKNOWN_TOOL result, a read runs at once, and a change is checked against the stored bill and its version. A change that passes is sealed with the turn and the step count into an AES-256-GCM token for 10 minutes, and the request ends with a card. The approval is a second request that runs only the sealed call, once, and carries the count on. Agents use about 4 times a chat's tokens and multi-agent systems about 15 times, so use a workflow whenever you can draw the flowchart.
+- Refs: C2, C10, C12, C13, C20, C21, C24, C27, C28, C29, C30, C31, C33, C34, C38, C41, C45, N1, N2, N6, N7, N8, N10, N15, N16, N17, N28, E1, F2, F3, F4
+
 ### Idea
 - Sentence: An agent is ==a loop in which the model picks the next tool call==, and your code owns its exits, its checks and its saved state.
 - Analogy: An agent is like a queue consumer whose commands come from the model. The comparison breaks in three places. No code knows which command comes next, so your code must save where the loop stopped, or a crash loses it. Every command must be checked before it runs. Every command costs money.

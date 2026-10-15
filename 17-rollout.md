@@ -25,6 +25,11 @@ related: [gateway, structured, guardrails, hitl, governance, caching]
 - Source: Real time limits from Lomem's code at commit 8fa41788f.
 - Refs: N1, N3, N5, C12, X2, X5
 
+### Overview
+- Title: AI changes reach users in stages, and each confirmed failure becomes an eval case
+- Caption: A wrong model answer is a fast HTTP 200 with valid JSON, so error rates and latency cannot catch it. Lomem's placement judge ran in shadow mode: the learner waited 0 s for it, and code accepted its level only with evidence. Lomem dropped it the same day, so no learner saw a change. The translation grader's marks stay behind `TD_JUDGE_MARKS` until a gate clears four bars fixed in advance. After release, feedback tied to its session and turn is triaged by a person, and a confirmed failure becomes a fixture row that every later gate run checks.
+- Refs: P1, C9, C11, C12, C15, C7, C19, C22, C24, C25, C17, C18, C31, C32, C33, C35, N3, N10, N11, N12, N13, N14, N20, N30, N31, N32, N33, N34, N35, N37, N38, N42, N43, N44, N45, E1, E2, E3, E8, E9
+
 ### Idea
 - Sentence: New AI behaviour ==earns its way to users in stages==: it first runs unseen on real traffic (shadow mode), a flag turns it on only when measured numbers clear a bar written down beforehand, and every confirmed failure becomes a new test case.
 - Analogy: In a classic backend, shadow mode is a dark launch, or GitHub's Scientist library. Scientist runs new code next to the current code, returns the current result and logs mismatches. The analogy breaks on mismatches: two different model answers can both be right. So a mismatch needs a rule in code and a person to judge it.

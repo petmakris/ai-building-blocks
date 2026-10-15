@@ -24,6 +24,11 @@ related: [guardrails, evals, governance, observability, structured, memory, cont
 - Source: Both real: Anthropic's figure for Claude Code, and a count of Billpod's confirm list.
 - Refs: N1, E16, N28, C27, C38, C50
 
+### Overview
+- Title: A risky write waits for a person's click, and only the stored call runs, once
+- Caption: The model only asks for a tool call. Billpod's confirm list, a constant in code, sends 31 of the 46 tools to a card, while reads and four adds run at once. Code checks the call against the stored bill, builds the card from stored data, saves the proposal for 10 minutes and ends the turn. The click is a new request that carries no arguments: the server checks owner, expiry and single use (400, 410, 409), runs exactly the stored call with the version checked again, and gives the model the result under its own call id. Claude Code users approve 93% of prompts, so ask only where it matters.
+- Refs: N1, N2, N9, N27, N28, C13, C15, C16, C18, C19, C20, C23, C24, C25, C26, C27, C28, C29, E1
+
 ### Idea
 - Sentence: A risky write the model asks for becomes ==a proposal a person must approve==. Code shows the person an approval card built from stored data. After the click, code runs exactly that call, once.
 - Analogy: In backend terms it is maker-checker (four eyes) in a bank. One clerk enters a payment, a second approves it, and a pending-action table is the queue between them. The model is the maker and the person is the checker. Where it breaks: a human maker is accountable and is not steered by text hidden in an invoice. A model also proposes at machine speed, so the checker tires faster.

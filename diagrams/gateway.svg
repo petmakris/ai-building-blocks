@@ -1,0 +1,124 @@
+<svg class="ov-svg" viewBox="0 0 1120 830" role="img" aria-label="Two features, the rater and the tutor, send every model call into one gateway. The gateway checks who pays, lists the models to try, calls one model with retries inside a time budget, and on failure falls back to the next model with a fresh budget. In the example the rater's Flash Lite call fails with 503 and Flash answers, and the spend log shows the call cost about four times as much. When no model is left, the feature degrades.">
+<defs>
+<marker id="gateway-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="gateway-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah blue"/></marker>
+<marker id="gateway-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah red"/></marker>
+<marker id="gateway-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah green"/></marker>
+<marker id="gateway-m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah amber"/></marker>
+</defs>
+<text class="ttl" x="24" y="38">One gateway checks who pays, retries, falls back and prices every model attempt</text>
+
+<text class="zl" x="24" y="94">WHO CALLS</text>
+<text class="zl" x="250" y="94">THE GATEWAY · EVERY CALL PASSES HERE</text>
+<text class="zl" x="740" y="94">GEMINI · AN EXAMPLE RATER CALL</text>
+
+<!-- callers -->
+<rect class="bx" x="24" y="128" width="204" height="96" rx="8"/>
+<text class="nm" x="42" y="160">Rater</text>
+<text class="sb mono" x="42" y="184">gemini-2.5-flash-lite</text>
+<text class="sb" x="42" y="206">2 s budget · 500 tokens</text>
+
+<rect class="bx" x="24" y="252" width="204" height="96" rx="8"/>
+<text class="nm" x="42" y="284">Tutor</text>
+<text class="sb mono" x="42" y="308">gemini-2.5-flash</text>
+<text class="sb" x="42" y="330">4 s budget · 700 tokens</text>
+
+<rect class="bx amber" x="24" y="660" width="204" height="120" rx="8"/>
+<text class="nm" x="42" y="692">All models failed</text>
+<text class="sb" x="42" y="716">the feature degrades:</text>
+<text class="sb amber" x="42" y="738">a line written in advance,</text>
+<text class="sb amber" x="42" y="760">or a turn with no score</text>
+
+<!-- gateway zone -->
+<rect class="zone red" x="240" y="112" width="400" height="590" rx="10"/>
+
+<rect class="bx green" x="330" y="128" width="290" height="96" rx="8"/>
+<text class="nm" x="348" y="160">1 · Who pays?</text>
+<text class="sb" x="348" y="184">a user and a feature, or a reason</text>
+<text class="sb green" x="348" y="206">none: refused, no request sent</text>
+
+<rect class="bx" x="330" y="244" width="290" height="96" rx="8"/>
+<text class="nm" x="348" y="276">2 · List the models to try</text>
+<text class="sb" x="348" y="300">the named model first, then every</text>
+<text class="sb" x="348" y="322">other enabled model, by priority</text>
+
+<rect class="bx red" x="330" y="360" width="290" height="190" rx="8"/>
+<text class="nm" x="348" y="392">3 · Call one model</text>
+<text class="sb" x="348" y="416">holds the API key; no feature sees it</text>
+<text class="sb" x="348" y="438">retries 429, 500, 502, 503, 504</text>
+<text class="sb" x="348" y="460">waits 3 s, then 6 s; at most 3 tries</text>
+<text class="sb amber" x="348" y="482">no wait past the budget: give up</text>
+<text class="sb" x="348" y="514">records every attempt, failures too</text>
+
+<rect class="bx red" x="330" y="570" width="290" height="116" rx="8"/>
+<text class="nm" x="348" y="602">4 · Failed? Next model</text>
+<text class="sb" x="348" y="626">each model gets a fresh budget</text>
+<text class="sb amber" x="348" y="648">other answers, other price</text>
+<text class="sb" x="348" y="670">none left: the call fails</text>
+
+<!-- right column -->
+<rect class="bx amber" x="740" y="128" width="356" height="96" rx="8"/>
+<text class="nm" x="758" y="160">Worst-case wait</text>
+<text class="sb" x="758" y="184">the budget × the number of models</text>
+<text class="sb amber" x="758" y="206">tunatutor: 120 s × 2 models = 4 minutes</text>
+
+<rect class="bx" x="740" y="244" width="356" height="96" rx="8"/>
+<text class="nm" x="758" y="276">Never retried: 400, 401, 403</text>
+<text class="sb" x="758" y="300">a bad request or a bad key fails</text>
+<text class="sb" x="758" y="322">the same way again, and may cost money</text>
+
+<rect class="bx blue" x="740" y="360" width="356" height="96" rx="8"/>
+<text class="nm mono" x="758" y="392">gemini-2.5-flash-lite</text>
+<text class="sb" x="758" y="416">$0.10 in · $0.40 out per 1M tokens</text>
+<text class="sb red" x="758" y="438">503: a 3 s wait does not fit 2 s</text>
+
+<rect class="bx blue" x="740" y="476" width="356" height="96" rx="8"/>
+<text class="nm mono" x="758" y="508">gemini-2.5-flash</text>
+<text class="sb" x="758" y="532">$0.30 in · $2.50 out per 1M tokens</text>
+<text class="sb green" x="758" y="554">200 at 1.1 s: 1,200 in, 150 out</text>
+
+<rect class="bx" x="740" y="600" width="356" height="200" rx="8"/>
+<text class="nm" x="758" y="632">Spend log</text>
+<text class="sb mono" x="862" y="632">provider_usage_events</text>
+<text class="sb" x="758" y="656">one row per token kind, priced when written</text>
+<text class="sb red" x="758" y="688">Flash Lite · input · 0 tokens · error · $0</text>
+<text class="sb" x="758" y="710">Flash · input · 1,200 tokens · $0.00036</text>
+<text class="sb" x="758" y="732">Flash · output · 150 tokens · $0.000375</text>
+<text class="sb amber" x="758" y="764">total $0.000735; on Flash Lite $0.00018</text>
+<text class="sb amber" x="758" y="786">the fallback made the call about 4× dearer</text>
+
+<!-- legend -->
+<line class="ar" x1="24" y1="400" x2="60" y2="400" marker-end="url(#gateway-a)"/>
+<text class="sb" x="70" y="404">a feature's call</text>
+<line class="ar blue" x1="24" y1="428" x2="60" y2="428" marker-end="url(#gateway-b)"/>
+<text class="sb" x="70" y="432">a request to Gemini</text>
+<line class="ar red dash" x1="24" y1="456" x2="60" y2="456" marker-end="url(#gateway-r)"/>
+<text class="sb" x="70" y="460">an error reply</text>
+<line class="ar green" x1="24" y1="484" x2="60" y2="484" marker-end="url(#gateway-g)"/>
+<text class="sb" x="70" y="488">a good reply</text>
+<line class="ar red" x1="24" y1="512" x2="60" y2="512" marker-end="url(#gateway-r)"/>
+<text class="sb" x="70" y="516">fallback</text>
+<line class="ar dash" x1="24" y1="540" x2="60" y2="540" marker-end="url(#gateway-a)"/>
+<text class="sb" x="70" y="544">a spend record</text>
+<line class="ar amber" x1="24" y1="568" x2="60" y2="568" marker-end="url(#gateway-m)"/>
+<text class="sb" x="70" y="572">no model left</text>
+
+<!-- arrows -->
+<line class="ar" x1="228" y1="176" x2="326" y2="176" marker-end="url(#gateway-a)"/>
+<path class="ar" d="M228,300 H290 V204 H326" marker-end="url(#gateway-a)"/>
+<line class="ar" x1="475" y1="224" x2="475" y2="240" marker-end="url(#gateway-a)"/>
+<line class="ar" x1="475" y1="340" x2="475" y2="356" marker-end="url(#gateway-a)"/>
+<line class="ar blue" x1="620" y1="386" x2="736" y2="386" marker-end="url(#gateway-b)"/>
+<text class="lb" x="680" y="378" text-anchor="middle">attempt 1</text>
+<line class="ar red dash" x1="740" y1="418" x2="624" y2="418" marker-end="url(#gateway-r)"/>
+<line class="ar blue" x1="620" y1="496" x2="736" y2="496" marker-end="url(#gateway-b)"/>
+<text class="lb" x="680" y="488" text-anchor="middle">attempt 2</text>
+<line class="ar green" x1="740" y1="522" x2="624" y2="522" marker-end="url(#gateway-g)"/>
+<path class="ar dash" d="M620,540 H690 V650 H736" marker-end="url(#gateway-a)"/>
+<line class="ar" x1="475" y1="550" x2="475" y2="566" marker-end="url(#gateway-a)"/>
+<path class="ar green" d="M330,380 H250 V330 H232" marker-end="url(#gateway-g)"/>
+<text class="lb green" x="252" y="404">answer</text>
+<path class="ar red" d="M330,600 H312 V440 H326" marker-end="url(#gateway-r)"/>
+<text class="lb red" x="250" y="524">fallback</text>
+<path class="ar amber" d="M420,686 V720 H232" marker-end="url(#gateway-m)"/>
+</svg>

@@ -27,6 +27,11 @@ related: [hitl, gateway, context, rag, memory, evals, observability, sandbox, go
 - Source: Real counts from Billpod's code (Lomem commit 8e3f5d5db). Nothing here is made up.
 - Refs: N8, N10, N11, N12, N13, C27, N55
 
+### Overview
+- Title: Assume the model is fooled, and let plain code decide what it may do
+- Caption: A hidden line in an invoice reaches the model; the prompt's "this is data" line and a classifier only lower the odds, and in Simon Willison's words "95% is very much a failing grade". So Billpod assumes the model is fooled and puts a code check behind each move it could try. No declared tool fetches a URL (46 of 50 tools declared), the chat renders no URL, every change to a record waits for a person's card (31 tools), the household comes from the session, and the Swiss QR code beats the model's reading. Theft needs private data, untrusted content and a way out together; the first two are the feature, so Billpod removes the way out.
+- Refs: N1, N8, N9, N10, N12, C9, C11, C21, C24, C25, C27, C28, C29, C32, C39, C42, C44, E1, E2, E3, E7
+
 ### Idea
 - Sentence: Assume the model will be fooled, and design so that ==a fooled model can do little harm==: no way to send data out, the household taken from the signed-in session, and every change held until a person approves it.
 - Analogy: If you write Java: it is like giving a service a database user that can only SELECT from three views. A PreparedStatement fixes SQL injection, but a model has no such fix: it cannot mark text as data only. So the real defence is which tools exist and which actions wait for a person.

@@ -25,6 +25,11 @@ related: [context, agents, hitl, guardrails, observability, caching, sandbox, go
 - Source: The 3 and the 2 come from a made-up example. The cap of 6 is real.
 - Refs: E1, E6, N1, C12, C14
 
+### Overview
+- Title: The model only asks for a tool call; your code decides whether it runs
+- Caption: The model replies with a request, a tool name and its arguments, and nothing has run yet. In the app, Billpod's loop resends the rules, the chat and every earlier call to Gemini on each model call, stops at 6 model calls, and holds any of 31 listed writes at a card until the person approves. Over MCP, Claude or ChatGPT runs its own loop, so Billpod's cap and card do not apply, and OAuth scopes stop a write with 403 before it runs. Every call from both loops goes through `runTool`: scopes, input, handler, output, and each failure comes back as an error the model can act on. The handler calls the same services as the REST routes, so their rules bind every caller.
+- Refs: C2, C8, C12, C13, C14, C19, C21, C23, C24, C27, C28, C31, C39, C47, C48, N1, N18, X5, X17
+
 ### Idea
 - Sentence: The model only ==asks for a call==. Your code checks it, runs it through the same services as your API, and sends the result back until the model answers in plain text.
 - Analogy: A tool is a REST endpoint, its definition is the OpenAPI contract, and the runner is the controller layer with request validation and an error handler. The difference is the caller: a model that picks the endpoint from a sentence, reads your error text and acts on it, and can be steered by text inside the data it reads.

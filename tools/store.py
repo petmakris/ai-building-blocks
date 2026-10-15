@@ -6,6 +6,7 @@ build.py (site generator), so both read the files the same way.
 """
 from __future__ import annotations
 
+import html
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -430,4 +431,8 @@ def parse_story(block: Block) -> Story | None:
         svg = ROOT / "diagrams" / f"{block.id}.svg"
         if not svg.exists():
             probs.append(f"Story/Overview: no diagrams/{block.id}.svg")
+        else:
+            ttl = " ".join(html.unescape(m) for m in re.findall(r'<text class="ttl"[^>]*>(.*?)</text>', svg.read_text()))
+            if ttl.strip() != overview.get("title", "").strip():
+                probs.append(f"Story/Overview: Title differs from the SVG's ttl text ({ttl!r})")
     return Story(hook, panel, idea, walk, steps, takeaways, trap, build, probs, overview)

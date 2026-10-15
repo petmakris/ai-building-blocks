@@ -27,6 +27,11 @@ related: [gateway, prompts, context, tools, guardrails, hitl, observability, eva
 - Source: Real outputs of Billpod's `sanitizeExtraction`, run on 2026-10-15 on made-up input values.
 - Refs: E5, X1, C29
 
+### Overview
+- Title: The provider guarantees only the shape; three checks and a person decide what is kept
+- Caption: Billpod sends its Zod schema as Gemini's `responseSchema`, so a reply that finishes normally always parses; that removes wrapped and broken JSON, but says nothing about the values. Layer 1 reads the finish reason first: SAFETY and the other blocked reasons throw before parsing, even though the HTTP status is 200. Layer 2 parses and checks the whole answer against the same deliberately loose schema, and layer 3 checks each value on its own, so a date like 2026-02-30 is dropped while the other fields survive (5 of 8 in the example). A real IBAN planted by hidden text passes its mod-97 check, so only the QR code's exact value and the person who confirms the draft can stop it. Billpod never retries a bad answer: the draft is built from the QR code and the matched recurring payment instead, and the failed call is still billed.
+- Refs: C16, C19, C20, C21, C27, C28, C29, C30, C32, C33, C34, C35, C37, C42, C52, X1, X3, X6, X10, X11, X13, X18, E5, E13
+
 ### Idea
 - Sentence: Make the model answer in ==a typed shape you define==, then check that answer like a request body from a client you do not trust.
 - Analogy: It is like validating `req.body` from an external partner's API, with Zod in TypeScript or with Jackson and Bean Validation in Java. But this partner is partly random. It can answer HTTP 200 with a refusal, and it can send a well-formed value it invented.

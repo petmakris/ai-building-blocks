@@ -26,6 +26,11 @@ related: [gateway, prompts, structured, guardrails, hitl, observability, governa
 - Source: The margins are computed from the standard-error formula. The 94% and 96% are made-up example figures.
 - Refs: C30, N45, N46, N47, N48, E4
 
+### Overview
+- Title: Real rows show change, golden rows show correctness, each check has its own bar
+- Caption: Lomem's gate runs the old and the new grading prompt on up to 200 real learner answers and 36 golden rows, about 470 paid model calls a run. Real rows have no person's label, so agreement with the old verdict shows only what changed. Golden rows carry a person's verdict, so they show what is right, and none of the 15 paraphrases may be graded wrong. Each check has its own bar, written before the run: 95% for agreement, golden rows, underlines and speed, and 90% for the underlines a person reads. A person reads every miss, keeps `TD_JUDGE_MARKS` off, fixes the prompt and never the bar; at 200 rows a 2-point gap is inside the ±3-point noise.
+- Refs: C10, C14, C15, C17, C18, C25, C30, F1, F2, K1, K2, K8, N3, N6, N7, N8, N9, N12, N13, N14, N15, N16, N17, N19, N45, N46, N58, E4, M6, M7
+
 ### Idea
 - Sentence: An eval runs an LLM feature (code that sends a prompt to a model and parses the reply) over many real cases and compares its ==pass rate with a bar written down before the run==.
 - Analogy: It is a JUnit `@ParameterizedTest` whose data table is real inputs. It passes on a threshold instead of all green, like a load test's "p95 latency under 300 ms" (a made-up example). One green JUnit run is proof. An eval score is a sample that moves between runs, and its scorer (the code that judges each output) can itself be wrong.

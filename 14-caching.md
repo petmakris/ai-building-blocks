@@ -25,6 +25,11 @@ related: [observability, tools, rag, memory, guardrails, evals, governance, roll
 - Source: The 1.25× write and 0.1× read rates are Anthropic's real prices; the read rate holds on most models. The $3 price, the 6,000 tokens and the traffic are made up. $225 is $180 × 1.25.
 - Refs: N2, N4, N13, N17, N18, N19, E4, M1, C18
 
+### Overview
+- Title: A stored answer skips the model; a reused prompt opening is billed at 0.1×
+- Caption: Tunatutor keeps whole answers in `panel_content_cache` under a normalised key with no user id. A hit makes no model call, and a miss calls the model, validates the answer and stores it at version 6. A version bump makes every older row a miss, and two wrong-language reports from saved learners delete a row. Inside every model call the provider can reuse its work over an identical opening: a read costs 0.1× the input price on most models, a write 1.25×, and a timestamp at the top makes every call a write. In the made-up example of 10,000 calls a day, that is about $18 a day cached, $180 with no cache and about $225 with the timestamp on top.
+- Refs: C10, C11, C17, C18, C19, C20, C23, C24, C26, C27, C28, C29, C33, C35, C36, C38, C43, N2, N3, N4, N10, N19, N24, N25, E2, E4, F4, F5, F9, M1
+
 ### Idea
 - Sentence: Put the text that never changes ==first, byte for byte==, mark where it ends, and the provider reuses the model's computation over it for a tenth of the input price on most models.
 - Analogy: It is like a database's plan cache for prepared statements: the server reuses its work for identical query text, and one changed character defeats it. Where it breaks: a plan cache is free and invisible. A prompt cache is billed, with writes dearer than a plain call and reads far cheaper. It lives 5 minutes (or 1 hour on request) after its last hit.

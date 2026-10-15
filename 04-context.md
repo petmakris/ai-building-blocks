@@ -25,6 +25,11 @@ related: [tools, structured, memory, rag, agents, hitl, guardrails, caching, obs
 - Source: Real figures from Chroma's July 2025 study. Only which version scored higher is recorded here, not the scores.
 - Refs: N38, N39, N40, N41, E8, C26
 
+### Overview
+- Title: The server builds every model call from scratch and sends only what the job needs
+- Caption: The model keeps nothing between calls, so Billpod's server rebuilds the whole request each time from five layers in three fields: the system prompt with today's date, timezone and currency, all 46 tool definitions, and a messages list of history, new message and this answer's tool calls. The browser holds the chat and resends at most the newest 40 messages; the server keeps the newest whole ones within 24,000 characters, starting on a person's message. Old tool results are not replayed: a one-line note says what became of each write, and the model reads bills again with a tool. The loop stops on a reply with no tool calls or after 6 model calls, and a write that needs a yes seals layer 5 into a ticket valid for 10 minutes. In Chroma's July 2025 test, 18 of 18 models answered better from about 300 relevant tokens than from the full 113,000.
+- Refs: C1, C8, C14, C16, C17, C18, C19, C20, C22, C26, C27, C28, C39, N6, N7, N12, N13, N15, N38, N39, N40, N41, X2, X6, X7, X8, X9, X15, E6, E7, E8
+
 ### Idea
 - Sentence: On every call, ==build the model's whole view from scratch==: choose, order and trim the text so the smallest set that does the job fits a hard token limit.
 - Analogy: In backend terms, it is an endpoint that builds one response object from several sources under a hard size limit. The history is a newest-first paged query. Tool calls (the model asking the server to run a function) are lazy loading. The difference is that the model reads the payload as free text. Order and wording change what it does. A correct but irrelevant field makes its answer worse.

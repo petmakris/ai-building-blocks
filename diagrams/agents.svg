@@ -1,0 +1,146 @@
+<svg class="ov-svg" viewBox="0 0 1120 830" role="img" aria-label="Billpod's assistant as an agent loop. Code checks the limits, the model picks the next tool call, and a reply with no tool call ends the loop. Each tool call is a proposal: unknown names get an error result, reads run at once, and a change is checked against the stored bill, then sealed into a 10-minute token while the person sees a card. The approval is a second HTTP request that runs only the sealed call once and carries the step count on. A bottom row compares a workflow, an agent at about 4 times a chat's tokens and a multi-agent system at about 15 times.">
+<defs>
+<marker id="agents-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="agents-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah blue"/></marker>
+<marker id="agents-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah red"/></marker>
+</defs>
+<text class="ttl" x="24" y="38">An agent is a loop where the model picks each step, and your code owns every exit</text>
+
+<!-- row 1: the loop -->
+<rect class="bx" x="24" y="70" width="238" height="132" rx="8"/>
+<text class="nm" x="42" y="100">Person, request 1</text>
+<text class="sb" x="42" y="124">“Mark the electricity bill</text>
+<text class="sb" x="42" y="146">paid and say what is due”</text>
+<text class="sb" x="42" y="168">(example)</text>
+
+<rect class="bx green" x="302" y="70" width="238" height="132" rx="8"/>
+<text class="nm" x="320" y="100">Check the limits</text>
+<text class="sb green" x="320" y="124">model call N of 6</text>
+<text class="sb" x="320" y="146">60 s timeout, 2048 tokens out</text>
+<text class="sb" x="320" y="168">each call resends everything</text>
+<text class="sb amber" x="320" y="190">each costs more than the last</text>
+
+<rect class="bx blue" x="580" y="70" width="238" height="132" rx="8"/>
+<text class="nm" x="598" y="100">Gemini, the model</text>
+<text class="sb" x="598" y="124">gets prompt, transcript, tools</text>
+<text class="sb blue" x="598" y="146">picks the next tool call</text>
+<text class="sb" x="598" y="168">or answers in plain text</text>
+<text class="sb" x="598" y="190">can run nothing itself</text>
+
+<rect class="bx green" x="858" y="70" width="238" height="132" rx="8"/>
+<text class="nm" x="876" y="100">No tool call: done</text>
+<text class="sb green" x="876" y="124">the only built-in exit</text>
+<text class="sb" x="876" y="146">“Done. Still due: water”</text>
+<text class="sb" x="876" y="168">(example)</text>
+<text class="sb" x="876" y="190">4 of the 6 calls used</text>
+
+<!-- row 2: each call is a proposal -->
+<rect class="bx amber" x="24" y="258" width="238" height="132" rx="8"/>
+<text class="nm" x="42" y="288">Exits your code adds</text>
+<text class="sb" x="42" y="312">6 calls → LOOP_LIMIT</text>
+<text class="sb" x="42" y="334">person leaves → stop now</text>
+<text class="sb" x="42" y="356">blocked reply → AI_FAILED</text>
+<text class="sb amber" x="42" y="378">no money cap, no deadline</text>
+
+<rect class="bx" x="302" y="258" width="238" height="132" rx="8"/>
+<text class="nm" x="320" y="288">A read: run now</text>
+<text class="sb mono" x="320" y="312">find_bills → b42, v3</text>
+<text class="sb" x="320" y="334">(example)</text>
+<text class="sb" x="320" y="356">its result is part of</text>
+<text class="sb" x="320" y="378">the next call</text>
+
+<rect class="bx green" x="580" y="258" width="238" height="132" rx="8"/>
+<text class="nm" x="598" y="288">On the allow-list?</text>
+<text class="sb" x="598" y="312">46 tools declared</text>
+<text class="sb" x="598" y="334">no → UNKNOWN_TOOL result</text>
+<text class="sb green" x="598" y="356">every call id gets a result</text>
+<text class="sb" x="598" y="378">or the provider refuses</text>
+
+<rect class="bx green" x="858" y="258" width="238" height="132" rx="8"/>
+<text class="nm" x="876" y="288">A change: check it first</text>
+<text class="sb" x="876" y="312">schema, bill in household</text>
+<text class="sb" x="876" y="334">version still 3?</text>
+<text class="sb" x="876" y="356">fail → CONFLICT, no card</text>
+<text class="sb amber" x="876" y="378">2nd write → NOT_RUN</text>
+
+<!-- row 3: the pause -->
+<rect class="zone red" x="290" y="426" width="818" height="186" rx="10"/>
+<text class="zn red" x="302" y="452">The pause: one turn spans two HTTP requests</text>
+
+<rect class="bx amber" x="24" y="466" width="238" height="132" rx="8"/>
+<text class="nm" x="42" y="496">Approval is no reset</text>
+<text class="sb" x="42" y="520">the count rides in the token</text>
+<text class="sb" x="42" y="542">6 of 6 used → 1 last call</text>
+<text class="sb" x="42" y="564">to say what happened</text>
+<text class="sb amber" x="42" y="586">never a fresh 6</text>
+
+<rect class="bx green" x="302" y="466" width="238" height="132" rx="8"/>
+<text class="nm" x="320" y="496">Request 2: resume once</text>
+<text class="sb" x="320" y="520">claim the id: 2nd click → 409</text>
+<text class="sb" x="320" y="542">after 10 minutes → 410</text>
+<text class="sb green" x="320" y="564">runs only the sealed call</text>
+<text class="sb" x="320" y="586">count carries on: 2 of 6</text>
+
+<rect class="bx" x="580" y="466" width="238" height="132" rx="8"/>
+<text class="nm" x="598" y="496">Confirmation card</text>
+<text class="sb" x="598" y="520">built from the stored bill</text>
+<text class="sb" x="598" y="542">the browser holds the token</text>
+<text class="sb" x="598" y="564">but cannot read or change it</text>
+<text class="sb" x="598" y="586">the person presses Approve</text>
+
+<rect class="bx red" x="858" y="466" width="238" height="132" rx="8"/>
+<text class="nm" x="876" y="496">Seal the turn in a token</text>
+<text class="sb" x="876" y="520">transcript, results, count,</text>
+<text class="sb" x="876" y="542">the checked arguments</text>
+<text class="sb" x="876" y="564">AES-256-GCM, 10 minutes</text>
+<text class="sb red" x="876" y="586">request ends, nothing written</text>
+
+<!-- bottom: workflow or agent -->
+<text class="zl" x="24" y="652">WORKFLOW OR AGENT · TOKENS PER TASK, A PLAIN CHAT = 1×</text>
+<rect class="bx green" x="24" y="666" width="516" height="110" rx="8"/>
+<text class="nm" x="42" y="696">Workflow: your code fixes the order of calls</text>
+<text class="sb" x="42" y="720">chain, route, parallel, orchestrator-workers, evaluator-optimizer</text>
+<text class="sb green" x="42" y="742">use one whenever you can draw the flowchart</text>
+<text class="sb" x="42" y="764">a judgement that must be reliable stays outside the loop</text>
+
+<rect class="bx blue" x="580" y="666" width="238" height="110" rx="8"/>
+<text class="nm" x="598" y="696">Agent loop</text>
+<text class="sb blue" x="598" y="720">about 4× a chat's tokens</text>
+<text class="sb" x="598" y="742">for steps no one can list</text>
+<text class="sb" x="598" y="764">ahead of time</text>
+
+<rect class="bx amber" x="858" y="666" width="238" height="110" rx="8"/>
+<text class="nm" x="876" y="696">Multi-agent system</text>
+<text class="sb amber" x="876" y="720">about 15× a chat's tokens</text>
+<text class="sb" x="876" y="742">agents hand subtasks to</text>
+<text class="sb" x="876" y="764">agents with own transcripts</text>
+
+<!-- legend -->
+<line class="ar" x1="24" y1="808" x2="60" y2="808" marker-end="url(#agents-a)"/>
+<text class="sb" x="70" y="812">your code passes it on</text>
+<line class="ar blue" x1="250" y1="808" x2="286" y2="808" marker-end="url(#agents-b)"/>
+<text class="sb" x="296" y="812">a model call or its reply</text>
+<line class="ar red" x1="490" y1="808" x2="526" y2="808" marker-end="url(#agents-r)"/>
+<text class="sb" x="536" y="812">the pause for a person's yes</text>
+
+<!-- row 1 arrows -->
+<line class="ar" x1="262" y1="136" x2="298" y2="136" marker-end="url(#agents-a)"/>
+<line class="ar blue" x1="540" y1="136" x2="576" y2="136" marker-end="url(#agents-b)"/>
+<line class="ar blue" x1="818" y1="136" x2="854" y2="136" marker-end="url(#agents-b)"/>
+<!-- model to allow-list -->
+<line class="ar blue" x1="699" y1="202" x2="699" y2="254" marker-end="url(#agents-b)"/>
+<text class="lb" x="709" y="234">tool calls</text>
+<!-- row 2 arrows -->
+<line class="ar" x1="580" y1="324" x2="544" y2="324" marker-end="url(#agents-a)"/>
+<line class="ar" x1="818" y1="324" x2="854" y2="324" marker-end="url(#agents-a)"/>
+<line class="ar" x1="440" y1="258" x2="440" y2="206" marker-end="url(#agents-a)"/>
+<text class="lb" x="450" y="236">next call</text>
+<!-- into the pause -->
+<line class="ar red" x1="977" y1="390" x2="977" y2="462" marker-end="url(#agents-r)"/>
+<text class="lb" x="987" y="412">passes</text>
+<line class="ar red" x1="858" y1="532" x2="822" y2="532" marker-end="url(#agents-r)"/>
+<line class="ar red" x1="580" y1="532" x2="544" y2="532" marker-end="url(#agents-r)"/>
+<!-- resume back into the loop -->
+<path class="ar" d="M302,532 H282 V230 H330 V206" marker-end="url(#agents-a)"/>
+<text class="lb" x="272" y="234" text-anchor="end">call 3</text>
+</svg>

@@ -26,6 +26,11 @@ related: [gateway, structured, tools, memory, agents, guardrails, evals, observa
 - Source: Real figures from Anthropic's own test questions. A chunk is a passage cut from a document. Vector search matches chunks by meaning. Keyword search matches exact words. The failure rate is the share of test questions whose answering document is not among the top 20 chunks returned (1 minus recall@20). "Fewer" is relative to the first row.
 - Refs: E15, N39, N40, N41, N42, C50, C31, C38
 
+### Overview
+- Title: Your code searches first; the model answers only from the passages it is given
+- Caption: Offline, each document is cut into chunks, given a context line, embedded with voyage-3 into 1,024 numbers and stored with a copy of its access groups. For each question, your code embeds the question with the same model and runs a vector search and a keyword search, each filtered by the caller's groups inside the SQL with `LIMIT 50`. RRF merges the two lists by rank, the best 5 go into the prompt as numbered sources, and each [n] in the answer becomes a link. In Anthropic's test the share of questions whose document missed the top 20 fell from 5.7% to 3.7% with context lines, 2.9% with keyword search and 1.9% with a reranker. Filtering after the search can leave no rows, and pgvector's hnsw index filters only 40 candidates unless iterative scan is on.
+- Refs: C14, C20, C31, C36, C37, C38, C40, C43, C45, C50, M4, M5, N6, N12, N13, N14, N31, N32, N39, N40, N41, N42, E4, E7
+
 ### Idea
 - Sentence: Before the model call, your code ==searches your own data==. It pastes the few best passages, numbered, into the prompt (the text sent to the model). The model then answers from them instead of guessing.
 - Analogy: In a classic backend: it is a search index kept in sync with your database, queried by a service that filters by the user's rights. The difference is the reader. A person skips a bad hit, while the model may build a confident answer on it.

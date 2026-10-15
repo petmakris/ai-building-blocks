@@ -25,6 +25,11 @@ related: [hitl, guardrails, structured, tools, memory, rag, agents, caching, san
 - Source: These are all real OpenAI terms. Even the default copy is gone long before a 14-month audit. So the bank must store the draft itself.
 - Refs: N4, N5, N9, C38, C39, C40, E6
 
+### Overview
+- Title: One gateway checks the inventory, pins the model and keeps each draft for audit
+- Caption: The gateway alone holds the OpenAI keys, and it refuses any call whose use case and caller have no approved inventory row. It takes the model (`gpt-4o-2024-08-06`, a dated snapshot) and the Europe region from the row, never from the caller. Before it returns, it stores the prompt and the draft and inserts a call row, because a rerun may not give the same text. The adviser's edit 11 minutes later is a new event row, so the draft survives. The bank is made up, but this is how audit can answer all five questions 14 months later.
+- Refs: C9, C23, C24, C26, C28, C30, C31, C32, C33, C8, N4, N7, N8, N20, N26, N27, N28, N32, E1, E2, E8
+
 ### Idea
 - Sentence: Send every model call through a gateway, one service that sits between your code and the model. It refuses any use case (one business purpose for calling a model) that has no approved row in an inventory. It stores the prompt (the text sent to the model) and the draft before it returns, because a rerun may not produce the same text. It ==records each call in a row that is never updated==, and anything that happens later is a new row.
 - Analogy: With your own code you can rebuild an old result from git and the inputs. With a model someone else runs, the model is not in git and a rerun may not match, so the row must point at the output itself.

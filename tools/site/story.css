@@ -301,11 +301,25 @@ span.linenos.special { color: #e6edf3; background-color: #6e7681; padding-left: 
 .ov-svg .zn { font-size: 13px; font-weight: 600 }
 .ov-svg .mono { font-family: var(--mono); font-size: 13px }
 .ov-svg .nm.mono { font-size: 14.5px }
-.ov-svg .blue:not(.bx):not(.ar):not(.ah) { fill: var(--blue) }
-.ov-svg .red:not(.bx):not(.ar):not(.ah):not(.zone) { fill: var(--red) }
-.ov-svg .green:not(.bx) { fill: var(--green) }
-.ov-svg .amber:not(.bx) { fill: var(--amber) }
+.ov-svg text.blue, .ov-svg tspan.blue { fill: var(--blue) }
+.ov-svg text.red, .ov-svg tspan.red { fill: var(--red) }
+.ov-svg text.green, .ov-svg tspan.green { fill: var(--green) }
+.ov-svg text.amber, .ov-svg tspan.amber { fill: var(--amber) }
 .ov-svg .lb { font-size: 13px; fill: var(--fg) }
 .ov-svg .ar { fill: none; stroke: var(--dim); stroke-width: 1.8 }
 .ov-svg .ar.blue { stroke: var(--blue) } .ov-svg .ar.red { stroke: var(--red) }
 .ov-svg .ah { fill: var(--dim) } .ov-svg .ah.blue { fill: var(--blue) } .ov-svg .ah.red { fill: var(--red) }
+.ov-svg .ttl { font-size: 22px; font-weight: 700; fill: var(--fg) }
+.ov-svg .ar.amber { stroke: var(--amber) } .ov-svg .ah.amber { fill: var(--amber) } .ov-svg .ar.green { stroke: var(--green) } .ov-svg .ah.green { fill: var(--green) }
+.ov-svg .dash { stroke-dasharray: 6 4 }
+.ov-svg .lk { fill: none; stroke: var(--green); stroke-width: 1.5; stroke-dasharray: 2 4 }
+.ov-get { margin-top: 10px; font-size: 14px; color: var(--dim) } .ov-get a { color: var(--accent) }
+/* Slides: one diagram fills the screen. */
+body.deck { padding: 0; height: 100vh; overflow: hidden; background: var(--card) }
+.slide[hidden] { display: none }
+.slide { height: 100vh; display: flex; flex-direction: column; padding: 2vh 3vw 64px }
+.slide .sn { font: 600 13px var(--mono); color: var(--dim); letter-spacing: .06em; text-transform: uppercase }
+.sl-fig { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center }
+.sl-fig .ov-svg { width: auto; height: 100%; max-width: 100%; min-width: 0 }
+.deck-nav { position: fixed; bottom: 14px; right: 18px; display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--dim) }
+.deck-nav button, .deck-nav a { font: 500 14px var(--sans); color: var(--fg); background: var(--sunk); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; text-decoration: none }
