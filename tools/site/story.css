@@ -35,7 +35,7 @@ a { color: var(--cyan) }
 /* hook */
 .hook { padding-top: 88px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 56px; align-items: end }
 .kicker { font: 600 13px var(--mono); color: var(--accent); letter-spacing: .04em; text-transform: uppercase }
-.hook h1 { font-size: clamp(38px, 5.4vw, 64px); line-height: 1.04; font-weight: 800; margin-top: 18px }
+.hook h1 { font-size: clamp(32px, 4.2vw, 50px); line-height: 1.1; font-weight: 800; margin-top: 18px }
 .hook h1 em { font-style: normal; color: var(--accent) }
 .hook .sub { margin-top: 22px; font-size: 19px; color: var(--dim); max-width: 34em }
 .bill { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 24px 48px -28px rgb(0 0 0 / .35) }

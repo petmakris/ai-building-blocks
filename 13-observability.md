@@ -13,7 +13,7 @@ related: [evals, caching, guardrails, governance, structured, agents, tools, rol
 ## Story
 
 ### Hook
-- Headline: Five learners say a correct answer was marked wrong. ==Your logs show 200.==
+- Headline: Log every model call with its input and output. ==A 200 status says nothing about whether the answer was right.==
 - Setup: A language app asks a model (an LLM, a service that takes text and returns text) to grade a learner's Portuguese. In this made-up incident, learners type `Eu sou um barista.`, which is correct, and the app marks it wrong. Nothing was deployed for a week, the logged call returned 200 in 1.4 seconds, and the error tracker is empty.
 - Teaser: A log can show what every model call cost. Nothing in it says whether the answer was right.
 

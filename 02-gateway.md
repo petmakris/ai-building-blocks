@@ -13,7 +13,7 @@ related: [structured, tools, observability, caching, guardrails, governance, eva
 ## Story
 
 ### Hook
-- Headline: Your cheap model goes down. Nothing breaks. ==The bill quadruples.==
+- Headline: Send every model call through one gateway. ==It holds the keys, the fallbacks and the bill.==
 - Setup: A rating feature calls a small model, a paid AI service. That model starts failing, the code falls back to a bigger one, and every answer still arrives. Nobody notices until someone asks why the same feature now costs four times as much, and who spent it.
 - Teaser: Every model call costs money, fails in its own ways and needs a secret key. Where does all that live?
 

@@ -13,7 +13,7 @@ related: [tools, rag, guardrails, caching, observability, governance, agents, ga
 ## Story
 
 ### Hook
-- Headline: Monday she mentions tennis. ==Thursday, the tutor has never heard of it.==
+- Headline: The model forgets everything between calls. ==Your code keeps the memory and decides what goes in.==
 - Setup: TunaTutor, a language-learning app, has an AI tutor you chat with. On Monday a learner writes that she plays tennis every weekend. On Thursday she opens a new chat. The model, the AI that writes the tutor's replies, knows nothing about her. It keeps nothing between two calls.
 - Teaser: The model forgets every user after every call, so your code has to keep the record and decide what goes into it.
 

@@ -13,7 +13,7 @@ related: [hitl, guardrails, observability, evals, memory, sandbox, caching, gove
 ## Story
 
 ### Hook
-- Headline: The model picks each next step. ==Left alone, it may never stop.==
+- Headline: An agent is a loop of model calls. ==Your code sets its limits and decides when it stops.==
 - Setup: A person asks a bills assistant to mark the electricity bill paid and say what is still due. The model, the AI that writes the replies, searches, asks to mark the bill paid, lists what is due, then answers. That takes four paid model calls, in an order no line of code wrote. Each call resends the whole conversation, so each costs more than the last. A confused model would simply keep going.
 - Teaser: In one call, the model can ask your code to run one of your functions, called a tool. Who makes the second call, the third, and decides it is done?
 

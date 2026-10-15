@@ -13,7 +13,7 @@ related: [gateway, prompts, structured, guardrails, hitl, observability, governa
 ## Story
 
 ### Hook
-- Headline: A new grading prompt adds underlines. ==Does it quietly break negations?==
+- Headline: Test AI features with evals. ==Scored runs over fixed cases show if a change helped or hurt.==
 - Setup: A language app asks a model (a hosted service that takes text in and writes text back) whether a learner's French answer is right. The team writes a new grading prompt (the instructions sent to the model) that also underlines the wrong words. The model's reply varies between runs, so a right paraphrase may pass today and fail tomorrow. An answer that drops the "not" may slip through. One `assert reply.correct` cannot judge this.
 - Teaser: After a prompt change every existing test stays green, and none of them says whether grading got better or worse.
 

@@ -13,7 +13,7 @@ related: [gateway, structured, tools, memory, agents, guardrails, evals, observa
 ## Story
 
 ### Hook
-- Headline: Your assistant explains error PAY-4012 fluently. ==It made up every word.==
+- Headline: Retrieval puts your own documents into the prompt. ==Without it, the model knows nothing about your data.==
 - Setup: An operator asks the new assistant what error PAY-4012 means. The model has never seen your runbooks or tickets. So it writes a confident, invented answer. The real fix sits in one runbook and one ticket from last March, among 240,000 documents (a made-up case).
 - Teaser: The model sees your data only through the one request you send, so how do the right passages of your wiki get into it?
 

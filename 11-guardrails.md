@@ -13,7 +13,7 @@ related: [hitl, gateway, context, rag, memory, evals, observability, sandbox, go
 ## Story
 
 ### Hook
-- Headline: A line hidden in an invoice tells your assistant to ==set the bill to 4900.==
+- Headline: Treat every document the model reads as untrusted. ==Guardrails stop hidden instructions from using your tools.==
 - Setup: A household-bills app files a CHF 79.90 Swisscom invoice and keeps text from it as a note on the bill. In white 1-point text no person sees, the invoice says to set the amount to 4900 and not to mention it. Weeks later the person asks the chat assistant about Swisscom. The model, the AI that writes the assistant's replies, reads the note like any other text. It also has a tool that edits bills: a tool is a function the model may ask your code to run. (Made-up invoice.)
 - Teaser: Your model now has tools that change records. What stops a hidden line in a document from using them?
 

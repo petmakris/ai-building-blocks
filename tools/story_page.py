@@ -256,7 +256,7 @@ def home(blocks: dict[str, Block], order: list[str], stories: dict, path_rows: l
 <h1>One model call is easy. <em>Depending on it is engineering.</em></h1>
 <p class="sub">{Word} building blocks turn an unreliable, paid, non-deterministic model call into software you can run. Each one starts from a real failure, shows the mechanism step by step, and ends with the smallest version you can build today.</p>
 <p class="cta"><a class="btn" href="{first}/">Start with block 01 →</a><a class="btn ghost" href="#journey">See one request pass through all {word}</a></p></div></header>
-<section class="hooks"><p class="kicker">{Word} ways an AI feature goes wrong</p><h2>Pick the failure you recognise</h2><div class="hgrid">{"".join(cards)}</div></section>
+<section class="hooks"><p class="kicker">{Word} building blocks of a modern AI application</p><h2>Pick the one you need</h2><div class="hgrid">{"".join(cards)}</div></section>
 <section class="journey" id="journey"><p class="kicker">The whole picture</p><h2>One request passes through the blocks in this order</h2>
 <p class="lead">Steps R1 to R13 run on every request. The rest run across requests or between releases.</p><ol class="path">{"".join(stops)}</ol></section>
 <footer class="foot"><p>Built as a <a href="{repo}">knowledge store</a> of plain markdown: every concept, flow and number has an id and a source. Licensed CC BY 4.0.</p></footer>

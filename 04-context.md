@@ -13,7 +13,7 @@ related: [tools, structured, memory, rag, agents, hitl, guardrails, caching, obs
 ## Story
 
 ### Hook
-- Headline: Send the model the whole chat, and ==it gets more answers wrong.==
+- Headline: Choose what the model sees on every call. ==More text gives worse answers.==
 - Setup: A language model (the AI that writes the replies) remembers nothing between calls. So every request must carry the conversation again. The easy fix is to send all of it. A context window (the most text one call can carry) of a million tokens holds plenty; tokens are the word pieces a model reads and bills by. In a 2025 test, 18 models answered questions about a long chat better when given only the roughly 300 tokens that held the answers than when given all roughly 113,000.
 - Teaser: If more text makes answers worse, some code must pick, on every call, what the model sees.
 

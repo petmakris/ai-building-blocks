@@ -13,7 +13,7 @@ related: [observability, tools, rag, memory, guardrails, evals, governance, roll
 ## Story
 
 ### Hook
-- Headline: A timestamp tops the prompt. ==Every call pays to cache it, and none reuses it.==
+- Headline: Cache the fixed start of your prompt. ==Put changing values last, or nothing is reused.==
 - Setup: A model keeps no state between calls. So every request resends the same tools and instructions, often thousands of tokens (pieces of words, about four characters each), and pays for them again. The model works through its input token by token, and each token's work depends on every token before it. Prompt caching lets the provider keep that work for an identical opening and charge a tenth of the input price to reuse it, on most models. It keeps work, not answers: the model still runs on the rest. One changing value near the top makes every request new from the first token. Then nothing is reused, and every call pays extra to store a copy nobody reads.
 - Teaser: Your prompt is long and well built. Why pay for the same 6,000 tokens on every call?
 

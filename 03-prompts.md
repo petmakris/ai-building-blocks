@@ -13,7 +13,7 @@ related: [context, structured, tools, memory, evals, observability, caching, gov
 ## Story
 
 ### Hook
-- Headline: The right code shipped. ==The model still read older rules.==
+- Headline: Treat prompts as versioned configuration. ==Keep each one in one place, with a version.==
 - Setup: Tunatutor, a language-tutor app in the Lomem repo, sends a block of teaching rules to the model, the AI that writes the replies, on every call. That text is the first block of the prompt; code adds more blocks after it. The rules live in code and also in a database row, so an admin can edit them. A seed script, the SQL that fills a fresh database, had put an old copy in that row. At startup the app preferred the database copy. Builds passed, tests passed and the replies stayed fluent. Only a linguist reviewing replies noticed that two rules never showed up.
 - Teaser: Calling a model is the easy part. Keeping the words you send in one place, with a version on them, is where this app went wrong.
 

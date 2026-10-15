@@ -1,26 +1,26 @@
 ---
 id: toollayer
 number: 1
-title: One tool layer behind every front door
+title: The tool layer: every action is an MCP tool
 summary: The tool layer is the one place where an app's operations are defined as typed tools over its services, so the app's screens, its in-app assistant and outside assistants connected over MCP all reach the same rules, and each front door adds only its own policy on top.
 lomem_status: yes
 depends_on: []
 related: [tools, agents, hitl, guardrails, gateway, evals, governance]
 ---
 
-# One tool layer behind every front door
+# The tool layer: every action is an MCP tool
 
 ## Story
 
 ### Hook
-- Headline: The upload screen allows 30 invoices a minute. An AI assistant that skips the screen ==skips the limit too==.
-- Setup: Billpod, a household-bills app, limits invoice uploads to 30 a minute per person, with a rate limiter on the upload route. Claude, Anthropic's AI assistant, can also upload invoices to Billpod from outside, through a tool called `capture_invoice`, and that path never touches the route. So the limit did not apply to Claude until Billpod copied it into the tool by hand. Any rule kept in one way into the app is missing from the other ways in.
-- Teaser: Your app now has three doors: its screens, its own assistant, and other people's assistants. Where must a rule live so that all three obey it?
+- Headline: Modern apps have MCP actions built in. ==Your screens, your own AI and outside AIs all run the same actions.==
+- Setup: People no longer use an app only through its screens. They also ask an AI assistant inside the app to do things, and outside assistants such as Claude or ChatGPT reach the app over MCP (Model Context Protocol, a standard way for an AI to call another app's functions). So build each action once, as a tool: a named function with typed inputs, such as `pay_bill(bill_id)`. Your own assistant and outside assistants call that tool. The tool calls the same service function that the screen's button calls, so the same rules apply to all three. Billpod, a household-bills app, is built this way.
+- Teaser: Three kinds of caller now use your app: its screens, its own assistant and other people's assistants. How do you build each action once so all three get the same rules?
 - Refs: N16, X4, X26
 
 ### Panel
-- Title: Billpod, one household-bills app with three doors
-- Row: Doors into the app | 3 | its screens, its own assistant, outside assistants over MCP | big
+- Title: Billpod, a household-bills app built this way
+- Row: Kinds of caller | 3 | its screens, its own assistant, outside assistants over MCP | big
 - Row: Tools, each defined once | 50 | every one served to outside assistants over MCP | accent
 - Row: Screen routes checked by a test | 79 | each is mapped to a tool (47) or excluded with a written reason (32) |
 - Source: Counts from Billpod's code on 2026-10-15.

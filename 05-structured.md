@@ -13,7 +13,7 @@ related: [gateway, prompts, context, tools, guardrails, hitl, observability, eva
 ## Story
 
 ### Hook
-- Headline: Ask a model for an invoice record. ==It answers with a friendly sentence.==
+- Headline: Make the model return typed data. ==Then validate it like any outside input.==
 - Setup: An invoice reader needs typed fields it can store: payee, amount, currency, due date, IBAN, reference. A model (a large language model, an LLM) only writes text. It writes one token (a chunk of a word) at a time, partly at random. So the reply can come wrapped in a sentence or cut off halfway. It can be a refusal sent with HTTP 200. It can be perfect JSON that holds an invented value.
 - Teaser: Your code needs a typed record it can trust, and the model only writes text.
 

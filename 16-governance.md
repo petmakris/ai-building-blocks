@@ -13,7 +13,7 @@ related: [hitl, guardrails, structured, tools, memory, rag, agents, caching, san
 ## Story
 
 ### Hook
-- Headline: Fourteen months on, audit asks what the AI draft said. ==Nobody kept it.==
+- Headline: Keep a record of every AI output that matters. ==A year later, audit will ask which model wrote it.==
 - Setup: A made-up Swiss bank lets an adviser press "draft note" after a client call. A model from OpenAI (an LLM: a service that takes text and writes text back) turns the call transcript into a meeting note, and the adviser saves an edited version over it. Fourteen months later a client complains that a risky product was sold against their wishes. Internal audit asks which model and which instructions wrote the draft, and what the draft said. Git does not hold the model, a rerun may not give the same text, and the draft is gone.
 - Teaser: You can contain what the model does, but can you prove a year later what it did and who signed it off?
 

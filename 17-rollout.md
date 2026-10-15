@@ -13,7 +13,7 @@ related: [gateway, structured, guardrails, hitl, governance, caching]
 ## Story
 
 ### Hook
-- Headline: A new prompt ships, every dashboard stays green, and ==its answers are wrong.==
+- Headline: Release AI changes in shadow mode, behind a flag. ==Real users find the failures your tests missed.==
 - Setup: A prompt is the instruction text the app sends to the model. A model that gives a wrong answer still returns HTTP 200 with well-formed JSON, in normal time. Error rates, exceptions and latency stay flat. The feature passed every test before release. Real users send inputs no test set covered, so the first one to see the failure is a user.
 - Teaser: Your eval, a scripted run over fixed cases with the real model, passed. How does the new behaviour meet real users without betting them on it?
 
