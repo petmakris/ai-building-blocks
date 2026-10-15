@@ -275,3 +275,7 @@ span.linenos.special { color: #e6edf3; background-color: #6e7681; padding-left: 
   .steps { gap: 28vh; padding-block: 52vh 40vh }
   .step { background: var(--bg) }
 }
+
+/* code blocks: the inline-code style must not apply inside them */
+.code code { background: none; border: 0; border-radius: 0; padding: 0; font: inherit; color: inherit }
+.code { color: #e6edf3 }
