@@ -678,12 +678,30 @@ Lomem's Billpod app implements the whole block: one tool catalogue of 50 tools, 
 - Definition: Loading tool definitions on demand instead of sending every definition on every call.
 - Facts:
   - Tool search is part of a mature setup when there are many tools (S33, S6, S16).
-- Relations: C51 limits P4 and context.C5.
+  - On the Claude API a tool is marked `defer_loading: true`; it stays out of the context until a search finds it, and at least one tool, normally the search tool, must stay loaded (S35).
+  - Two search tools exist: regex (`tool_search_tool_regex_20251119`) and BM25 (`tool_search_tool_bm25_20251119`); a search returns up to 5 tools by default (S35).
+  - Anthropic's docs: "Claude's ability to pick the right tool degrades once you exceed 30–50 available tools." (S35)
+  - A five-server setup (GitHub, Slack, Sentry, Grafana, Splunk) uses about 55k tokens of definitions; tool search typically cuts this by over 85 percent (S35, S6).
+  - With 50+ MCP tools, the context used before any work drops from about 77k tokens to about 8.7k (S6).
+  - With tool search, Opus 4 went from 49% to 74% and Opus 4.5 from 79.5% to 88.1% on Anthropic's MCP evaluation (S6).
+  - The docs advise it from 10 tools or 10k tokens of definitions, and keeping the 3–5 most used tools loaded (S35).
+  - Deferred tools stay out of the cached prefix, so prompt caching is kept (S35).
+  - It lives in the client: an MCP server needs no change (S35, S40).
+  - In Claude Code most tools show by name only, and the model runs `ToolSearch("select:WebSearch")` to load one schema before it can call the tool (S40).
+  - claude.ai sets it per chat under "Tool access": Auto (the default; "Claude decides dynamically which connectors to load"), Always available, and On demand (S38).
+- Relations: C51 limits P4 and context.C5. C51 is an alternative to C62. C51 is an instance of context.C28.
 
 ### C52 · Programmatic tool calling
 - Definition: The model writes code that calls tools in a sandbox, so intermediate data stays out of the context.
 - Facts:
   - It is listed as a mature option (S33, S6).
+  - Anthropic: it "enables Claude to orchestrate tools through code rather than through individual API round-trips" (S6).
+  - On complex research tasks average use dropped from 43,588 to 27,297 tokens, a 37% cut (S6).
+  - Anthropic's "code execution with MCP" applies the idea to MCP servers: present them "as code APIs rather than direct tool calls", for example as a file tree the model reads on demand (S36).
+  - Its example cut a workflow from 150,000 tokens to 2,000, "a time and cost saving of 98.7%" (S36).
+  - Cloudflare's "Code Mode" (26 Sep 2025): "Convert the MCP tools into a TypeScript API, and then ask an LLM to write code that calls that API"; the code runs in a V8 isolate that can reach only the connected MCP servers (S37).
+  - The cost is a safe sandbox: "Running agent-generated code requires a secure execution environment with appropriate sandboxing" (S36).
+  - Real example: to measure 104 tool listings, an agent wrote one script that printed five numbers per app, instead of making 104 calls (E13, S40).
 - Relations: C52 depends on sandbox.C8. C52 limits P4.
 
 ### C53 · Tool parity
@@ -756,6 +774,43 @@ Lomem's Billpod app implements the whole block: one tool catalogue of 50 tools, 
   - Billpod's `tool` events stream id, name, status and whether it wrote to the panel (X16 file `AssistantEvent`).
   - Tunatutor writes one `TutorToolInvocation` row per dispatched or refused call (S18 line 193).
 - Relations: C61 relates to observability.C34 (OpenTelemetry GenAI semantic conventions) and governance.C30 (audit record).
+
+### C62 · Static tool loading
+- Definition: The client calls `tools/list` once and puts every tool's name, description and input schema into the model's context on every call.
+- Facts:
+  - It is the simplest pattern and the default of a plain MCP client (S39, S40).
+  - Mealy's MCP server lists 54 tools in 38,764 characters; Billpod's lists 50 tools in 71,776 characters (N63, N64).
+  - Most of the size is input schemas: descriptions are 7,073 of Mealy's and 14,619 of Billpod's characters (N65).
+  - The cost grows with every server added, and tool choice gets less accurate above 30–50 tools (S35).
+- Relations: C62 causes P4. C62 is replaced by C51 when the list grows. C62 uses C37.
+
+### C63 · Progressive disclosure of instructions (skills)
+- Definition: The model first sees a name and a one-line description of each instruction set, then loads the full text only when it is relevant, then any linked files.
+- Facts:
+  - A Claude Code session lists dozens of skills with one line each; typing "ship it" loaded the full `/ship` instructions, and only then (S40).
+  - Skills carry how to do a task; MCP carries access to systems. The two complement each other (S40).
+- Relations: C63 is the same idea as C51, applied to instructions instead of tool schemas. C63 is an instance of context.C28.
+
+### C64 · Tool-heavy work in a sub-agent
+- Definition: Noisy tool work runs in a separate agent with its own context, and only its final report returns to the main session.
+- Facts:
+  - Tool results are often larger than tool definitions, and every result is resent on every later call of the loop (E12, S30).
+  - Real example: the Mealy and Billpod connector-guide build ran in a sub-agent with 129 tool calls and about 307k tokens; the main session received only the report (E14, S40).
+- Relations: C64 is an instance of context.C33 and agents.C38. C64 limits P4.
+
+### C65 · Changing the tool list at run time (`listChanged`)
+- Definition: A server starts with a small tool set and adds or removes tools later, telling the client with a notification.
+- Facts:
+  - A server that declares `"tools": { "listChanged": true }` SHOULD send `notifications/tools/list_changed` when its list changes; the client then calls `tools/list` again (S39).
+  - Client support varies; whether claude.ai acts on it was not checked (S40, unverified).
+- Relations: C65 is part of C35. C65 is a server-side alternative to C51.
+
+### C66 · Router tools (list, describe, run)
+- Definition: A server exposes three generic tools, such as `list_features`, `describe_tool` and `run_tool`, instead of one tool per task.
+- Facts:
+  - It saves context, but hides the real schemas from the client, adds round trips, and hides each task's read-only and destructive annotations behind one generic `run_tool` (S40).
+  - Clients use annotations to decide when to ask the person first, so a router weakens that check (S39, C22).
+- Relations: C66 conflicts with C50 and C22. C66 is an alternative to C51.
 
 ## Components
 
@@ -1259,6 +1314,18 @@ Purpose: make sure a refused, cut or invalid reply is never treated as an answer
 - Rule: every tool result is resent on every later call of the loop, so a large result is paid for on each later call and fills the context window (S30).
 - Billpod's mitigations: compact projections, `limit` and `cursor` paging, and not replaying earlier turns' tool results (S17 lines 125-128, X38).
 
+### E13 · Measuring two MCP tool listings
+- Values: real, measured by a Lomem session on 2026-10-15 (S40); tokens estimated at 3-4 characters per token, not counted.
+- Inputs: the `tools/list` responses of Mealy's and Billpod's MCP servers.
+- Steps: one script read both listings and printed, per app, the tool count, the total characters, the description characters, and the largest tools (S40).
+- Outcome: Mealy 54 tools, 38,764 characters, about 10k-13k tokens; Billpod 50 tools, 71,776 characters, about 18k-24k tokens (N63, N64). The largest are Billpod `edit_recurring_income` (4,131), `edit_recurring` (3,816), `confirm_capture` (3,404) and Mealy `log_food` (2,221) (N66).
+
+### E14 · Connector guides built in a sub-agent
+- Values: real, from a Lomem session on 2026-10-15 (S40).
+- Inputs: a request to write Claude connector guides for Mealy and Billpod.
+- Steps: the work ran in a sub-agent that made 129 tool calls and used about 307k tokens (S40).
+- Outcome: the main session received only the final report, not the 129 results (C64).
+
 ## Variants and options
 
 - Minimal version:
@@ -1298,6 +1365,12 @@ Purpose: make sure a refused, cut or invalid reply is never treated as an answer
 | V13 | Dispatch policy per tool (`frontend`, `backend_then_frontend`, `backend_with_loop`) | UI side effects vs data the model needs | Calls left unanswered make the model re-fire; every advertised call needs a closing response (S18 lines 40-44, 142) |
 | V14 | MCP at all | Only once outside assistants should connect | An in-app assistant works without it (S30) |
 | V15 | Withhold a background tool's failure from the model (`handled_in_background`) | Side-effect tools whose result the model does not need | The model cannot react to the failure; prevents internal error text leaking into the conversation (S18 line 142) |
+| V16 | Load every tool up front (C62) | Fewer than 10 tools, or every tool used on every request | Context space per server; tool choice degrades above 30–50 tools (S35) |
+| V17 | Client-side tool search (C51) | Many tools or many servers; servers you do not control | One extra search step; a tool with a poor description may not be found (S35) |
+| V18 | Instructions in layers, as skills (C63) | Know-how that is needed only for some tasks | The one-line description must say when to load it (S40) |
+| V19 | Code that calls tools (C52) | Many chained calls, or large results that can be filtered | Needs a safe sandbox (S36, S37) |
+| V20 | Sub-agent for tool-heavy work (C64) | Noisy work whose results the main session does not need | The main session sees only the report, not the evidence (S40) |
+| V21 | Task-shaped server design (C50), annotations (C22), optional `listChanged` (C65) | You own the server | Router tools (C66) save context but hide schemas and annotations (S40) |
 
 - Tools and products:
 
@@ -1374,13 +1447,25 @@ Purpose: make sure a refused, cut or invalid reply is never treated as an answer
 | N53 | OWASP Top 10 for Agentic Applications release | 9 Dec 2025 (names from a secondary source) | S13, S33 | unverified (names) |
 | N54 | ADR-057 date | 2026-09-27 | S17 | yes |
 | N55 | Anthropic "Writing effective tools for agents — with agents" date | 11 Sep 2025 | S1 | yes |
-| N56 | Anthropic "Introducing advanced tool use" date | 24 Nov 2025 | S6 | yes (date); content not read |
+| N56 | Anthropic "Introducing advanced tool use" date | 24 Nov 2025 | S6 | yes |
 | N57 | Billpod confirmation key derivation | SHA-256 of `billpod-assistant\0<purpose>\0<secret>`; AES-256-GCM with a 12-byte IV and 16-byte tag; token prefix `a1.` | X19 | yes |
 | N58 | OAuth token storage | SHA-256 hashes; tokens bound to resource and scopes | S17, X34 | yes |
 | N59 | Lethal trifecta article date | 16 Jun 2025 | S14 | yes |
 | N60 | Tunatutor UI speech-rate clamp | 0.5-2.0x | S18 | yes (ADR text) |
 | N61 | Assistant actions outcomes | 6 values: done, failed, undone, declined, not_confirmed, interrupted | X16 file `assistant.ts:27` | yes |
 | N62 | Tunatutor default temperature for tool turns | 0.8 | X40 | yes |
+| N63 | Mealy MCP `tools/list`: tools and characters | 54 tools, 38,764 characters (about 10k-13k tokens, estimated) | S40 | yes (measured 2026-10-15) |
+| N64 | Billpod MCP `tools/list`: tools and characters | 50 tools, 71,776 characters (about 18k-24k tokens, estimated) | S40 | yes (measured 2026-10-15) |
+| N65 | Description characters in those listings, Mealy / Billpod | 7,073 / 14,619 | S40 | yes (measured 2026-10-15) |
+| N66 | Largest tool definitions | Billpod `edit_recurring_income` 4,131, `edit_recurring` 3,816, `confirm_capture` 3,404; Mealy `log_food` 2,221 characters | S40 | yes (measured 2026-10-15) |
+| N67 | Tool count above which Claude's tool choice degrades | 30–50 tools | S35 | yes |
+| N68 | Five-server tool definitions, and the cut with tool search | about 55k tokens; over 85 percent | S35, S6 | yes |
+| N69 | Context before work with 50+ MCP tools, without / with tool search | about 77k / about 8.7k tokens | S6 | yes |
+| N70 | Tool selection accuracy without / with tool search | Opus 4: 49% / 74%; Opus 4.5: 79.5% / 88.1% | S6 | yes |
+| N71 | Programmatic tool calling, average tokens on complex research tasks | 43,588 to 27,297 (37% less) | S6 | yes |
+| N72 | Code execution with MCP, Anthropic's example workflow | 150,000 to 2,000 tokens (98.7% less) | S36 | yes |
+| N73 | Tool search results per search, default; most deferred tools per request | 5; 10,000 | S35 | yes |
+| N74 | Sub-agent run for the connector guides | 129 tool calls, about 307k tokens | S40 | yes (session record) |
 
 ## Code in Lomem
 
@@ -3235,7 +3320,7 @@ export function createBillpodTools(
 | S3 | MCP authorization, revision 2025-11-25 | Model Context Protocol | 2025-11-25 | https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization | OAuth 2.1, discovery, client ID metadata documents ahead of dynamic registration, PKCE, resource binding |
 | S4 | MCP specification, latest revision | Model Context Protocol | 2026-07-28 | https://modelcontextprotocol.io/specification/latest | Hosts, clients, servers; Tools, Resources, Prompts, Elicitation; Tasks, Skills over MCP, MCP Apps; annotations untrusted unless from a trusted server |
 | S5 | Gemini API function calling with generateContent | Google | not stated | https://ai.google.dev/gemini-api/docs/generate-content/function-calling | `functionCall` / `functionResponse` parts; Gemini 3 call ids to send back |
-| S6 | Introducing advanced tool use | Anthropic | 24 Nov 2025 | https://www.anthropic.com/engineering/advanced-tool-use | Tool search and programmatic tool calling (named; content not read) |
+| S6 | Introducing advanced tool use | Anthropic | 24 Nov 2025 | https://www.anthropic.com/engineering/advanced-tool-use | Tool search and programmatic tool calling, with their token and accuracy numbers (read 2026-10-15) |
 | S7 | OWASP Top 10 for LLM Applications 2025 | OWASP | 2025 | https://genai.owasp.org/llm-top-10/ | LLM06 Excessive Agency; LLM01 Prompt Injection |
 | S8 | MCP Java SDK | Model Context Protocol | not stated | https://github.com/modelcontextprotocol/java-sdk | Java server side of MCP |
 | S9 | Spring AI tools | Spring | not stated | https://docs.spring.io/spring-ai/reference/api/tools.html | `@Tool` methods and the tool loop (details unverified) |
@@ -3256,3 +3341,9 @@ export function createBillpodTools(
 | S32 | Testing notes, section 05 ("testing") | this learning store | 2026-10-15 | `sources/testing-notes/06-tools-testing.md` | Key points, misreadings, unknown terms, fact-check fixes, reader questions |
 | S33 | Web research catalogue | this learning store | 2026-10-15 | `sources/research-web.md` | Backend analogues, new problems, minimal and mature versions, MCP spec summary, tools list |
 | S34 | Lomem code map | this learning store | 2026-10-15 | `sources/research-lomem.md` | Code locations for tools, MCP, OAuth, loops, guardrails, ADR quotes |
+| S35 | Tool search tool | Anthropic | current | https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool | `defer_loading`, regex and BM25 search, 30–50 tool limit, 55k-token example, limits |
+| S36 | Code execution with MCP: building more efficient agents | Anthropic | 4 Nov 2025 | https://www.anthropic.com/engineering/code-execution-with-mcp | MCP servers as code APIs; 150,000 to 2,000 tokens; sandbox cost |
+| S37 | Code Mode: the better way to use MCP | Cloudflare (Kenton Varda, Sunil Pai) | 26 Sep 2025 | https://blog.cloudflare.com/code-mode/ | MCP tools as a TypeScript API, code run in a V8 isolate |
+| S38 | Manage Claude's tool access | Anthropic | current | https://support.claude.com/en/articles/13730515-manage-claude-s-tool-access | claude.ai per-chat Tool access: Auto, Always available, On demand |
+| S39 | MCP specification 2025-11-25, Tools | Model Context Protocol | 2025-11-25 | https://modelcontextprotocol.io/specification/2025-11-25/server/tools | `listChanged`, `notifications/tools/list_changed`, annotations untrusted |
+| S40 | Lomem session notes on MCP tool loading | this learning store (Lomem session) | 2026-10-15 | sent by the Lomem session that built the Mealy and Billpod connector guides | Measured tool listings, sub-agent run, Claude Code tool search and skills examples, router trade-off |
