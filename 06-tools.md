@@ -547,6 +547,8 @@ Lomem's Billpod app implements the whole block: one tool catalogue of 50 tools, 
   - Request bodies follow Fastify's 1 MiB default unless raised; Billpod raises it to 16 MB because `capture_invoice` takes a file inline as base64 (X28, S17 lines 247-249).
   - The endpoint hijacks its reply, so the app's 5xx hook never runs; failures go to `onInternalError`, which Billpod wires to its log and error capture (X24 file `plugin.ts:44-52`, X28).
   - Readers did not connect "stateless server" with "the client keeps the conversation and runs the loop" (testing).
+  - A person adds a remote MCP server to Claude under Customize > Connectors, "+ Add", "Add custom connector", with a name and the server URL, then signs in (S41).
+  - "Free users are limited to one custom connector." On Team and Enterprise plans only owners add them, at the organization level (S41).
 - Relations: C38 implements C33. C38 depends on C39.
 
 ### C39 · Who runs the loop
@@ -1466,6 +1468,7 @@ Purpose: make sure a refused, cut or invalid reply is never treated as an answer
 | N72 | Code execution with MCP, Anthropic's example workflow | 150,000 to 2,000 tokens (98.7% less) | S36 | yes |
 | N73 | Tool search results per search, default; most deferred tools per request | 5; 10,000 | S35 | yes |
 | N74 | Sub-agent run for the connector guides | 129 tool calls, about 307k tokens | S40 | yes (session record) |
+| N75 | Custom connectors on Claude's Free plan | 1 | S41 | yes |
 
 ## Code in Lomem
 
@@ -3346,4 +3349,5 @@ export function createBillpodTools(
 | S37 | Code Mode: the better way to use MCP | Cloudflare (Kenton Varda, Sunil Pai) | 26 Sep 2025 | https://blog.cloudflare.com/code-mode/ | MCP tools as a TypeScript API, code run in a V8 isolate |
 | S38 | Manage Claude's tool access | Anthropic | current | https://support.claude.com/en/articles/13730515-manage-claude-s-tool-access | claude.ai per-chat Tool access: Auto, Always available, On demand |
 | S39 | MCP specification 2025-11-25, Tools | Model Context Protocol | 2025-11-25 | https://modelcontextprotocol.io/specification/2025-11-25/server/tools | `listChanged`, `notifications/tools/list_changed`, annotations untrusted |
+| S41 | Get started with custom connectors using remote MCP | Anthropic | current | https://support.claude.com/en/articles/11175166-get-started-with-custom-connectors-using-remote-mcp | Adding a custom connector; one custom connector on the Free plan; owners add them on Team and Enterprise |
 | S40 | Lomem session notes on MCP tool loading | this learning store (Lomem session) | 2026-10-15 | sent by the Lomem session that built the Mealy and Billpod connector guides | Measured tool listings, sub-agent run, Claude Code tool search and skills examples, router trade-off |
