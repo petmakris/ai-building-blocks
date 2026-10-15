@@ -3,17 +3,18 @@
   --bg: #f4f5f2; --card: #ffffff; --sunk: #eceee9; --line: #d6dbd5;
   --fg: #161c1a; --dim: #56615b; --faint: #a7afaa;
   --accent: #b2570a; --accent-soft: #fbeedd; --sage: #3d6a46; --sage-soft: #e3efe3; --bad: #a33b30; --bad-soft: #f8e3df; --cyan: #1d5f73;
+  --blue: #2c5d8f; --blue-soft: #e8eff8; --amber: #8a5a00; --amber-soft: #fbf1df; --green: #2f6b3d; --green-soft: #e4f1e6; --red: #a33b30; --red-soft: #f9e6e2;
   --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #0f1311; --card: #1c2220; --sunk: #161b19; --line: #313936;
   --fg: #e9edea; --dim: #a3aca7; --faint: #5b6560;
-  --accent: #f3a957; --accent-soft: #2e2416; --sage: #93c897; --sage-soft: #1d2a1f; --bad: #f0928a; --bad-soft: #2f1c1a; --cyan: #7cc4d6; color-scheme: dark } }
+  --accent: #f3a957; --accent-soft: #2e2416; --sage: #93c897; --sage-soft: #1d2a1f; --bad: #f0928a; --bad-soft: #2f1c1a; --cyan: #7cc4d6; --blue: #8fb8e6; --blue-soft: #1b2634; --amber: #e3b860; --amber-soft: #2b2415; --green: #93c897; --green-soft: #1b2a1e; --red: #f0928a; --red-soft: #2f1c1a; color-scheme: dark } }
 :root[data-theme="dark"] {
   --bg: #0f1311; --card: #1c2220; --sunk: #161b19; --line: #313936;
   --fg: #e9edea; --dim: #a3aca7; --faint: #5b6560;
-  --accent: #f3a957; --accent-soft: #2e2416; --sage: #93c897; --sage-soft: #1d2a1f; --bad: #f0928a; --bad-soft: #2f1c1a; --cyan: #7cc4d6; color-scheme: dark }
+  --accent: #f3a957; --accent-soft: #2e2416; --sage: #93c897; --sage-soft: #1d2a1f; --bad: #f0928a; --bad-soft: #2f1c1a; --cyan: #7cc4d6; --blue: #8fb8e6; --blue-soft: #1b2634; --amber: #e3b860; --amber-soft: #2b2415; --green: #93c897; --green-soft: #1b2a1e; --red: #f0928a; --red-soft: #2f1c1a; color-scheme: dark }
 * { box-sizing: border-box }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.65 var(--sans); padding-inline: 16px }
 p, h1, h2, h3, ul, ol { margin: 0 }
@@ -279,3 +280,32 @@ span.linenos.special { color: #e6edf3; background-color: #6e7681; padding-left: 
 /* code blocks: the inline-code style must not apply inside them */
 .code code { background: none; border: 0; border-radius: 0; padding: 0; font: inherit; color: inherit }
 .code { color: #e6edf3 }
+
+/* Overview: one hand-drawn diagram of the whole block, full width under the hook. */
+.ov { margin-top: 72px }
+.ov h2 { font-size: clamp(22px, 2.6vw, 30px); font-weight: 750; margin-top: 8px; max-width: 46em }
+.ov-fig { margin: 22px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px 22px 18px }
+.ov-scroll { overflow-x: auto }
+.ov-svg { display: block; width: 100%; min-width: 760px; height: auto; font-family: var(--sans) }
+.ov-fig figcaption { margin-top: 16px; font-size: 15px; color: var(--dim); max-width: 60em }
+.ov-svg .zl { font-size: 12.5px; font-weight: 600; letter-spacing: .08em; fill: var(--dim) }
+.ov-svg .bx { fill: var(--card); stroke: var(--line); stroke-width: 1.5 }
+.ov-svg .bx.blue { fill: var(--blue-soft); stroke: var(--blue) }
+.ov-svg .bx.red { fill: var(--red-soft); stroke: var(--red) }
+.ov-svg .bx.green { fill: var(--green-soft); stroke: var(--green) }
+.ov-svg .bx.amber { fill: var(--amber-soft); stroke: var(--amber) }
+.ov-svg .zone { fill: none; stroke-width: 1.5; stroke-dasharray: 6 5; stroke: var(--dim) }
+.ov-svg .zone.red { stroke: var(--red) } .ov-svg .zone.blue { stroke: var(--blue) }
+.ov-svg .nm { font-size: 15.5px; font-weight: 600; fill: var(--fg) }
+.ov-svg .sb { font-size: 13px; fill: var(--dim) }
+.ov-svg .zn { font-size: 13px; font-weight: 600 }
+.ov-svg .mono { font-family: var(--mono); font-size: 13px }
+.ov-svg .nm.mono { font-size: 14.5px }
+.ov-svg .blue:not(.bx):not(.ar):not(.ah) { fill: var(--blue) }
+.ov-svg .red:not(.bx):not(.ar):not(.ah):not(.zone) { fill: var(--red) }
+.ov-svg .green:not(.bx) { fill: var(--green) }
+.ov-svg .amber:not(.bx) { fill: var(--amber) }
+.ov-svg .lb { font-size: 13px; fill: var(--fg) }
+.ov-svg .ar { fill: none; stroke: var(--dim); stroke-width: 1.8 }
+.ov-svg .ar.blue { stroke: var(--blue) } .ov-svg .ar.red { stroke: var(--red) }
+.ov-svg .ah { fill: var(--dim) } .ov-svg .ah.blue { fill: var(--blue) } .ov-svg .ah.red { fill: var(--red) }

@@ -1,6 +1,7 @@
 """Render a block's Story section as the reader-facing page.
 
-The page reads top to bottom: hook, idea, a walkthrough whose diagram stays on
+The page reads top to bottom: hook, the overview diagram (a hand-drawn SVG from
+diagrams/<block>.svg), idea, a walkthrough whose diagram stays on
 screen and lights up the step being read, takeaways, the trap, the smallest
 version as code, and the way on. The diagram is drawn here as inline SVG from
 the walkthrough's marks, so every label comes from the store.
@@ -15,7 +16,7 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 from pygments.util import ClassNotFound
 
-from store import Block, Story
+from store import ROOT, Block, Story
 
 E = lambda s: html.escape(s or "", quote=True)  # noqa: E731
 
@@ -162,6 +163,14 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
         panel = (f'<aside class="bill"><h3>{inline(p.get("title", ""))}</h3>{"".join(rows)}'
                  f'<p class="src">{inline(p.get("source", ""))}</p></aside>')
 
+    ov = story.overview or {}
+    overview = ""
+    svg = ROOT / "diagrams" / f"{block.id}.svg"
+    if ov and svg.exists():
+        overview = (f'<section class="ov"><p class="kicker">The whole picture</p><h2>{inline(ov.get("title", ""))}</h2>'
+                    f'<figure class="ov-fig"><div class="ov-scroll">{svg.read_text()}</div>'
+                    f'<figcaption>{inline(ov.get("caption", ""))}</figcaption></figure></section>')
+
     steps = []
     for s in story.steps:
         fact = f'<p class="fact">{inline(s.fact)}</p>' if s.fact else ""
@@ -201,6 +210,7 @@ def story_page(block: Block, story: Story, blocks: dict[str, Block], order: list
 <div class="wrap">
 <header class="hook{' solo' if not panel else ''}"><div><p class="kicker">Block {block.number:02d} · {E(f.get("title", ""))}</p>
 <h1>{headline(h.get("headline", ""))}</h1><p class="sub">{inline(h.get("setup", ""))}</p></div>{panel}</header>
+{overview}
 <section class="idea"><p class="kicker">The idea</p><p class="big">{inline(idea.get("sentence", ""))}</p>
 <p class="ana">{inline(idea.get("analogy", ""))}</p></section>
 <section class="walk"><p class="kicker">Watch it happen</p><h2>{inline(w.get("title", ""))}</h2><p class="lead">{inline(w.get("lead", ""))}</p>

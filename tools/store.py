@@ -302,6 +302,7 @@ class Story:
     trap: dict
     build: dict
     problems: list[str]
+    overview: dict = None
 
 
 def _refs(s: str) -> list[str]:
@@ -380,6 +381,7 @@ def parse_story(block: Block) -> Story | None:
                 continue
             takeaways.append((parts[0], parts[1], _refs(parts[2])))
 
+    overview = kv("Overview")
     trap = kv("Trap")
     for k in ("assume", "actually"):
         h, _, t = trap.get(k, "").partition(" | ")
@@ -421,4 +423,11 @@ def parse_story(block: Block) -> Story | None:
     for r in all_refs:
         if r not in block.ids:
             probs.append(f"Story: ref {r} points at nothing in this block")
-    return Story(hook, panel, idea, walk, steps, takeaways, trap, build, probs)
+    if overview:
+        for k in ("title", "caption"):
+            if not overview.get(k):
+                probs.append(f"Story/Overview: missing '- {k.capitalize()}:'")
+        svg = ROOT / "diagrams" / f"{block.id}.svg"
+        if not svg.exists():
+            probs.append(f"Story/Overview: no diagrams/{block.id}.svg")
+    return Story(hook, panel, idea, walk, steps, takeaways, trap, build, probs, overview)

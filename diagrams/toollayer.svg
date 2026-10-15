@@ -1,0 +1,92 @@
+<svg class="ov-svg" viewBox="0 0 1120 690" role="img" aria-label="Three kinds of caller reach Billpod's services. The screens call REST routes, which call the services directly. The in-app assistant and outside assistants over MCP both hand tool calls to one runner, which runs one of 50 tools, and each tool calls the same services.">
+<defs>
+<marker id="tl-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker>
+<marker id="tl-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah blue"/></marker>
+<marker id="tl-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah red"/></marker>
+</defs>
+<text class="zl" x="24" y="34">WHO ASKS</text>
+<text class="zl" x="300" y="34">EACH DOOR'S OWN RULES</text>
+<text class="zl" x="600" y="34">THE TOOL LAYER</text>
+<text class="zl" x="890" y="34">THE SERVICES</text>
+
+<!-- callers -->
+<rect class="bx" x="24" y="69" width="230" height="86" rx="8"/>
+<text class="nm" x="42" y="104">A person on the screens</text>
+<text class="sb" x="42" y="128">taps Pay on a bill</text>
+
+<rect class="bx blue" x="24" y="247" width="230" height="86" rx="8"/>
+<text class="nm" x="42" y="282">A person in the app's chat</text>
+<text class="sb" x="42" y="306">"I paid the electricity bill"</text>
+
+<rect class="bx blue" x="24" y="427" width="230" height="86" rx="8"/>
+<text class="nm" x="42" y="462">Claude or ChatGPT</text>
+<text class="sb" x="42" y="486">an outside assistant, own model</text>
+
+<!-- doors -->
+<rect class="bx" x="300" y="64" width="260" height="96" rx="8"/>
+<text class="nm mono" x="318" y="96">REST /api/billpod</text>
+<text class="sb" x="318" y="120">signed-in session</text>
+<text class="sb amber" x="318" y="142">upload limit: 30 a minute</text>
+
+<rect class="bx blue" x="300" y="236" width="260" height="108" rx="8"/>
+<text class="nm" x="318" y="268">Ask Billpod</text>
+<text class="sb" x="318" y="292">Gemini picks one of 46 tools</text>
+<text class="sb blue" x="318" y="316">a card first for 31 tools</text>
+
+<rect class="bx blue" x="300" y="416" width="260" height="108" rx="8"/>
+<text class="nm mono" x="318" y="448">MCP /mcp</text>
+<text class="sb" x="318" y="472">OAuth token, scopes per tool</text>
+<text class="sb blue" x="318" y="496">tools/list shows all 50</text>
+
+<!-- tool layer zone -->
+<rect class="zone red" x="596" y="200" width="258" height="370" rx="10"/>
+<text class="zn red" x="614" y="226">defined once,</text>
+<text class="zn red" x="614" y="246">shared by both AI doors</text>
+<rect class="bx red" x="616" y="276" width="218" height="104" rx="8"/>
+<text class="nm mono" x="634" y="308">runTool</text>
+<text class="sb" x="634" y="332">checks scopes and input</text>
+<text class="sb" x="634" y="354">a failure becomes a result</text>
+<rect class="bx red" x="616" y="430" width="218" height="120" rx="8"/>
+<text class="nm" x="634" y="462">50 tools</text>
+<text class="sb" x="634" y="486"><tspan class="mono">mark_paid</tspan> and 49 more</text>
+<text class="sb" x="634" y="508">typed input, one handler</text>
+<text class="sb amber" x="634" y="534">upload limit copied by hand</text>
+
+<!-- services -->
+<rect class="bx green" x="890" y="236" width="206" height="290" rx="8"/>
+<text class="nm" x="908" y="268">Billpod services</text>
+<text class="sb" x="908" y="292">the rules live here</text>
+<text class="sb mono" x="908" y="330">bills.pay</text>
+<text class="sb green" x="908" y="352">refuses a 2nd payment</text>
+<text class="sb green" x="908" y="374">checks the household</text>
+<text class="sb" x="908" y="412">every caller obeys</text>
+<text class="sb" x="908" y="434">the same checks</text>
+
+<rect class="bx" x="890" y="600" width="206" height="66" rx="8"/>
+<text class="nm" x="908" y="628">Database</text>
+<text class="sb" x="908" y="650">households, bills, payments</text>
+
+<!-- parity test -->
+<rect class="bx green" x="300" y="600" width="554" height="66" rx="8"/>
+<text class="nm" x="318" y="628">Parity test</text>
+<text class="sb" x="318" y="650">79 routes: 47 have a tool, 32 have a written reason why not</text>
+
+<!-- legend -->
+<line class="ar" x1="24" y1="622" x2="60" y2="622" marker-end="url(#tl-a)"/>
+<text class="sb" x="70" y="626">calls</text>
+<line class="ar blue" x1="24" y1="650" x2="60" y2="650" marker-end="url(#tl-b)"/>
+<text class="sb" x="70" y="654">an AI call</text>
+
+<!-- arrows -->
+<line class="ar" x1="254" y1="112" x2="296" y2="112" marker-end="url(#tl-a)"/>
+<line class="ar blue" x1="254" y1="290" x2="296" y2="290" marker-end="url(#tl-b)"/>
+<line class="ar blue" x1="254" y1="470" x2="296" y2="470" marker-end="url(#tl-b)"/>
+<path class="ar" d="M560,112 H993 V232" marker-end="url(#tl-a)"/>
+<text class="lb" x="776" y="102" text-anchor="middle">calls the services directly</text>
+<path class="ar blue" d="M560,290 C588,290 590,316 612,316" marker-end="url(#tl-b)"/>
+<path class="ar blue" d="M560,470 C592,470 588,346 612,346" marker-end="url(#tl-b)"/>
+<line class="ar red" x1="725" y1="380" x2="725" y2="426" marker-end="url(#tl-r)"/>
+<text class="lb" x="735" y="408">runs one</text>
+<line class="ar red" x1="834" y1="478" x2="886" y2="478" marker-end="url(#tl-r)"/>
+<line class="ar" x1="993" y1="526" x2="993" y2="596" marker-end="url(#tl-a)"/>
+</svg>
